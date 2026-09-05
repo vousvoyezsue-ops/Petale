@@ -1314,7 +1314,8 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
   margin-bottom: 22px;
 }
 .field { display: block; margin-bottom: 16px; }
-.field span {
+/* 라벨 제목만 스타일 — 직접 자식으로 한정해야 rich-field 안의 색·형광펜 span에 새지 않는다 */
+.field > span {
   display: block;
   font-size: 12.5px; font-weight: 620;
   color: var(--ink-2);
