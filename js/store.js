@@ -259,12 +259,12 @@ const Store = (() => {
   // 카드가 참조하는 모든 미디어 id
   function referencedMedia() {
     return [...new Set(
-      state.cards.flatMap(c => [c.imageId, c.frontImageId, c.backImageId]).filter(Boolean)
+      state.cards.flatMap(c => [c.imageId, c.frontImageId, c.backImageId, c.noteImageId]).filter(Boolean)
     )];
   }
   function gcMedia() {
     const used = new Set(
-      state.cards.flatMap(c => [c.imageId, c.frontImageId, c.backImageId]).filter(Boolean)
+      state.cards.flatMap(c => [c.imageId, c.frontImageId, c.backImageId, c.noteImageId]).filter(Boolean)
     );
     for (const id of Object.keys(state.media)) {
       if (!used.has(id)) { delete state.media[id]; mediaDirty = true; }

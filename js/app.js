@@ -911,6 +911,8 @@
     $("#reversedRow").classList.toggle("hidden", !!card);
     $("#cardReversed").checked = false;
     $("#cardNotesInput").value = card?.notes || "";
+    noteImageData = card?.noteImageId ? (Store.getMedia(card.noteImageId) || null) : null;
+    renderNoteImagePreview();
     $("#occTextFields").classList.toggle("hidden", !isOcc);
     $("#richToolbar").classList.toggle("hidden", isOcc);
     setScaleControls(card);
@@ -947,13 +949,64 @@
 
   $("#btnAddCard").addEventListener("click", () => openCardModal());
 
+  /* ── 메모(notes) 이미지 첨부 ── */
+  let noteImageData = null; // 현재 모달의 메모 이미지 dataURL (없으면 null)
+  const NOTE_IMG_MAX = 1400, NOTE_IMG_QUALITY = 0.85;
+  function fileToNoteDataURL(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const scale = Math.min(1, NOTE_IMG_MAX / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+        // 투명 png 는 jpeg 로 바꾸면 배경이 검게 나올 수 있어 png 는 png 로 유지
+        const isPng = /^image\/png/i.test(file.type);
+        resolve(canvas.toDataURL(isPng ? "image/png" : "image/jpeg", NOTE_IMG_QUALITY));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("bad image")); };
+      img.src = url;
+    });
+  }
+  function renderNoteImagePreview() {
+    const wrap = $("#noteImgPreview");
+    if (noteImageData) {
+      $("#noteImgThumb").src = noteImageData;
+      wrap.classList.remove("hidden");
+      $("#noteImgBtn").textContent = t("cardModal.changeImage");
+    } else {
+      $("#noteImgThumb").removeAttribute("src");
+      wrap.classList.add("hidden");
+      $("#noteImgBtn").textContent = t("cardModal.addImage");
+    }
+  }
+  // 저장 시 메모 이미지를 media 로 커밋 — 안 바뀌었으면 기존 id 유지
+  function commitNoteImage(existingId) {
+    if (!noteImageData) return null;
+    if (existingId && Store.getMedia(existingId) === noteImageData) return existingId;
+    return Store.addMedia(noteImageData);
+  }
+  $("#noteImgBtn").addEventListener("click", () => $("#noteImgFile").click());
+  $("#noteImgFile").addEventListener("change", async (e) => {
+    const f = e.target.files[0];
+    e.target.value = "";
+    if (!f) return;
+    try { noteImageData = await fileToNoteDataURL(f); renderNoteImagePreview(); }
+    catch { toast(t("toast.imageFail")); }
+  });
+  $("#noteImgRemove").addEventListener("click", () => { noteImageData = null; renderNoteImagePreview(); });
+
   $("#cardForm").addEventListener("submit", (e) => {
     const notes = $("#cardNotesInput").value.trim();
     const editCard = editingCardId ? Store.state.cards.find(c => c.id === editingCardId) : null;
+    const noteImageId = commitNoteImage(editCard?.noteImageId);
 
     // 이미지 가리기 편집: 헤더 + 메모만
     if (editCard?.type === "occlusion") {
-      Store.updateCard(editingCardId, { front: $("#occHeaderInput").value.trim(), notes, ...scaleValues() });
+      Store.updateCard(editingCardId, { front: $("#occHeaderInput").value.trim(), notes, noteImageId, ...scaleValues() });
       toast(t("toast.cardUpdated"));
       afterCardSaved();
       return;
@@ -964,10 +1017,10 @@
       const indices = clozeIndices(text);
       if (!text || !indices.length) { e.preventDefault(); return; }
       if (editingCardId) {
-        Store.updateCard(editingCardId, { front: text, notes, ...scaleValues() });
+        Store.updateCard(editingCardId, { front: text, notes, noteImageId, ...scaleValues() });
         toast(t("toast.cardUpdated"));
       } else {
-        const rows = indices.map(idx => ({ type: "cloze", front: text, back: "", clozeIndex: idx, notes, ...scaleValues() }));
+        const rows = indices.map(idx => ({ type: "cloze", front: text, back: "", clozeIndex: idx, notes, noteImageId, ...scaleValues() }));
         const ok = Store.bulkAddCards(currentDeckId, rows);
         toast(ok ? t("toast.cardsAdded", { n: rows.length }) : t("toast.storageFull"));
       }
@@ -979,11 +1032,11 @@
     const back = getRich($("#cardBackInput"));
     if (richIsEmpty($("#cardFrontInput")) || richIsEmpty($("#cardBackInput"))) { e.preventDefault(); return; }
     if (editingCardId) {
-      Store.updateCard(editingCardId, { front, back, notes, ...scaleValues() });
+      Store.updateCard(editingCardId, { front, back, notes, noteImageId, ...scaleValues() });
       toast(t("toast.cardUpdated"));
     } else {
-      const rows = [{ type: "basic", front, back, notes, ...scaleValues() }];
-      if ($("#cardReversed").checked) rows.push({ type: "basic", front: back, back: front, notes, ...scaleValues() });
+      const rows = [{ type: "basic", front, back, notes, noteImageId, ...scaleValues() }];
+      if ($("#cardReversed").checked) rows.push({ type: "basic", front: back, back: front, notes, noteImageId, ...scaleValues() });
       const ok = Store.bulkAddCards(currentDeckId, rows);
       toast(ok ? (rows.length > 1 ? t("toast.cardsAdded", { n: rows.length }) : t("toast.cardAdded")) : t("toast.storageFull"));
     }
@@ -1426,12 +1479,16 @@
   // 답 공개 시 카드의 추가 설명(메모)을 보여준다
   function showNotes(card, revealed) {
     const el = $("#acNotes");
-    if (revealed && card.notes && card.notes.trim()) {
-      el.textContent = card.notes;
+    const noteImg = card.noteImageId ? Store.getMedia(card.noteImageId) : null;
+    const hasText = card.notes && card.notes.trim();
+    if (revealed && (hasText || noteImg)) {
+      let html = hasText ? `<div class="note-text">${escapeHTML(card.notes).replace(/\n/g, "<br>")}</div>` : "";
+      if (noteImg) html += `<img class="note-img" src="${noteImg}" alt="">`;
+      el.innerHTML = html;
       el.classList.remove("hidden");
     } else {
       el.classList.add("hidden");
-      el.textContent = "";
+      el.innerHTML = "";
     }
   }
 

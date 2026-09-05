@@ -1075,6 +1075,32 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
   text-align: left;
   white-space: pre-wrap;
 }
+.ac-notes .note-text { white-space: pre-wrap; }
+.ac-notes .note-img {
+  display: block;
+  margin-top: 10px;
+  max-width: 100%;
+  max-height: 46vh;
+  border-radius: 10px;
+  border: 1px solid var(--edge);
+}
+/* 카드 모달 — 메모 이미지 첨부 */
+.note-image-row { display: flex; align-items: center; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+.note-image-preview { position: relative; display: inline-block; line-height: 0; }
+.note-image-preview img {
+  max-width: 140px; max-height: 100px;
+  border-radius: 8px; border: 1px solid var(--edge);
+  display: block;
+}
+.note-image-remove {
+  position: absolute; top: -9px; right: -9px;
+  width: 22px; height: 22px;
+  display: grid; place-items: center;
+  border: none; border-radius: 50%;
+  background: var(--danger); color: #fff;
+  font-size: 11px; line-height: 1; cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,.25);
+}
 .ac-divider {
   height: 1px;
   margin: 22px auto 20px;
@@ -1539,6 +1565,15 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
   margin-bottom: 16px;
 }
 .occ-stage:not(.empty) { cursor: crosshair; border-style: solid; border-color: var(--edge); }
+/* 이미지 크기에 딱 맞는 프레임 — 마스크 좌표(%)가 이미지 기준이 되도록.
+   inline-block이 세로 제한(max-height)으로 축소된 이미지 폭까지 정확히 감싼다. */
+.occ-frame {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+  max-width: 100%;
+}
+.occ-stage.empty .occ-frame { display: none; }
 .occ-stage img {
   max-width: 100%;
   max-height: 420px;
