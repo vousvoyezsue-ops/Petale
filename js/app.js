@@ -32,14 +32,22 @@
   // 카드 앞/뒷면 서식(굵게·밑줄·색상·하이라이트) 허용 목록 새니타이저.
   // 내가 만든 에디터가 아니라, 공유 덱으로 받아온(신뢰할 수 없는) HTML에도 항상 이 함수를 거쳐서 렌더링한다.
   const RICH_ALLOWED_TAGS = new Set(["B", "STRONG", "U", "EM", "I", "MARK", "SPAN", "BR"]);
+  // 서식 필드에서 실제로 고를 수 있는 글꼴만 허용 (툴바 드롭다운 + 앱 기본 글꼴)
+  const RICH_FONT_OK = /^(pretendard|pretendard variable|gowun batang|cormorant garamond|georgia|times new roman|times|courier new|courier|serif|sans-serif|monospace)$/i;
   function sanitizeStyleDecl(style) {
     const out = [];
     for (const part of String(style || "").split(";")) {
-      const m = /^\s*(color|background-color|font-family|font-size)\s*:\s*([^;]+)\s*$/.exec(part);
+      const m = /^\s*(color|background-color|font-family|font-size)\s*:\s*([^;]+?)\s*$/.exec(part);
       if (!m) continue;
-      if ((m[1] === "color" || m[1] === "background-color") && /^(#[0-9a-fA-F]{3,8}|rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\))$/.test(m[2])) out.push(`${m[1]}: ${m[2]}`);
-      if (m[1] === "font-size" && /^(small|medium|large|x-large|[1-3](?:\.\d+)?(?:px|em|rem))$/.test(m[2])) out.push(`${m[1]}: ${m[2]}`);
-      if (m[1] === "font-family" && /^(["']?(Pretendard Variable|Gowun Batang|Cormorant Garamond)["']?)(,\s*(sans-serif|serif))?$/.test(m[2])) out.push(`${m[1]}: ${m[2]}`);
+      const prop = m[1], val = m[2];
+      if ((prop === "color" || prop === "background-color") && /^(#[0-9a-fA-F]{3,8}|rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\))$/.test(val)) {
+        out.push(`${prop}: ${val}`);
+      } else if (prop === "font-size" && /^(x-small|small|medium|large|x-large|xx-large|xxx-large|\d{1,3}(?:\.\d+)?(?:px|em|rem|pt))$/.test(val)) {
+        out.push(`${prop}: ${val}`);
+      } else if (prop === "font-family") {
+        const fams = val.split(",").map(s => s.trim().replace(/^["']|["']$/g, ""));
+        if (fams.length && fams.every(f => RICH_FONT_OK.test(f))) out.push(`${prop}: ${val}`);
+      }
     }
     return out.join("; ");
   }
@@ -65,7 +73,8 @@
           return;
         }
         [...child.attributes].forEach(attr => {
-          if (attr.name === "style" && (child.tagName === "SPAN" || child.tagName === "MARK")) {
+          // 색·글꼴 style은 허용 태그(굵게·밑줄 등 포함) 어디서나 유지 — 값은 sanitizeStyleDecl로 엄격 검증
+          if (attr.name === "style") {
             const safe = sanitizeStyleDecl(attr.value);
             if (safe) child.setAttribute("style", safe); else child.removeAttribute("style");
           } else {
@@ -636,6 +645,8 @@
     $("#basicFields").classList.toggle("hidden", type !== "basic");
     $("#clozeFields").classList.toggle("hidden", type !== "cloze");
     $("#richToolbar").classList.toggle("hidden", type === "occlusion");
+    // 빈칸 삽입 버튼은 cloze 모드에서만 노출
+    $$(".rt-cloze-only").forEach(el => el.classList.toggle("hidden", type !== "cloze"));
   }
 
   const scaleFields = ["cardScale", "fontScale", "imageScale"];
@@ -774,25 +785,83 @@
     });
   });
   document.addEventListener("selectionchange", () => {
-    if (!document.activeElement || !document.activeElement.closest?.("#basicFields")) return;
+    if (!document.activeElement || !document.activeElement.closest?.("#basicFields, #clozeFields")) return;
     try {
       $("#richToolbar .rt-btn[data-cmd=bold]")?.classList.toggle("active", document.queryCommandState("bold"));
       $("#richToolbar .rt-btn[data-cmd=underline]")?.classList.toggle("active", document.queryCommandState("underline"));
     } catch { /* 일부 브라우저는 지원 안 함 — 무시 */ }
   });
+  // 일부 환경에서 execCommand("bold")가 조용히 무시되는 경우를 대비한 수동 폴백.
+  // execCommand가 정상 동작하면(대부분의 브라우저) 발동하지 않는다.
+  const INLINE_TAG = { bold: "strong", underline: "u", italic: "em" };
+  function wrapSelection(field, tag) {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    if (!field.contains(range.commonAncestorContainer)) return;
+    const wrap = document.createElement(tag);
+    try {
+      wrap.appendChild(range.extractContents());
+      range.insertNode(wrap);
+      wrap.normalize();
+      const nr = document.createRange();
+      nr.selectNodeContents(wrap);
+      sel.removeAllRanges();
+      sel.addRange(nr);
+    } catch { /* 무시 */ }
+  }
+
   $$("#richToolbar .rt-btn, #richToolbar .rt-swatch").forEach(btn => {
     // mousedown에서 기본 동작을 막아야 클릭해도 필드의 선택 영역(selection)이 풀리지 않는다
     btn.addEventListener("mousedown", (e) => e.preventDefault());
     btn.addEventListener("click", () => {
-      activeRichField.focus();
       const cmd = btn.dataset.cmd;
+      if (!cmd) return; // 빈칸 삽입 버튼 등 data-cmd 없는 버튼은 별도 핸들러에서 처리
+      const field = activeRichField;
+      field.focus();
+      // 색·글꼴은 span style로(허용 태그), 굵게·밑줄은 <b>/<u>로 생성되도록 모드를 맞춘다
+      const useCss = cmd === "foreColor" || cmd === "hiliteColor" || cmd === "backColor";
+      const before = field.innerHTML;
+      try { document.execCommand("styleWithCSS", false, useCss); } catch { /* 무시 */ }
       try { document.execCommand(cmd, false, btn.dataset.val || undefined); }
       catch { /* 무시 */ }
       // Firefox 등 일부 엔진은 hiliteColor 대신 backColor를 요구
       if (cmd === "hiliteColor" && !document.queryCommandSupported?.("hiliteColor")) {
-        try { document.execCommand("backColor", false, btn.dataset.val); } catch { /* 무시 */ }
+        try {
+          document.execCommand("styleWithCSS", false, true);
+          document.execCommand("backColor", false, btn.dataset.val);
+        } catch { /* 무시 */ }
       }
+      // 굵게·밑줄이 전혀 반영되지 않았다면 선택 영역을 직접 감싼다
+      if (INLINE_TAG[cmd] && field.innerHTML === before) wrapSelection(field, INLINE_TAG[cmd]);
     });
+  });
+
+  // 빈칸 삽입 버튼: {{cN::…}} 을 커서 위치에 넣는다.
+  // 선택 영역이 있으면 그 텍스트를 감싸고, 없으면 빈 빈칸을 넣고 커서를 안쪽에 둔다.
+  // N은 현재 필드의 가장 큰 번호 + 1 로 자동 증가.
+  $("#richInsertCloze").addEventListener("mousedown", (e) => e.preventDefault());
+  $("#richInsertCloze").addEventListener("click", () => {
+    const field = $("#clozeInput");
+    field.focus();
+    const existing = clozeIndices(field.textContent || "");
+    const n = existing.length ? Math.max(...existing) + 1 : 1;
+    const sel = window.getSelection();
+    const selected = sel && sel.rangeCount ? sel.toString() : "";
+    const close = "}}";
+    document.execCommand("insertText", false, `{{c${n}::${selected}${close}`);
+    // 빈 빈칸이면 커서를 }} 바로 앞으로 옮겨 바로 정답을 입력할 수 있게 한다
+    if (!selected && sel && sel.rangeCount) {
+      const range = sel.getRangeAt(0);
+      if (range.startOffset >= close.length) {
+        try {
+          range.setStart(range.startContainer, range.startOffset - close.length);
+          range.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        } catch { /* 무시 */ }
+      }
+    }
   });
   $("#richFont").addEventListener("change", e => {
     if (!e.target.value) return;

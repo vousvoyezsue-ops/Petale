@@ -2,7 +2,7 @@
    전략: 네트워크 우선 + 캐시 폴백 (항상 최신, 오프라인에서도 동작)
    vendor/ 는 불변 대용량이라 캐시 우선 */
 
-const CACHE = "petale-v39";
+const CACHE = "petale-v40";
 const PRECACHE = [
   "./",
   "index.html",
