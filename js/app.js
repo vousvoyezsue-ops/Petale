@@ -1140,8 +1140,12 @@
     activeRichField.focus(); document.execCommand("styleWithCSS", false, true); document.execCommand("fontName", false, e.target.value); e.target.value = "";
   });
   $("#richSize").addEventListener("change", e => {
-    if (!e.target.value) return;
-    activeRichField.focus(); document.execCommand("styleWithCSS", false, true); document.execCommand("fontSize", false, e.target.value); e.target.value = "";
+    const v = e.target.value; e.target.value = "";
+    if (!v) return;
+    // 상대 크기(em)로 지정 — 편집기(작은 기준)든 카드(큰 기준)든 항상 주변 글자 대비 같은 비율로 커진다.
+    // 절대 키워드(medium=16px 등)는 카드 기본 글자(≈20px)보다 작아서 "키웠는데 작아지는" 문제가 있었다.
+    activeRichField.focus();
+    wrapSelection(activeRichField, "span", { fontSize: v });
   });
 
   /* ══════════ 이미지 가리기 편집기 ══════════ */
