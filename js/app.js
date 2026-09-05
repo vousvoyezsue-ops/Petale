@@ -791,15 +791,17 @@
       $("#richToolbar .rt-btn[data-cmd=underline]")?.classList.toggle("active", document.queryCommandState("underline"));
     } catch { /* 일부 브라우저는 지원 안 함 — 무시 */ }
   });
-  // 일부 환경에서 execCommand("bold")가 조용히 무시되는 경우를 대비한 수동 폴백.
-  // execCommand가 정상 동작하면(대부분의 브라우저) 발동하지 않는다.
+  // 선택 영역을 지정한 인라인 요소로 직접 감싼다.
+  // execCommand의 색/형광펜은 브라우저마다 줄 전체에 적용되거나 글자 크기를
+  // 건드리는 문제가 있어, 색·형광펜은 이 방식으로 "선택한 부분만" 정확히 칠한다.
   const INLINE_TAG = { bold: "strong", underline: "u", italic: "em" };
-  function wrapSelection(field, tag) {
+  function wrapSelection(field, tag, style) {
     const sel = window.getSelection();
-    if (!sel || sel.isCollapsed || !sel.rangeCount) return;
+    if (!sel || sel.isCollapsed || !sel.rangeCount) return false;
     const range = sel.getRangeAt(0);
-    if (!field.contains(range.commonAncestorContainer)) return;
+    if (!field.contains(range.commonAncestorContainer)) return false;
     const wrap = document.createElement(tag);
+    if (style) Object.assign(wrap.style, style);
     try {
       wrap.appendChild(range.extractContents());
       range.insertNode(wrap);
@@ -808,7 +810,8 @@
       nr.selectNodeContents(wrap);
       sel.removeAllRanges();
       sel.addRange(nr);
-    } catch { /* 무시 */ }
+      return true;
+    } catch { return false; }
   }
 
   $$("#richToolbar .rt-btn, #richToolbar .rt-swatch").forEach(btn => {
@@ -819,20 +822,15 @@
       if (!cmd) return; // 빈칸 삽입 버튼 등 data-cmd 없는 버튼은 별도 핸들러에서 처리
       const field = activeRichField;
       field.focus();
-      // 색·글꼴은 span style로(허용 태그), 굵게·밑줄은 <b>/<u>로 생성되도록 모드를 맞춘다
-      const useCss = cmd === "foreColor" || cmd === "hiliteColor" || cmd === "backColor";
+      // 글자색·형광펜: 선택 영역만 정확히 span으로 감싼다 (줄 전체 적용·글자 축소 방지)
+      if (cmd === "foreColor") { wrapSelection(field, "span", { color: btn.dataset.val }); return; }
+      if (cmd === "hiliteColor" || cmd === "backColor") { wrapSelection(field, "span", { backgroundColor: btn.dataset.val }); return; }
+      // 굵게·밑줄·서식지우기: execCommand 사용 (굵게·밑줄은 <b>/<u> 유지)
       const before = field.innerHTML;
-      try { document.execCommand("styleWithCSS", false, useCss); } catch { /* 무시 */ }
+      try { document.execCommand("styleWithCSS", false, false); } catch { /* 무시 */ }
       try { document.execCommand(cmd, false, btn.dataset.val || undefined); }
       catch { /* 무시 */ }
-      // Firefox 등 일부 엔진은 hiliteColor 대신 backColor를 요구
-      if (cmd === "hiliteColor" && !document.queryCommandSupported?.("hiliteColor")) {
-        try {
-          document.execCommand("styleWithCSS", false, true);
-          document.execCommand("backColor", false, btn.dataset.val);
-        } catch { /* 무시 */ }
-      }
-      // 굵게·밑줄이 전혀 반영되지 않았다면 선택 영역을 직접 감싼다
+      // 굵게·밑줄이 전혀 반영되지 않는 환경 대비 — 선택 영역을 직접 감싼다
       if (INLINE_TAG[cmd] && field.innerHTML === before) wrapSelection(field, INLINE_TAG[cmd]);
     });
   });
