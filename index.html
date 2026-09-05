@@ -914,6 +914,18 @@
     </div>
 
     <div class="set-group">
+      <label class="check-row">
+        <input type="checkbox" id="reminderToggle">
+        <span data-i18n="set.reminders"></span>
+      </label>
+      <p class="set-hint" data-i18n="set.remindersHint"></p>
+      <div class="reminder-time-row hidden" id="reminderTimeRow">
+        <span class="step-row-label" data-i18n="set.reminderTime"></span>
+        <input type="time" id="reminderTime" class="step-value">
+      </div>
+    </div>
+
+    <div class="set-group">
       <span class="set-label" data-i18n="set.data"></span>
       <div class="set-data-row">
         <button type="button" class="btn ghost sm" id="btnExport2" data-i18n="stats.export"></button>

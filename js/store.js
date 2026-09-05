@@ -55,7 +55,7 @@ const Store = (() => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   }
 
-  const DEFAULT_SETTINGS = { lang: "ko", theme: "pearl", tts: true, steps: SRS.defaultSteps() };
+  const DEFAULT_SETTINGS = { lang: "ko", theme: "pearl", tts: true, reminders: false, reminderTime: "09:00", steps: SRS.defaultSteps() };
 
   // 첫 실행 시 빈 상태로 시작한다 (예시 덱을 자동으로 만들지 않음).
   function seed() {
