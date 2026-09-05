@@ -152,8 +152,8 @@
   // 카드 앞/뒷면 서식(굵게·밑줄·색상·하이라이트) 허용 목록 새니타이저.
   // 내가 만든 에디터가 아니라, 공유 덱으로 받아온(신뢰할 수 없는) HTML에도 항상 이 함수를 거쳐서 렌더링한다.
   const RICH_ALLOWED_TAGS = new Set(["B", "STRONG", "U", "EM", "I", "MARK", "SPAN", "BR"]);
-  // 서식 필드에서 실제로 고를 수 있는 글꼴만 허용 (툴바 드롭다운 + 앱 기본 글꼴)
-  const RICH_FONT_OK = /^(pretendard|pretendard variable|gowun batang|cormorant garamond|georgia|times new roman|times|courier new|courier|serif|sans-serif|monospace)$/i;
+  // 앱에 실제로 로드된 글꼴만 허용 — 없는 글꼴은 이상한 시스템 폴백으로 렌더되므로 제외한다
+  const RICH_FONT_OK = /^(pretendard variable|gowun batang|cormorant garamond|serif|sans-serif|monospace)$/i;
   function sanitizeStyleDecl(style) {
     const out = [];
     for (const part of String(style || "").split(";")) {
