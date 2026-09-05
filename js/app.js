@@ -50,8 +50,17 @@
     (function clean(node) {
       [...node.childNodes].forEach(child => {
         if (child.nodeType === Node.COMMENT_NODE) { child.remove(); return; }
-        if (child.nodeType !== Node.ELEMENT_NODE) return; // 텍스트 노드는 그대로 둔다
-        if (!RICH_ALLOWED_TAGS.has(child.tagName)) {
+                if (child.nodeType !== Node.ELEMENT_NODE) return; // 텍스트 노드는 그대로 둔다
+        const tag = child.tagName;
+        if (tag === "DIV" || tag === "P") {
+          // 브라우저가 Enter 입력마다 만드는 줄바꿈용 블록 — 내부 서식은 유지한 채 <br>로 바꾼다
+          clean(child);
+          if (child.previousSibling) child.parentNode.insertBefore(document.createElement("br"), child);
+          while (child.firstChild) child.parentNode.insertBefore(child.firstChild, child);
+          child.remove();
+          return;
+        }
+        if (!RICH_ALLOWED_TAGS.has(tag)) {
           child.replaceWith(document.createTextNode(child.textContent));
           return;
         }
@@ -752,7 +761,10 @@
   /* ══════════ 서식 툴바(굵게/밑줄/글자색/하이라이트) ══════════ */
   let activeRichField = $("#cardFrontInput");
   [$("#cardFrontInput"), $("#cardBackInput"), $("#clozeInput")].forEach(el => {
-    el.addEventListener("focusin", () => { activeRichField = el; });
+        el.addEventListener("focusin", () => {
+      activeRichField = el;
+      try { document.execCommand("defaultParagraphSeparator", false, "br"); } catch {}
+    });
     el.addEventListener("focus", () => { activeRichField = el; });
     // 붙여넣기는 일반 텍스트로만 허용 — 외부 문서의 스타일이 그대로 딸려오는 걸 방지
     el.addEventListener("paste", (e) => {
