@@ -1,0 +1,49 @@
+# Petale — Netlify 배포 설정 (빌드 없는 정적 PWA)
+# 저장소를 Netlify에 연결하면 이 파일이 그대로 적용됩니다.
+
+[build]
+  publish = "."      # 루트를 그대로 서빙 (빌드 단계 없음)
+  command = ""
+
+# ── 캐시 정책 ──────────────────────────────────────────────
+# HTML·JS·CSS·서비스워커는 항상 최신 확인(재검증) → 배포 즉시 반영, 캐시에 발목 안 잡힘
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/js/*"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/css/*"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+# 벤더 라이브러리·폰트·아이콘은 잘 안 바뀌므로 오래 캐시
+[[headers]]
+  for = "/vendor/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+[[headers]]
+  for = "/fonts/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+[[headers]]
+  for = "/icons/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"

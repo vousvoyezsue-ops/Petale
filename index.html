@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Petale — 간격 반복 플래시카드</title>
+<meta name="description" content="간격 반복 플래시카드 — 퀴즈·쓰기·매치·이미지 가리기 지원.">
+<meta name="theme-color" content="#ffffff">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Petale">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="fonts/fonts.css">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+</head>
+<body class="pre-auth">
+
+<svg style="display:none" aria-hidden="true">
+  <symbol id="i-flower" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3c1.8 2.2 1.8 5 0 7-1.8-2-1.8-4.8 0-7Z"/>
+    <path d="M20 8.5c-.6 2.7-3 4.4-5.7 4.1 1-2.6 3.2-4.3 5.7-4.1Z"/>
+    <path d="M4 8.5c2.5-.2 4.7 1.5 5.7 4.1C7 12.9 4.6 11.2 4 8.5Z"/>
+    <path d="M17 18c-2.4.8-5-.2-6.2-2.5 2.5-.7 5 .3 6.2 2.5Z"/>
+    <path d="M7 18c1.2-2.2 3.7-3.2 6.2-2.5C12 17.8 9.4 18.8 7 18Z"/>
+    <circle cx="12" cy="12.5" r="1.3" fill="currentColor" stroke="none"/>
+  </symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3.5c2.6 3 5 5.6 5 8.9a5 5 0 0 1-10 0c0-1.5.5-2.9 1.5-4.3.8 1 1.5 1.6 2.4 2.2-.1-2.4.3-4.6 1.1-6.8Z"/>
+  </symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 4.2 20 8.6 12 13 4 8.6 12 4.2Z"/>
+    <path d="m4 12.6 8 4.4 8-4.4"/>
+    <path d="m4 16.2 8 4.4 8-4.4"/>
+  </symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 4.5 13.6 10 19 11.5 13.6 13 12 18.5 10.4 13 5 11.5 10.4 10 12 4.5Z"/>
+    <path d="M19 4v3M17.5 5.5h3"/>
+  </symbol>
+  <symbol id="i-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+    <circle cx="12" cy="12" r="7.5"/>
+    <circle cx="12" cy="12" r="3.8"/>
+    <circle cx="12" cy="12" r=".8" fill="currentColor" stroke="none"/>
+  </symbol>
+  <symbol id="i-box" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 8.2 12 4l8 4.2v7.6L12 20l-8-4.2V8.2Z"/>
+    <path d="m4 8.2 8 4.2 8-4.2M12 12.4V20"/>
+  </symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m4.5 19.5.9-3.6L16.6 4.7a2 2 0 0 1 2.8 2.8L8.2 18.7l-3.7.8Z"/>
+    <path d="m14.5 6.5 3 3"/>
+  </symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8.5 4.5 4 9l4.5 4.5"/>
+    <path d="M4 9h9.5a5.75 5.75 0 0 1 0 11.5H10"/>
+  </symbol>
+  <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3.5V15m0 0 4-4m-4 4-4-4"/>
+    <path d="M4.5 17v1.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V17"/>
+  </symbol>
+  <symbol id="i-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m12 4 2.35 4.9 5.35.72-3.92 3.75.98 5.33L12 16.1 7.24 18.7l.98-5.33L4.3 9.62l5.35-.72L12 4Z"/>
+  </symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+    <path d="M9.2 5.5v13M14.8 5.5v13"/>
+  </symbol>
+  <symbol id="i-resume" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 5.5v13l10-6.5L8 5.5Z"/>
+  </symbol>
+  <symbol id="i-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m4 6.5 1.5 1.5L8 5.5"/><path d="M11.5 7H20"/>
+    <path d="m4 12.5 1.5 1.5L8 11.5"/><path d="M11.5 13H20"/>
+    <path d="m4 18.5 1.5 1.5L8 17.5"/><path d="M11.5 19H20"/>
+  </symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/>
+    <rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/>
+  </symbol>
+  <symbol id="i-timer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+    <circle cx="12" cy="13.5" r="7"/><path d="M12 10v3.8l2.6 1.5"/><path d="M10 3.5h4"/>
+  </symbol>
+</svg>
+
+<div class="bg-scene" aria-hidden="true">
+  <span class="orb o1"></span>
+  <span class="orb o2"></span>
+  <span class="orb o3"></span>
+</div>
+<div class="grain" aria-hidden="true"></div>
+
+<!-- ═══════════ 로그인 게이트 (로그인 전 전체 화면) ═══════════ -->
+<div class="auth-gate" id="authGate">
+  <div class="gate-panel">
+    <div class="gate-brand">
+      <span class="brand-mark xl"><svg width="24" height="24"><use href="#i-flower"/></svg></span>
+      <h1 class="gate-title" data-i18n="gate.title"></h1>
+      <p class="gate-subtitle" data-i18n="gate.subtitle"></p>
+    </div>
+
+    <div class="gate-loading" id="gateLoading">
+      <span class="spinner"></span>
+      <span data-i18n="gate.loading"></span>
+    </div>
+
+    <div class="gate-body hidden" id="gateBody">
+      <p class="gate-tag" id="gateTag" data-i18n="gate.tagSignin"></p>
+
+      <button class="btn google-btn" id="gateGoogle" type="button">
+        <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+          <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+        </svg>
+        <span data-i18n="gate.google"></span>
+      </button>
+
+      <div class="gate-divider"><span data-i18n="gate.or"></span></div>
+
+      <form id="gateForm" class="auth-form">
+        <label class="field">
+          <span data-i18n="fr.email"></span>
+          <input type="email" id="gateEmail" required autocomplete="email">
+        </label>
+        <label class="field">
+          <span data-i18n="fr.password"></span>
+          <input type="password" id="gatePassword" required minlength="6" autocomplete="current-password">
+        </label>
+        <label class="field hidden" id="gateUsernameField">
+          <span data-i18n="fr.username"></span>
+          <input type="text" id="gateUsername" pattern="[a-zA-Z0-9_]{3,20}" autocomplete="username">
+        </label>
+        <p class="auth-error" id="gateError"></p>
+        <button type="submit" class="btn primary large" id="gateSubmit" data-i18n="fr.signin"></button>
+      </form>
+      <button type="button" class="auth-switch" id="gateSwitch" data-i18n="fr.toSignup"></button>
+
+      <div class="gate-lang">
+        <button type="button" data-lang="ko">한국어</button>
+        <span>·</span>
+        <button type="button" data-lang="en">English</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<header class="topbar">
+  <button class="brand" id="brandHome" title="Petale">
+    <span class="brand-mark"><svg width="15" height="15"><use href="#i-flower"/></svg></span>
+    <span class="brand-name">Petale</span>
+  </button>
+  <div class="topbar-right">
+    <nav class="topnav" role="tablist">
+      <button class="nav-link active" data-view="home" data-i18n="nav.decks">덱</button>
+      <button class="nav-link" data-view="explore" data-i18n="nav.explore">탐색</button>
+      <button class="nav-link" data-view="stats" data-i18n="nav.stats">통계</button>
+      <button class="nav-link" data-view="friends" data-i18n="nav.friends">친구</button>
+    </nav>
+    <button class="icon-btn gear" id="btnSettings" data-i18n-title="nav.settings" title="설정">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.65 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.01A1.7 1.7 0 0 0 10.05 3V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56h.01a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.01a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.56 1.03Z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="app">
+
+  <!-- ═══════════ 홈 (덱 목록) ═══════════ -->
+  <section class="view" id="view-home">
+    <div class="hero">
+      <h1 class="hero-title" data-i18n-html="hero.title"></h1>
+      <p class="hero-sub" id="heroSummary"></p>
+      <div class="hero-cta">
+        <button class="btn primary large hidden" id="btnStudyAll">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.54.84l10-6.5a1 1 0 0 0 0-1.68l-10-6.5A1 1 0 0 0 8 5.5Z"/></svg>
+          <span data-i18n="home.studyAll"></span>
+        </button>
+      </div>
+    </div>
+
+    <div class="folder-bar-row">
+      <div class="folder-bar" id="folderBar"></div>
+      <button class="btn ghost sm select-toggle" id="btnSelectMode" data-i18n="home.select">선택</button>
+    </div>
+
+    <div class="deck-grid" id="deckGrid"></div>
+
+    <button class="fab" id="btnNewDeck" data-i18n-title="fab.newDeck" aria-label="new deck">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+
+    <div class="bulk-bar" id="bulkBar">
+      <span class="bulk-count" id="bulkCount"></span>
+      <div class="bulk-actions">
+        <button type="button" class="btn ghost sm light" id="bulkPickAll" data-i18n="home.selectAll">전체선택</button>
+        <button type="button" class="btn danger-solid sm" id="bulkDelete">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+          <span data-i18n="home.deleteSelected">삭제</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 덱 상세 ═══════════ -->
+  <section class="view hidden" id="view-deck">
+    <button class="back-link" data-back="home">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+      <span data-i18n="deck.back"></span>
+    </button>
+
+    <div class="deck-head">
+      <div class="deck-head-txt">
+        <h2 class="deck-title" id="deckTitle"></h2>
+        <p class="deck-desc" id="deckDesc"></p>
+      </div>
+      <div class="deck-head-actions">
+        <button class="btn ghost sm" id="btnShare"></button>
+        <button class="btn ghost sm" id="btnEditDeck" data-i18n="deck.edit"></button>
+        <button class="btn ghost sm" id="btnCsv" data-i18n="deck.exportCsv"></button>
+        <button class="btn ghost sm danger" id="btnDeleteDeck" data-i18n="deck.delete"></button>
+      </div>
+    </div>
+
+    <div class="deck-stat-row" id="deckStatRow"></div>
+
+    <div class="deck-actions">
+      <button class="btn primary large" id="btnStudy">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.54.84l10-6.5a1 1 0 0 0 0-1.68l-10-6.5A1 1 0 0 0 8 5.5Z"/></svg>
+        <span data-i18n="deck.study"></span>
+      </button>
+      <button class="btn secondary large" id="btnAddCard" data-i18n="deck.addCard"></button>
+      <button class="btn ghost large" id="btnImportCards">
+        <svg width="16" height="16"><use href="#i-download"/></svg>
+        <span data-i18n="deck.import"></span>
+      </button>
+    </div>
+
+    <div class="practice-row">
+      <button class="mode-card" id="btnFlash">
+        <span class="mode-ic"><svg width="19" height="19"><use href="#i-layers"/></svg></span>
+        <span class="mode-txt"><b data-i18n="mode.flash"></b><small data-i18n="mode.flashDesc"></small></span>
+      </button>
+      <button class="mode-card" id="btnQuiz">
+        <span class="mode-ic"><svg width="19" height="19"><use href="#i-list"/></svg></span>
+        <span class="mode-txt"><b data-i18n="mode.quiz"></b><small data-i18n="mode.quizDesc"></small></span>
+      </button>
+      <button class="mode-card" id="btnWrite">
+        <span class="mode-ic"><svg width="19" height="19"><use href="#i-pencil"/></svg></span>
+        <span class="mode-txt"><b data-i18n="mode.write"></b><small data-i18n="mode.writeDesc"></small></span>
+      </button>
+      <button class="mode-card" id="btnMatch">
+        <span class="mode-ic"><svg width="19" height="19"><use href="#i-grid"/></svg></span>
+        <span class="mode-txt"><b data-i18n="mode.match"></b><small data-i18n="mode.matchDesc"></small></span>
+      </button>
+    </div>
+
+    <div class="card-list-wrap">
+      <div class="card-list-head">
+        <h3><span data-i18n="deck.cards"></span> <span class="count-chip" id="cardCount"></span></h3>
+        <div class="filter-chips" id="filterChips">
+          <button class="fchip active" data-filter="all" data-i18n="filter.all"></button>
+          <button class="fchip" data-filter="starred" data-i18n="filter.starred"></button>
+          <button class="fchip" data-filter="suspended" data-i18n="filter.suspended"></button>
+        </div>
+        <label class="search-box">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-3.8-3.8"/></svg>
+          <input type="search" id="cardSearch" data-i18n-placeholder="deck.search">
+        </label>
+      </div>
+      <ul class="card-list" id="cardList"></ul>
+    </div>
+  </section>
+
+  <!-- ═══════════ 학습 ═══════════ -->
+  <section class="view hidden" id="view-study">
+    <div class="study-top">
+      <button class="back-link" id="btnQuitStudy">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+        <span data-i18n="study.quit"></span>
+      </button>
+      <div class="study-top-right">
+        <div class="session-chips" id="sessionChips"></div>
+        <button class="btn ghost sm" id="btnEditStudyCard" data-i18n-title="study.edit" title="edit">
+          <svg width="14" height="14"><use href="#i-pencil"/></svg>
+          <span data-i18n="study.edit"></span>
+        </button>
+        <button class="btn ghost sm hidden" id="btnUndo" data-i18n-title="study.undo">
+          <svg width="14" height="14"><use href="#i-undo"/></svg>
+          <span data-i18n="study.undo"></span>
+        </button>
+      </div>
+    </div>
+
+    <div class="study-progress">
+      <div class="study-progress-bar"><i id="studyBar"></i></div>
+      <span class="study-progress-label" id="studyCount"></span>
+    </div>
+
+    <div class="study-stage">
+      <div class="answer-card" id="answerCard" tabindex="0" role="button">
+        <button class="speak-btn" id="speakBtn" data-i18n-title="study.speak" hidden>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+        </button>
+        <div class="face-body" id="acQuestion"></div>
+        <div class="ac-answer-wrap hidden" id="acAnswerWrap">
+          <div class="ac-divider"></div>
+          <div class="face-body" id="acAnswer"></div>
+        </div>
+        <div class="ac-notes hidden" id="acNotes"></div>
+      </div>
+    </div>
+
+    <div class="reveal-row" id="revealRow">
+      <button class="btn primary large" id="btnReveal" data-i18n="study.showAnswer"></button>
+    </div>
+
+    <div class="rating-row hidden" id="ratingRow">
+      <button class="rate-btn again" data-rate="0">
+        <span class="rate-key">1</span><b data-i18n="rate.again"></b><small id="ivAgain"></small>
+      </button>
+      <button class="rate-btn hard" data-rate="1">
+        <span class="rate-key">2</span><b data-i18n="rate.hard"></b><small id="ivHard"></small>
+      </button>
+      <button class="rate-btn good" data-rate="2">
+        <span class="rate-key">3</span><b data-i18n="rate.good"></b><small id="ivGood"></small>
+      </button>
+      <button class="rate-btn easy" data-rate="3">
+        <span class="rate-key">4</span><b data-i18n="rate.easy"></b><small id="ivEasy"></small>
+      </button>
+    </div>
+    <p class="key-hint" id="keyHint"></p>
+
+    <div class="study-done hidden" id="studyDone">
+      <div class="petal-burst" id="petalBurst" aria-hidden="true"></div>
+      <div class="done-flower"><svg width="54" height="54"><use href="#i-flower"/></svg></div>
+      <h2 data-i18n="study.doneTitle"></h2>
+      <p class="done-sub" id="doneSummary"></p>
+      <button class="btn primary large" id="btnDoneBack" data-i18n="study.backToDeck"></button>
+    </div>
+  </section>
+
+  <!-- ═══════════ 플래시카드 (연습) ═══════════ -->
+  <section class="view hidden" id="view-flash">
+    <div class="study-top">
+      <button class="back-link" id="btnQuitFlash">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+        <span data-i18n="study.quit"></span>
+      </button>
+      <span class="study-progress-label" id="flashPos"></span>
+    </div>
+
+    <div class="study-stage">
+      <div class="flashcard" id="flashCard" tabindex="0" role="button" aria-label="flip">
+        <div class="flashcard-inner">
+          <div class="flashcard-face front">
+            <div class="face-body" id="flashFront"></div>
+            <span class="face-hint" data-i18n="study.flipHint"></span>
+          </div>
+          <div class="flashcard-face back">
+            <div class="face-body" id="flashBack"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flash-controls">
+      <button class="btn ghost" id="flashPrev" aria-label="previous">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+      </button>
+      <button class="btn secondary" id="flashFlip" data-i18n="flash.flip"></button>
+      <button class="btn ghost" id="flashNext" aria-label="next">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
+    </div>
+  </section>
+
+  <!-- ═══════════ 퀴즈 (객관식) ═══════════ -->
+  <section class="view hidden" id="view-quiz">
+    <div class="study-top">
+      <button class="back-link" data-practice-exit>
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+        <span data-i18n="study.quit"></span>
+      </button>
+      <span class="study-progress-label" id="quizProgress"></span>
+    </div>
+    <div class="study-progress"><div class="study-progress-bar"><i id="quizBar"></i></div></div>
+
+    <div id="quizBody">
+      <div class="practice-card">
+        <div class="practice-q" id="quizQuestion"></div>
+      </div>
+      <div class="quiz-options" id="quizOptions"></div>
+    </div>
+
+    <div class="study-done hidden" id="quizDone">
+      <div class="done-flower"><svg width="54" height="54"><use href="#i-flower"/></svg></div>
+      <h2 data-i18n="quiz.doneTitle"></h2>
+      <p class="done-sub" id="quizScore"></p>
+      <div class="done-actions">
+        <button class="btn primary large" id="quizRetry" data-i18n="practice.retry"></button>
+        <button class="btn ghost large" data-practice-exit data-i18n="study.backToDeck"></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 쓰기 (주관식) ═══════════ -->
+  <section class="view hidden" id="view-write">
+    <div class="study-top">
+      <button class="back-link" data-practice-exit>
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+        <span data-i18n="study.quit"></span>
+      </button>
+      <span class="study-progress-label" id="writeProgress"></span>
+    </div>
+    <div class="study-progress"><div class="study-progress-bar"><i id="writeBar"></i></div></div>
+
+    <div id="writeBody">
+      <div class="practice-card">
+        <div class="practice-q" id="writeQuestion"></div>
+        <p class="write-feedback" id="writeFeedback"></p>
+      </div>
+      <div class="write-row">
+        <input type="text" id="writeInput" class="write-input" data-i18n-placeholder="write.placeholder" autocomplete="off">
+        <button class="btn primary" id="writeCheck" data-i18n="write.check"></button>
+        <button class="btn ghost" id="writeDontKnow" data-i18n="write.dontKnow"></button>
+        <button class="btn primary hidden" id="writeNext" data-i18n="write.next"></button>
+      </div>
+    </div>
+
+    <div class="study-done hidden" id="writeDone">
+      <div class="done-flower"><svg width="54" height="54"><use href="#i-flower"/></svg></div>
+      <h2 data-i18n="write.doneTitle"></h2>
+      <p class="done-sub" id="writeScore"></p>
+      <div class="done-actions">
+        <button class="btn primary large" id="writeRetry" data-i18n="practice.retry"></button>
+        <button class="btn ghost large" data-practice-exit data-i18n="study.backToDeck"></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 매치 (짝 맞추기) ═══════════ -->
+  <section class="view hidden" id="view-match">
+    <div class="study-top">
+      <button class="back-link" data-practice-exit>
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+        <span data-i18n="study.quit"></span>
+      </button>
+      <div class="match-meta">
+        <span class="match-timer"><svg width="14" height="14"><use href="#i-timer"/></svg> <span id="matchTime">0.0</span></span>
+        <span class="match-best" id="matchBest"></span>
+      </div>
+    </div>
+
+    <div id="matchBody">
+      <p class="match-hint" data-i18n="match.hint"></p>
+      <div class="match-grid" id="matchGrid"></div>
+    </div>
+
+    <div class="study-done hidden" id="matchDone">
+      <div class="done-flower"><svg width="54" height="54"><use href="#i-flower"/></svg></div>
+      <h2 data-i18n="match.doneTitle"></h2>
+      <p class="done-sub"><span id="matchResult"></span> <b id="matchNewBest" class="new-best"></b></p>
+      <div class="done-actions">
+        <button class="btn primary large" id="matchRetry" data-i18n="practice.retry"></button>
+        <button class="btn ghost large" data-practice-exit data-i18n="study.backToDeck"></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 탐색 (공개 덱 검색) ═══════════ -->
+  <section class="view hidden" id="view-explore">
+    <div class="hero small">
+      <h1 class="hero-title" data-i18n="explore.title"></h1>
+    </div>
+    <div class="explore-search">
+      <label class="search-box grow">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-3.8-3.8"/></svg>
+        <input type="search" id="exploreInput" data-i18n-placeholder="explore.ph">
+      </label>
+    </div>
+    <div class="seg explore-scope" id="exploreScope">
+      <button type="button" class="seg-btn active" data-scope="all" data-i18n="explore.all"></button>
+      <button type="button" class="seg-btn" data-scope="friends" data-i18n="explore.friendsOnly"></button>
+    </div>
+    <h3 class="explore-heading hidden" id="exploreHeading" data-i18n="explore.popular"></h3>
+    <ul class="friend-list explore-list" id="exploreList"></ul>
+  </section>
+
+  <!-- ═══════════ 통계 ═══════════ -->
+  <section class="view hidden" id="view-stats">
+    <div class="hero small">
+      <h1 class="hero-title" data-i18n-html="stats.title"></h1>
+    </div>
+    <div class="stat-tiles" id="statTiles"></div>
+
+    <div class="heatmap-card">
+      <div class="heatmap-head">
+        <h3 data-i18n="stats.forecast"></h3>
+      </div>
+      <div class="forecast" id="forecast"></div>
+    </div>
+
+    <div class="heatmap-card">
+      <div class="heatmap-head">
+        <h3 data-i18n="stats.heatmap"></h3>
+        <div class="heatmap-legend">
+          <span data-i18n="stats.less"></span>
+          <i class="hm l0"></i><i class="hm l1"></i><i class="hm l2"></i><i class="hm l3"></i><i class="hm l4"></i>
+          <span data-i18n="stats.more"></span>
+        </div>
+      </div>
+      <div class="heatmap" id="heatmap"></div>
+    </div>
+    <div class="data-actions">
+      <button class="btn ghost" id="btnExport" data-i18n="stats.export"></button>
+      <button class="btn ghost" id="btnImport" data-i18n="stats.import"></button>
+      <input type="file" id="importFile" accept=".json" hidden>
+    </div>
+  </section>
+
+  <!-- ═══════════ 친구 ═══════════ -->
+  <section class="view hidden" id="view-friends">
+    <div class="hero small">
+      <h1 class="hero-title" data-i18n-html="fr.title"></h1>
+    </div>
+
+    <div class="auth-card hidden" id="authCard">
+      <p class="auth-intro" data-i18n="fr.introSignin"></p>
+      <form id="authForm" class="auth-form">
+        <label class="field">
+          <span data-i18n="fr.email"></span>
+          <input type="email" id="authEmail" required autocomplete="email">
+        </label>
+        <label class="field">
+          <span data-i18n="fr.password"></span>
+          <input type="password" id="authPassword" required minlength="6" autocomplete="current-password">
+        </label>
+        <label class="field hidden" id="authUsernameField">
+          <span data-i18n="fr.username"></span>
+          <input type="text" id="authUsername" pattern="[a-zA-Z0-9_]{3,20}" autocomplete="username">
+        </label>
+        <p class="auth-error" id="authError"></p>
+        <button type="submit" class="btn primary large" id="authSubmit" data-i18n="fr.signin"></button>
+        <button type="button" class="auth-switch" id="authSwitch" data-i18n="fr.toSignup"></button>
+      </form>
+    </div>
+
+    <div class="friends-panel hidden" id="friendsPanel">
+      <div class="me-card">
+        <div class="me-info">
+          <p class="me-hello" id="meHello"></p>
+          <div class="me-chips" id="meChips"></div>
+        </div>
+        <button class="btn ghost sm" id="btnSignOut" data-i18n="fr.signout"></button>
+      </div>
+
+      <div class="friends-add">
+        <h3 data-i18n="fr.addTitle"></h3>
+        <form class="friends-add-row" id="friendAddForm">
+          <label class="search-box grow">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+            <input type="text" id="friendName" data-i18n-placeholder="fr.addPh" pattern="[a-zA-Z0-9_]{3,20}" required>
+          </label>
+          <button type="submit" class="btn secondary" data-i18n="fr.add"></button>
+        </form>
+      </div>
+
+      <div class="friends-incoming hidden" id="incomingWrap">
+        <h3 data-i18n="fr.incoming"></h3>
+        <ul class="friend-list" id="incomingList"></ul>
+      </div>
+
+      <div class="friends-list-wrap">
+        <h3 data-i18n="fr.list"></h3>
+        <ul class="friend-list" id="friendList"></ul>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <span data-i18n="footer.line"></span>
+</footer>
+
+<!-- ═══════════ 모달: 폴더 ═══════════ -->
+<dialog class="modal" id="folderModal">
+  <form method="dialog" class="modal-body" id="folderForm">
+    <h3 id="folderModalTitle"></h3>
+    <label class="field">
+      <span data-i18n="folder.name"></span>
+      <input type="text" id="folderNameInput" required maxlength="40" data-i18n-placeholder="folder.namePh">
+    </label>
+    <div class="set-group">
+      <span class="set-label" data-i18n="folder.icon"></span>
+      <div class="picker-grid" id="folderIconGrid"></div>
+    </div>
+    <div class="set-group">
+      <span class="set-label" data-i18n="folder.color"></span>
+      <div class="picker-grid" id="folderColorGrid"></div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn ghost danger hidden" id="folderDelete" data-i18n="folder.delete"></button>
+      <span class="spacer"></span>
+      <button type="button" class="btn ghost" data-close data-i18n="common.cancel"></button>
+      <button type="submit" class="btn primary" data-i18n="cardModal.submitSave"></button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ═══════════ 모달: 덱 ═══════════ -->
+<dialog class="modal" id="deckModal">
+  <form method="dialog" class="modal-body" id="deckForm">
+    <h3 id="deckModalTitle"></h3>
+    <label class="field">
+      <span data-i18n="deckModal.name"></span>
+      <input type="text" id="deckNameInput" required maxlength="60" data-i18n-placeholder="deckModal.namePh">
+    </label>
+    <label class="field">
+      <span data-i18n="deckModal.desc"></span>
+      <input type="text" id="deckDescInput" maxlength="120" data-i18n-placeholder="deckModal.descPh">
+    </label>
+    <label class="field">
+      <span data-i18n="deckModal.newLimit"></span>
+      <input type="number" id="deckNewLimit" min="0" max="500" value="20">
+    </label>
+    <label class="field">
+      <span data-i18n="deckModal.folder"></span>
+      <select id="deckFolderSel"></select>
+    </label>
+    <div class="modal-actions">
+      <button type="button" class="btn ghost" data-close data-i18n="common.cancel"></button>
+      <button type="submit" class="btn primary" id="deckModalSubmit"></button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ═══════════ 모달: 카드 (기본/빈칸) ═══════════ -->
+<dialog class="modal" id="cardModal">
+  <form method="dialog" class="modal-body" id="cardForm">
+    <h3 id="cardModalTitle"></h3>
+
+    <div class="type-tabs" id="typeTabs">
+      <button type="button" class="type-tab active" data-type="basic" data-i18n="type.basic"></button>
+      <button type="button" class="type-tab" data-type="cloze" data-i18n="type.cloze"></button>
+      <button type="button" class="type-tab" data-type="occlusion" data-i18n="type.occlusion"></button>
+    </div>
+
+    <div id="basicFields">
+      <div class="rich-toolbar" id="richToolbar">
+        <button type="button" class="rt-btn" data-cmd="bold" title="Bold"><b>B</b></button>
+        <button type="button" class="rt-btn" data-cmd="underline" title="Underline"><u>U</u></button>
+        <span class="rt-sep"></span>
+        <select class="rt-select" id="richFont" title="Font">
+          <option value="" data-i18n="rich.font"></option>
+          <option value="Pretendard, sans-serif">Pretendard</option>
+          <option value="Georgia, serif">Georgia</option>
+          <option value="'Times New Roman', serif">Times</option>
+          <option value="'Courier New', monospace">Courier</option>
+        </select>
+        <select class="rt-select" id="richSize" title="Size">
+          <option value="" data-i18n="rich.size"></option>
+          <option value="2">S</option>
+          <option value="3">M</option>
+          <option value="5">L</option>
+          <option value="6">XL</option>
+        </select>
+        <span class="rt-sep"></span>
+        <span class="rt-label" data-i18n="rich.color"></span>
+        <button type="button" class="rt-swatch" data-cmd="foreColor" data-val="#3d3e31" style="background:#3d3e31" title="기본"></button>
+        <button type="button" class="rt-swatch" data-cmd="foreColor" data-val="#b06a82" style="background:#b06a82" title="로즈"></button>
+        <button type="button" class="rt-swatch" data-cmd="foreColor" data-val="#6d7548" style="background:#6d7548" title="세이지"></button>
+        <button type="button" class="rt-swatch" data-cmd="foreColor" data-val="#a9822f" style="background:#a9822f" title="골드"></button>
+        <span class="rt-sep"></span>
+        <span class="rt-label" data-i18n="rich.highlight"></span>
+        <button type="button" class="rt-swatch" data-cmd="hiliteColor" data-val="#fdf1a8" style="background:#fdf1a8" title="옐로"></button>
+        <button type="button" class="rt-swatch" data-cmd="hiliteColor" data-val="#f6cdd9" style="background:#f6cdd9" title="핑크"></button>
+        <button type="button" class="rt-swatch" data-cmd="hiliteColor" data-val="#d6e3b8" style="background:#d6e3b8" title="그린"></button>
+        <span class="rt-sep"></span>
+        <button type="button" class="rt-btn rt-clear" data-cmd="removeFormat" data-i18n="rich.clear"></button>
+      </div>
+      <label class="field">
+        <span data-i18n="cardModal.front"></span>
+        <div class="rich-field" id="cardFrontInput" contenteditable="true" data-i18n-placeholder="cardModal.frontPh"></div>
+      </label>
+      <label class="field">
+        <span data-i18n="cardModal.back"></span>
+        <div class="rich-field" id="cardBackInput" contenteditable="true" data-i18n-placeholder="cardModal.backPh"></div>
+      </label>
+      <label class="check-row" id="reversedRow">
+        <input type="checkbox" id="cardReversed">
+        <span data-i18n="cardModal.reversed"></span>
+      </label>
+    </div>
+
+    <div id="clozeFields" class="hidden">
+      <label class="field">
+        <span data-i18n="cardModal.clozeText"></span>
+        <textarea id="clozeInput" rows="4" maxlength="800" data-i18n-placeholder="cardModal.clozePh"></textarea>
+      </label>
+      <p class="field-hint" data-i18n="cardModal.clozeHint"></p>
+    </div>
+
+    <div id="occTextFields" class="hidden">
+      <button type="button" class="btn ghost sm" id="editOccMasks" data-i18n="occ.editMasks"></button>
+      <label class="field">
+        <span data-i18n="cardModal.header"></span>
+        <textarea id="occHeaderInput" rows="2" maxlength="300" data-i18n-placeholder="cardModal.headerPh"></textarea>
+      </label>
+    </div>
+
+    <label class="field" id="notesField">
+      <span data-i18n="cardModal.notes"></span>
+      <textarea id="cardNotesInput" rows="2" maxlength="800" data-i18n-placeholder="cardModal.notesPh"></textarea>
+    </label>
+
+    <div class="set-group scale-group">
+      <span class="set-label" data-i18n="scale.title"></span>
+      <div class="scale-row">
+        <span class="scale-label" data-i18n="scale.card"></span>
+        <input type="range" id="cardScale" min="50" max="200" step="5" value="100">
+        <output id="cardScaleOut">100%</output>
+      </div>
+      <div class="scale-row">
+        <span class="scale-label" data-i18n="scale.font"></span>
+        <input type="range" id="fontScale" min="50" max="200" step="5" value="100">
+        <output id="fontScaleOut">100%</output>
+      </div>
+      <div class="scale-row">
+        <span class="scale-label" data-i18n="scale.image"></span>
+        <input type="range" id="imageScale" min="50" max="200" step="5" value="100">
+        <output id="imageScaleOut">100%</output>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn ghost" data-close data-i18n="common.cancel"></button>
+      <button type="submit" class="btn primary" id="cardModalSubmit"></button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ═══════════ 모달: 이미지 가리기 편집기 ═══════════ -->
+<dialog class="modal wide" id="occModal">
+  <div class="modal-body">
+    <h3 data-i18n="occ.title"></h3>
+
+    <div class="occ-toolbar">
+      <button type="button" class="btn secondary sm" id="occPick" data-i18n="occ.pick"></button>
+      <input type="file" id="occFile" accept="image/*" hidden>
+      <span class="occ-count" id="occCount"></span>
+      <button type="button" class="btn ghost sm" id="occClear" data-i18n="occ.clear"></button>
+    </div>
+    <p class="occ-paste-hint" data-i18n="occ.pasteHint"></p>
+
+    <div class="occ-stage empty" id="occStage">
+      <img id="occImg" alt="" draggable="false" style="display:none">
+      <div class="occ-masks" id="occMasks"></div>
+      <p class="occ-placeholder" data-i18n="occ.hint"></p>
+    </div>
+
+    <div class="occ-options">
+      <label class="check-row">
+        <input type="radio" name="occMode" id="occModeOne" checked>
+        <span data-i18n="occ.modeOne"></span>
+      </label>
+      <label class="check-row">
+        <input type="radio" name="occMode" id="occModeAll">
+        <span data-i18n="occ.modeAll"></span>
+      </label>
+      <label class="field">
+        <span data-i18n="occ.label"></span>
+        <input type="text" id="occLabel" maxlength="80" data-i18n-placeholder="occ.labelPh">
+      </label>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn ghost" data-close data-i18n="common.cancel"></button>
+      <button type="button" class="btn primary" id="occCreate" disabled></button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ═══════════ 모달: 가져오기 ═══════════ -->
+<dialog class="modal" id="importModal">
+  <div class="modal-body">
+    <h3 data-i18n="imp.title"></h3>
+
+    <button type="button" class="import-option" id="impApkg">
+      <span class="imp-ic"><svg width="21" height="21"><use href="#i-box"/></svg></span>
+      <span class="imp-txt"><b data-i18n="imp.apkg"></b><small data-i18n="imp.apkgDesc"></small></span>
+    </button>
+    <input type="file" id="apkgFile" accept=".apkg" hidden>
+
+    <button type="button" class="import-option" id="impCsv">
+      <span class="imp-ic"><svg width="21" height="21"><use href="#i-download"/></svg></span>
+      <span class="imp-txt"><b data-i18n="imp.csv"></b><small data-i18n="imp.csvDesc"></small></span>
+    </button>
+    <input type="file" id="csvFile" accept=".csv,.tsv,.txt" hidden>
+
+    <div class="import-option static">
+      <span class="imp-ic"><svg width="21" height="21"><use href="#i-pencil"/></svg></span>
+      <span class="imp-txt"><b data-i18n="imp.text"></b><small data-i18n="imp.textDesc"></small></span>
+    </div>
+    <textarea id="bulkText" rows="5" class="bulk-textarea" data-i18n-placeholder="imp.textPh"></textarea>
+    <p class="import-picked hidden" id="importPicked"></p>
+    <p class="auth-error" id="importError"></p>
+
+    <div class="modal-actions">
+      <button type="button" class="btn ghost" data-close data-i18n="common.cancel"></button>
+      <button type="button" class="btn primary" id="bulkImportRun" data-i18n="imp.run"></button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ═══════════ 모달: 설정 ═══════════ -->
+<dialog class="modal" id="settingsModal">
+  <div class="modal-body">
+    <h3 data-i18n="set.title"></h3>
+
+    <div class="set-group">
+      <span class="set-label" data-i18n="set.lang"></span>
+      <div class="seg" id="langSeg">
+        <button type="button" class="seg-btn" data-lang="ko">한국어</button>
+        <button type="button" class="seg-btn" data-lang="en">English</button>
+      </div>
+    </div>
+
+    <div class="set-group">
+      <span class="set-label" data-i18n="set.theme"></span>
+      <div class="theme-grid" id="themeGrid">
+        <button type="button" class="theme-swatch" data-theme="pearl">
+          <i style="background:linear-gradient(135deg,#ffffff 50%,#f2d7e0 50%)"></i><span data-i18n="theme.pearl"></span>
+        </button>
+        <button type="button" class="theme-swatch" data-theme="ivory">
+          <i style="background:linear-gradient(135deg,#f6f4ed 50%,#e2ecbd 50%)"></i><span data-i18n="theme.ivory"></span>
+        </button>
+        <button type="button" class="theme-swatch" data-theme="mist">
+          <i style="background:linear-gradient(135deg,#f4f3f8 50%,#cfc9e8 50%)"></i><span data-i18n="theme.mist"></span>
+        </button>
+        <button type="button" class="theme-swatch" data-theme="sage">
+          <i style="background:linear-gradient(135deg,#f2f5ec 50%,#a9b183 50%)"></i><span data-i18n="theme.sage"></span>
+        </button>
+        <button type="button" class="theme-swatch" data-theme="noir">
+          <i style="background:linear-gradient(135deg,#23241d 50%,#c97f97 50%)"></i><span data-i18n="theme.noir"></span>
+        </button>
+      </div>
+    </div>
+
+    <div class="set-group">
+      <label class="check-row">
+        <input type="checkbox" id="ttsToggle">
+        <span data-i18n="set.tts"></span>
+      </label>
+    </div>
+
+    <div class="set-group">
+      <span class="set-label" data-i18n="set.steps"></span>
+      <p class="set-hint" data-i18n="set.stepsHint"></p>
+      <div class="step-rows" id="stepRows">
+        <div class="step-row" data-step="againNew">
+          <span class="step-row-label" data-i18n="set.stepAgainNew"></span>
+          <div class="step-row-inputs">
+            <input type="number" min="0.01" step="any" class="step-value" data-field="value">
+            <select class="step-unit" data-field="unit">
+              <option value="s" data-i18n="unit.s"></option>
+              <option value="m" data-i18n="unit.m"></option>
+              <option value="h" data-i18n="unit.h"></option>
+              <option value="day" data-i18n="unit.day"></option>
+            </select>
+          </div>
+        </div>
+        <div class="step-row" data-step="hardNew">
+          <span class="step-row-label" data-i18n="set.stepHardNew"></span>
+          <div class="step-row-inputs">
+            <input type="number" min="0.01" step="any" class="step-value" data-field="value">
+            <select class="step-unit" data-field="unit">
+              <option value="s" data-i18n="unit.s"></option>
+              <option value="m" data-i18n="unit.m"></option>
+              <option value="h" data-i18n="unit.h"></option>
+              <option value="day" data-i18n="unit.day"></option>
+            </select>
+          </div>
+        </div>
+        <div class="step-row" data-step="againReview">
+          <span class="step-row-label" data-i18n="set.stepAgainReview"></span>
+          <div class="step-row-inputs">
+            <input type="number" min="0.01" step="any" class="step-value" data-field="value">
+            <select class="step-unit" data-field="unit">
+              <option value="s" data-i18n="unit.s"></option>
+              <option value="m" data-i18n="unit.m"></option>
+              <option value="h" data-i18n="unit.h"></option>
+              <option value="day" data-i18n="unit.day"></option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="set-group">
+      <span class="set-label" data-i18n="set.data"></span>
+      <div class="set-data-row">
+        <button type="button" class="btn ghost sm" id="btnExport2" data-i18n="stats.export"></button>
+        <button type="button" class="btn ghost sm" id="btnImport2" data-i18n="stats.import"></button>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn primary" data-close>OK</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ═══════════ 모달: 확인 ═══════════ -->
+<dialog class="modal" id="confirmModal">
+  <div class="modal-body">
+    <h3 id="confirmTitle"></h3>
+    <p class="confirm-text" id="confirmText"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn ghost" data-close data-i18n="common.cancel"></button>
+      <button type="button" class="btn danger-solid" id="confirmYes" data-i18n="confirm.yes"></button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ═══════════ 모달: 공유 범위 선택 ═══════════ -->
+<dialog class="modal" id="shareModal">
+  <div class="modal-body">
+    <h3 data-i18n="share.title"></h3>
+    <p class="confirm-text" id="shareSub"></p>
+    <div class="seg" id="shareVisSeg">
+      <button type="button" class="seg-btn active" data-vis="public" data-i18n="share.visPublic"></button>
+      <button type="button" class="seg-btn" data-vis="friends" data-i18n="share.visFriends"></button>
+    </div>
+    <p class="set-hint" id="shareVisHint" style="margin-top:10px"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn ghost" data-close data-i18n="common.cancel"></button>
+      <button type="button" class="btn primary" id="shareConfirmBtn" data-i18n="share.publish"></button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ═══════════ 모달: 친구의 공개 덱 ═══════════ -->
+<dialog class="modal wide" id="friendDecksModal">
+  <div class="modal-body">
+    <h3 id="friendDecksTitle"></h3>
+    <ul class="friend-list explore-list" id="friendDecksList"></ul>
+    <div class="modal-actions">
+      <button type="button" class="btn ghost" data-close data-i18n="common.close"></button>
+    </div>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script src="vendor/jszip.min.js"></script>
+<script src="vendor/fzstd.min.js"></script>
+<script src="vendor/sql-wasm.js"></script>
+<script src="vendor/supabase.min.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/srs.js"></script>
+<script src="js/store.js"></script>
+<script src="js/occlusion.js"></script>
+<script src="js/apkg.js"></script>
+<script src="js/social.js"></script>
+<script src="js/practice.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
