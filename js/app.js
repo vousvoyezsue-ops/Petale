@@ -19,6 +19,8 @@
   let editingDeck = false;
   let selectMode = false;        // 홈 화면 덱 다중 선택 모드
   let selectedDecks = new Set(); // 선택된 덱 id
+  let cardSelectMode = false;    // 덱 상세 카드 다중 선택 모드
+  let selectedCards = new Set(); // 선택된 카드 id
   let cardType = "basic";       // 카드 모달의 현재 타입
   let session = null;           // { queue: [cardId], done, total, flipped }
   let authMode = "signin";
@@ -342,7 +344,9 @@
       const id = el.dataset.deck;
       const open = () => {
         if (selectMode) { toggleDeckPick(id); return; }
-        currentDeckId = id; show("deck");
+        currentDeckId = id;
+        cardSelectMode = false; selectedCards.clear(); // 새 덱을 열 때 카드 선택 모드 초기화
+        show("deck");
       };
       el.addEventListener("click", open);
       el.addEventListener("keydown", (e) => {
@@ -441,10 +445,15 @@
       .sort((a, b) => b.created - a.created);
 
     $("#cardCount").textContent = cards.length;
+    // 화면에 보이는 카드만 선택 대상으로 유지 (검색·필터 변경 시 정리)
+    const visibleIds = new Set(cards.map(c => c.id));
+    selectedCards.forEach(id => { if (!visibleIds.has(id)) selectedCards.delete(id); });
+    $("#btnCardSelect").textContent = cardSelectMode ? t("home.selectCancel") : t("home.select");
 
     const list = $("#cardList");
     if (!cards.length) {
       list.innerHTML = `<li class="list-empty">${q || listFilter !== "all" ? t("deck.searchEmpty") : t("deck.listEmpty")}</li>`;
+      renderCardBulkBar();
       return;
     }
 
@@ -453,28 +462,39 @@
       const p = cardPreview(c);
       const typeChip = c.type !== "basic"
         ? `<span class="type-chip ${c.type}">${t("type." + c.type)}</span>` : "";
+      const picked = selectedCards.has(c.id);
       return `
-        <li class="card-row ${c.suspended ? "is-suspended" : ""}" data-id="${c.id}">
-          <button class="icon-btn star ${c.starred ? "on" : ""}" title="${t("cardRow.star")}">
+        <li class="card-row ${c.suspended ? "is-suspended" : ""} ${cardSelectMode ? "select-mode" : ""} ${picked ? "picked" : ""}" data-id="${c.id}">
+          ${cardSelectMode
+            ? `<span class="card-check" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>`
+            : `<button class="icon-btn star ${c.starred ? "on" : ""}" title="${t("cardRow.star")}">
             <svg width="15" height="15"><use href="#i-star"/></svg>
-          </button>
+          </button>`}
           <div class="texts">
             <div class="front">${c.type === "basic" ? sanitizeRichHTML(p.front) : escapeHTML(p.front)}</div>
             <div class="back">${c.type === "basic" ? sanitizeRichHTML(p.back) : escapeHTML(p.back)}</div>
           </div>
           ${typeChip}
+          ${cardSelectMode ? "" : `
           <span class="due-tag ${d.overdue ? "overdue" : ""} ${d.fresh ? "fresh" : ""}">${d.text}</span>
           <button class="icon-btn susp" title="${c.suspended ? t("cardRow.resume") : t("cardRow.suspend")}">
             <svg width="14" height="14"><use href="#${c.suspended ? "i-resume" : "i-pause"}"/></svg>
           </button>
           ${c.type !== "occlusion" ? `<button class="icon-btn edit" title="${t("cardRow.edit")}">✎</button>` : ""}
-          <button class="icon-btn del" title="${t("cardRow.delete")}">✕</button>
+          <button class="icon-btn del" title="${t("cardRow.delete")}">✕</button>`}
         </li>`;
     }).join("");
 
     list.querySelectorAll(".card-row").forEach(row => {
       const id = row.dataset.id;
       const card = Store.state.cards.find(c => c.id === id);
+      if (cardSelectMode) {
+        row.addEventListener("click", () => {
+          if (selectedCards.has(id)) selectedCards.delete(id); else selectedCards.add(id);
+          renderCardList();
+        });
+        return;
+      }
       row.querySelector(".star").addEventListener("click", () => {
         Store.updateCard(id, { starred: !card.starred });
         renderCardList();
@@ -492,6 +512,15 @@
         });
       });
     });
+
+    renderCardBulkBar();
+  }
+
+  function renderCardBulkBar() {
+    const bar = $("#cardBulkBar");
+    if (!bar) return;
+    bar.classList.toggle("show", cardSelectMode && selectedCards.size > 0);
+    $("#cardBulkCount").textContent = t("home.selectedCount", { n: selectedCards.size });
   }
 
   $("#cardSearch").addEventListener("input", renderCardList);
@@ -500,6 +529,31 @@
     $$("#filterChips .fchip").forEach(x => x.classList.toggle("active", x === b));
     renderCardList();
   }));
+
+  // 카드 다중 선택 · 삭제
+  $("#btnCardSelect").addEventListener("click", () => {
+    cardSelectMode = !cardSelectMode;
+    selectedCards.clear();
+    renderCardList();
+  });
+  $("#cardBulkPickAll").addEventListener("click", () => {
+    const rows = [...$("#cardList").querySelectorAll(".card-row")].map(r => r.dataset.id);
+    if (rows.every(id => selectedCards.has(id))) selectedCards.clear();
+    else rows.forEach(id => selectedCards.add(id));
+    renderCardList();
+  });
+  $("#cardBulkDelete").addEventListener("click", () => {
+    const n = selectedCards.size;
+    if (!n) return;
+    const ids = [...selectedCards];
+    confirmDialog(t("confirm.deleteCards", { n }), t("confirm.deleteCardText"), () => {
+      Store.deleteCards(ids);
+      cardSelectMode = false;
+      selectedCards.clear();
+      renderDeck();
+      toast(t("toast.cardsDeleted", { n }));
+    });
+  });
 
   /* ══════════ 덱 모달 ══════════ */
   const deckModal = $("#deckModal");
@@ -1044,6 +1098,12 @@
     const lines = $("#bulkText").value.split("\n").map(l => l.trim()).filter(Boolean);
     const rows = [];
     for (const line of lines) {
+      // 빈칸(cloze) 문법이 있으면 cloze 카드로 처리 — c1, c2…마다 카드가 하나씩 생성된다
+      if (/\{\{c\d+::/.test(line)) {
+        const indices = clozeIndices(line);
+        for (const idx of indices) rows.push({ type: "cloze", front: line, back: "", clozeIndex: idx });
+        continue;
+      }
       let front, back;
       if (line.includes("\t")) {
         [front, ...back] = line.split("\t");

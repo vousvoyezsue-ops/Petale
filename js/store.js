@@ -294,6 +294,13 @@ const Store = (() => {
     gcMedia();
     save();
   }
+  // 여러 카드를 한 번에 삭제(다중 선택용) — save()를 한 번만 호출한다.
+  function deleteCards(ids) {
+    const kill = new Set(ids);
+    state.cards = state.cards.filter(c => !kill.has(c.id));
+    gcMedia();
+    save();
+  }
   function cardsOf(deckId) { return state.cards.filter(c => c.deckId === deckId); }
 
   // 대량 추가(가져오기): [{type, front, back, imageId, rects, hideIndex, clozeIndex}, …]
@@ -419,7 +426,7 @@ const Store = (() => {
     addDeck, updateDeck, deleteDeck, deleteDecks, getDeck, patchDeck,
     addFolder, updateFolder, deleteFolder, getFolder,
     addMedia, getMedia, putMedia, referencedMedia, gcMedia,
-    addCard, updateCard, deleteCard, cardsOf, bulkAddCards,
+    addCard, updateCard, deleteCard, deleteCards, cardsOf, bulkAddCards,
     applyReview, undoReview, newIntroducedToday,
     deckCounts, streak, forecast, retention, exportDeckCSV,
     exportJSON, importJSON,

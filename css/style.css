@@ -666,6 +666,30 @@ input, textarea, select { font-family: inherit; }
   box-shadow: var(--shadow-xs);
   transform: translateX(2px);
 }
+/* 카드 다중 선택 */
+.card-select-toggle { flex-shrink: 0; }
+.card-row.select-mode { cursor: pointer; }
+.card-row.select-mode:hover { transform: none; }
+.card-row.picked {
+  border-color: var(--rose-500);
+  box-shadow: 0 0 0 1.4px var(--rose-500) inset, var(--shadow-xs);
+  background: linear-gradient(120deg, var(--blush-50) 55%, var(--blush-100) 130%);
+}
+.card-check {
+  flex-shrink: 0;
+  display: grid; place-items: center;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  border: 1.6px solid var(--edge);
+  background: var(--paper);
+  color: transparent;
+  transition: all .18s;
+}
+.card-row.picked .card-check {
+  background: var(--rose-500);
+  border-color: var(--rose-500);
+  color: #fff;
+}
 .card-row .texts { flex: 1; min-width: 0; }
 .card-row .front { font-weight: 620; font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .card-row .back { font-size: 13px; color: var(--ink-3); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
