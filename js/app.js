@@ -761,8 +761,10 @@
   /* ══════════ 서식 툴바(굵게/밑줄/글자색/하이라이트) ══════════ */
   let activeRichField = $("#cardFrontInput");
   [$("#cardFrontInput"), $("#cardBackInput"), $("#clozeInput")].forEach(el => {
-        el.addEventListener("focusin", () => {
+            el.addEventListener("focusin", () => {
       activeRichField = el;
+      try { document.execCommand("defaultParagraphSeparator", false, "br"); } catch {}
+    });
       try { document.execCommand("defaultParagraphSeparator", false, "br"); } catch {}
     });
     el.addEventListener("focus", () => { activeRichField = el; });
