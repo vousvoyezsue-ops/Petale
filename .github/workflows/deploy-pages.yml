@@ -1,0 +1,32 @@
+name: Deploy to GitHub Pages
+
+# gh-pages 브랜치로 정적 파일을 배포한다.
+# (GITHUB_TOKEN으로는 Pages 사이트를 API로 활성화할 수 없어
+#  actions/deploy-pages 대신 브랜치 배포 방식을 사용 —
+#  gh-pages 브랜치가 생기면 Pages가 자동 활성화된다)
+
+on:
+  push:
+    branches:
+      - main
+      - claude/anki-flashcard-app-1vk32t
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .
+          exclude_assets: ".github"
