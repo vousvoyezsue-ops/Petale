@@ -26,6 +26,124 @@
   let authMode = "signin";
   let socialReady = Social.init(); // 세션 복원 (비동기, 화면 진입 시 대기)
 
+  /* ══════════ 학습 알림 (망각곡선/간격 반복 기반) ══════════
+     SRS의 due 시각이 곧 "다시 볼 때" — 복습이 밀리면 알림으로 알려준다.
+     정적 PWA라 앱이 열려 있거나 설치돼 백그라운드로 돌 때 동작한다. */
+  const Reminders = (() => {
+    const TAG = "petale-review-check";
+    const MIN_GAP = 3 * 60 * 60 * 1000; // 같은 알림 최소 간격(과도한 반복 방지)
+    let dailyTimer = null, dueTimer = null, pollTimer = null;
+
+    const supported = () => "Notification" in window;
+    const granted = () => supported() && Notification.permission === "granted";
+
+    // 복습 대기(망각곡선상 다시 볼 때가 된) 카드 수 — 새 카드/일시정지 제외
+    function dueCount() {
+      const now = Date.now();
+      return Store.state.cards.filter(c => !c.suspended && c.due <= now && !SRS.isNew(c)).length;
+    }
+    // 아직 안 왔지만 가장 가까운 다음 복습 시각
+    function nextDueAt() {
+      const now = Date.now();
+      let min = Infinity;
+      for (const c of Store.state.cards) {
+        if (c.suspended || SRS.isNew(c)) continue;
+        if (c.due > now && c.due < min) min = c.due;
+      }
+      return min === Infinity ? null : min;
+    }
+
+    function show(n) {
+      if (!granted()) return;
+      let last = 0;
+      try { last = Number(localStorage.getItem("petale.lastNotify") || 0); } catch { /* 무시 */ }
+      if (Date.now() - last < MIN_GAP) return;
+      const title = t("notify.title");
+      const opts = {
+        body: n > 0 ? t("notify.body", { n }) : t("notify.bodyGeneric"),
+        icon: "icons/icon-192.png", badge: "icons/icon-192.png",
+        tag: "petale-review", renotify: true,
+      };
+      try {
+        if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+          navigator.serviceWorker.ready
+            .then(reg => reg.showNotification(title, opts))
+            .catch(() => { try { new Notification(title, opts); } catch { /* 무시 */ } });
+        } else { new Notification(title, opts); }
+        try { localStorage.setItem("petale.lastNotify", String(Date.now())); } catch { /* 무시 */ }
+      } catch { /* 무시 */ }
+    }
+
+    function scheduleDaily() {
+      clearTimeout(dailyTimer);
+      const [h, m] = (Store.settings.reminderTime || "09:00").split(":").map(Number);
+      const now = new Date();
+      const next = new Date(now);
+      next.setHours(h || 9, m || 0, 0, 0);
+      if (next <= now) next.setDate(next.getDate() + 1);
+      dailyTimer = setTimeout(() => { show(dueCount()); scheduleDaily(); }, next - now);
+    }
+    function scheduleNextDue() {
+      clearTimeout(dueTimer);
+      const at = nextDueAt();
+      if (at == null) return;
+      const delay = Math.min(at - Date.now(), 2 ** 31 - 1);
+      if (delay <= 0) return;
+      dueTimer = setTimeout(() => { show(dueCount()); scheduleNextDue(); }, delay);
+    }
+    function startPolling() {
+      clearInterval(pollTimer);
+      pollTimer = setInterval(() => { const n = dueCount(); if (n > 0) show(n); }, 30 * 60 * 1000);
+    }
+    async function registerPeriodicSync() {
+      try {
+        const reg = await navigator.serviceWorker?.ready;
+        if (reg && "periodicSync" in reg) {
+          const st = await navigator.permissions?.query({ name: "periodic-background-sync" }).catch(() => null);
+          if (!st || st.state === "granted") {
+            await reg.periodicSync.register(TAG, { minInterval: 6 * 60 * 60 * 1000 }).catch(() => {});
+          }
+        }
+      } catch { /* 미지원 — 무시 */ }
+    }
+
+    function stop() {
+      clearTimeout(dailyTimer); clearTimeout(dueTimer); clearInterval(pollTimer);
+      navigator.serviceWorker?.ready
+        ?.then(reg => { if ("periodicSync" in reg) reg.periodicSync.unregister(TAG).catch(() => {}); })
+        .catch(() => {});
+    }
+    function start() {
+      clearTimeout(dailyTimer); clearTimeout(dueTimer); clearInterval(pollTimer);
+      if (!Store.settings.reminders || !granted()) return;
+      scheduleDaily();
+      scheduleNextDue();
+      startPolling();
+      registerPeriodicSync();
+      const n = dueCount();
+      if (n > 0) show(n); // 진입 시 이미 밀린 복습이 있으면 알림
+    }
+    async function enable() {
+      if (!supported()) return "unsupported";
+      let perm = Notification.permission;
+      if (perm !== "granted") { try { perm = await Notification.requestPermission(); } catch { return "denied"; } }
+      if (perm !== "granted") return "denied";
+      Store.setSetting("reminders", true);
+      start();
+      return "granted";
+    }
+    function disable() { Store.setSetting("reminders", false); stop(); }
+
+    // 앱이 다시 보일 때 밀린 복습 재확인
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden && Store.settings?.reminders && granted()) start();
+      });
+    }
+
+    return { start, stop, enable, disable, granted, supported, dueCount, nextDueAt };
+  })();
+
   /* ══════════ 유틸 ══════════ */
   function escapeHTML(s) {
     return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -1095,26 +1213,29 @@
   }
 
   function runTextImport() {
-    const lines = $("#bulkText").value.split("\n").map(l => l.trim()).filter(Boolean);
+    // 카드는 "//" 로 구분 — 한 카드 안에서는 자유롭게 줄바꿈할 수 있다
+    const blocks = $("#bulkText").value.split("//").map(b => b.trim()).filter(Boolean);
     const rows = [];
-    for (const line of lines) {
+    for (const block of blocks) {
       // 빈칸(cloze) 문법이 있으면 cloze 카드로 처리 — c1, c2…마다 카드가 하나씩 생성된다
-      if (/\{\{c\d+::/.test(line)) {
-        const indices = clozeIndices(line);
-        for (const idx of indices) rows.push({ type: "cloze", front: line, back: "", clozeIndex: idx });
+      if (/\{\{c\d+::/.test(block)) {
+        const front = block.replace(/\n/g, "<br>"); // 카드 안 줄바꿈 유지
+        const indices = clozeIndices(block);
+        for (const idx of indices) rows.push({ type: "cloze", front, back: "", clozeIndex: idx });
         continue;
       }
       let front, back;
-      if (line.includes("\t")) {
-        [front, ...back] = line.split("\t");
+      if (block.includes("\t")) {
+        [front, ...back] = block.split("\t");
         back = back.join(" ").trim();
       } else {
-        const i = line.indexOf(",");
+        const i = block.indexOf(",");
         if (i < 0) continue;
-        front = line.slice(0, i);
-        back = line.slice(i + 1).trim();
+        front = block.slice(0, i);
+        back = block.slice(i + 1).trim();
       }
-      front = front.trim();
+      front = front.trim().replace(/\n/g, "<br>");
+      back = (back || "").replace(/\n/g, "<br>");
       if (front && back) rows.push({ type: "basic", front, back });
     }
     if (!rows.length) { $("#importError").textContent = t("imp.empty"); return; }
@@ -1566,6 +1687,10 @@
     $$("#langSeg .seg-btn").forEach(b => b.classList.toggle("active", b.dataset.lang === Store.settings.lang));
     $$("#themeGrid .theme-swatch").forEach(b => b.classList.toggle("active", b.dataset.theme === Store.settings.theme));
     $("#ttsToggle").checked = !!Store.settings.tts;
+    const remOn = !!Store.settings.reminders && Reminders.granted();
+    $("#reminderToggle").checked = remOn;
+    $("#reminderTime").value = Store.settings.reminderTime || "09:00";
+    $("#reminderTimeRow").classList.toggle("hidden", !remOn);
     const steps = Store.settings.steps || SRS.defaultSteps();
     $$("#stepRows .step-row").forEach(row => {
       const key = row.dataset.step;
@@ -1591,6 +1716,26 @@
   }));
 
   $("#ttsToggle").addEventListener("change", (e) => Store.setSetting("tts", e.target.checked));
+
+  // 학습 알림 (망각곡선 기반)
+  $("#reminderToggle").addEventListener("change", async (e) => {
+    if (e.target.checked) {
+      const res = await Reminders.enable();
+      if (res === "granted") { toast(t("toast.remindersOn")); }
+      else {
+        e.target.checked = false;
+        toast(t(res === "unsupported" ? "toast.remindersUnsupported" : "toast.remindersDenied"));
+      }
+    } else {
+      Reminders.disable();
+      toast(t("toast.remindersOff"));
+    }
+    $("#reminderTimeRow").classList.toggle("hidden", !$("#reminderToggle").checked);
+  });
+  $("#reminderTime").addEventListener("change", (e) => {
+    Store.setSetting("reminderTime", e.target.value || "09:00");
+    Reminders.start(); // 새 시각으로 재예약
+  });
 
   // 학습 단계(s/m/h/day) — 값·단위 중 하나라도 바뀌면 즉시 저장 + SRS 반영
   $$("#stepRows .step-row").forEach(row => {
@@ -1867,6 +2012,7 @@
     document.body.classList.remove("pre-auth");
     I18N.apply();
     show("home");
+    Reminders.start(); // 로그인·동기화 후 학습 알림 예약 (설정 켜져 있을 때만)
 
     // 이미지 기기 간 동기화(백그라운드): 다른 기기에서 만든 이미지를 내려받고,
     // 도착하면 현재 화면을 '제자리에서' 다시 그린다(스크롤 위치 유지 — 위로 안 튀게).
