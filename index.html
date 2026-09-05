@@ -737,6 +737,14 @@
     <label class="field" id="notesField">
       <span data-i18n="cardModal.notes"></span>
       <textarea id="cardNotesInput" rows="2" maxlength="800" data-i18n-placeholder="cardModal.notesPh"></textarea>
+      <div class="note-image-row">
+        <button type="button" class="btn ghost sm" id="noteImgBtn" data-i18n="cardModal.addImage"></button>
+        <input type="file" id="noteImgFile" accept="image/*" hidden>
+        <div class="note-image-preview hidden" id="noteImgPreview">
+          <img id="noteImgThumb" alt="">
+          <button type="button" class="note-image-remove" id="noteImgRemove" data-i18n-title="cardModal.removeImage" title="remove">✕</button>
+        </div>
+      </div>
     </label>
 
     <div class="set-group scale-group">
@@ -779,8 +787,10 @@
     <p class="occ-paste-hint" data-i18n="occ.pasteHint"></p>
 
     <div class="occ-stage empty" id="occStage">
-      <img id="occImg" alt="" draggable="false" style="display:none">
-      <div class="occ-masks" id="occMasks"></div>
+      <div class="occ-frame" id="occFrame">
+        <img id="occImg" alt="" draggable="false" style="display:none">
+        <div class="occ-masks" id="occMasks"></div>
+      </div>
       <p class="occ-placeholder" data-i18n="occ.hint"></p>
     </div>
 
