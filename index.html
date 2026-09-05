@@ -647,8 +647,7 @@
       <button type="button" class="type-tab" data-type="occlusion" data-i18n="type.occlusion"></button>
     </div>
 
-    <div id="basicFields">
-      <div class="rich-toolbar" id="richToolbar">
+    <div class="rich-toolbar" id="richToolbar">
         <button type="button" class="rt-btn" data-cmd="bold" title="Bold"><b>B</b></button>
         <button type="button" class="rt-btn" data-cmd="underline" title="Underline"><u>U</u></button>
         <span class="rt-sep"></span>
@@ -679,7 +678,11 @@
         <button type="button" class="rt-swatch" data-cmd="hiliteColor" data-val="#d6e3b8" style="background:#d6e3b8" title="그린"></button>
         <span class="rt-sep"></span>
         <button type="button" class="rt-btn rt-clear" data-cmd="removeFormat" data-i18n="rich.clear"></button>
+        <span class="rt-sep rt-cloze-only hidden"></span>
+        <button type="button" class="rt-btn rt-cloze rt-cloze-only hidden" id="richInsertCloze" data-i18n-title="rich.cloze">{{ }}</button>
       </div>
+
+      <div id="basicFields">
       <label class="field">
         <span data-i18n="cardModal.front"></span>
         <div class="rich-field" id="cardFrontInput" contenteditable="true" data-i18n-placeholder="cardModal.frontPh"></div>
@@ -697,7 +700,7 @@
     <div id="clozeFields" class="hidden">
       <label class="field">
         <span data-i18n="cardModal.clozeText"></span>
-        <textarea id="clozeInput" rows="4" maxlength="800" data-i18n-placeholder="cardModal.clozePh"></textarea>
+        <div class="rich-field cloze-rich" id="clozeInput" contenteditable="true" data-i18n-placeholder="cardModal.clozePh"></div>
       </label>
       <p class="field-hint" data-i18n="cardModal.clozeHint"></p>
     </div>
