@@ -476,6 +476,7 @@
     $("#heroSummary").innerHTML = waiting ? t("hero.waiting", { n: waiting }) : t("hero.done");
     $("#btnStudyAll").classList.toggle("hidden", !waiting || selectMode);
     $("#btnNewDeck").classList.toggle("hidden", selectMode);
+    renderTodayPlan();
 
     // 선택 모드 토글 버튼: 덱이 하나도 없으면 숨긴다
     $("#btnSelectMode").classList.toggle("hidden", !decks.length && !selectMode);
@@ -486,6 +487,47 @@
   function toggleDeckPick(id) {
     if (selectedDecks.has(id)) selectedDecks.delete(id); else selectedDecks.add(id);
     renderHome();
+  }
+
+  // 오늘의 복습 계획: 복습·새 카드가 기다리는 덱을 홈 상단에 모아 보여준다.
+  // 선택 모드일 땐 방해되지 않게 숨긴다.
+  function renderTodayPlan() {
+    const panel = $("#todayPlan");
+    if (!panel) return;
+    if (selectMode) { panel.classList.add("hidden"); return; }
+
+    const plan = Store.state.decks
+      .map(d => ({ deck: d, c: Store.deckCounts(d.id) }))
+      .filter(x => x.c.due + x.c.neu > 0)
+      .sort((a, b) => (b.c.due + b.c.neu) - (a.c.due + a.c.neu));
+
+    const totalDue = plan.reduce((s, x) => s + x.c.due, 0);
+    const totalNew = plan.reduce((s, x) => s + x.c.neu, 0);
+
+    panel.classList.remove("hidden");
+    const sub = $("#todayPlanSub");
+    const list = $("#todayPlanList");
+
+    if (!plan.length) {
+      sub.textContent = "";
+      list.innerHTML = `<p class="today-plan-empty">${t("today.allDone")}</p>`;
+      return;
+    }
+
+    sub.textContent = t("today.summary", { due: totalDue, neu: totalNew });
+    list.innerHTML = plan.map(({ deck, c }) => `
+      <button type="button" class="today-row" data-deck="${deck.id}">
+        <span class="today-row-name">${escapeHTML(deck.name)}</span>
+        <span class="today-row-counts">
+          ${c.due ? `<span class="pill due">${t("pill.due", { n: c.due })}</span>` : ""}
+          ${c.neu ? `<span class="pill new">${t("pill.new", { n: c.neu })}</span>` : ""}
+        </span>
+        <svg class="today-row-go" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5.5v13a1 1 0 0 0 1.54.84l10-6.5a1 1 0 0 0 0-1.68l-10-6.5A1 1 0 0 0 8 5.5Z" fill="currentColor" stroke="none"/></svg>
+      </button>`).join("");
+
+    list.querySelectorAll(".today-row").forEach(row => {
+      row.addEventListener("click", () => startSession(row.dataset.deck));
+    });
   }
 
   function renderBulkBar() {
@@ -1858,15 +1900,72 @@
     list.innerHTML = ov.friends.map(f => {
       const st = ov.stats[f.id] || { today: 0, streak: 0 };
       return `
-        <li class="friend-row">
-          <span class="friend-avatar">${escapeHTML((f.username || "?")[0])}</span>
-          <span class="fr-name">${escapeHTML(f.username || "?")}</span>
-          <span class="fr-meta">
-            <span class="pill new">${t("fr.today", { n: st.today })}</span>
-            <span class="pill due">${t("fr.streakN", { n: st.streak })}</span>
-          </span>
+        <li class="friend-item" data-id="${f.id}">
+          <button type="button" class="friend-row friend-row-btn">
+            <span class="friend-avatar">${escapeHTML((f.username || "?")[0])}</span>
+            <span class="fr-name">${escapeHTML(f.username || "?")}</span>
+            <span class="fr-meta">
+              <span class="pill new">${t("fr.today", { n: st.today })}</span>
+              <span class="pill due">${t("fr.streakN", { n: st.streak })}</span>
+            </span>
+            <svg class="friend-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="friend-decks hidden"></div>
         </li>`;
     }).join("");
+
+    list.querySelectorAll(".friend-item").forEach(item => {
+      const btn = item.querySelector(".friend-row-btn");
+      const box = item.querySelector(".friend-decks");
+      btn.addEventListener("click", () => {
+        const open = !box.classList.contains("hidden");
+        if (open) { box.classList.add("hidden"); item.classList.remove("open"); return; }
+        item.classList.add("open");
+        box.classList.remove("hidden");
+        if (!box.dataset.loaded) loadFriendDecks(item.dataset.id, box);
+      });
+    });
+  }
+
+  // 친구가 공개한 덱을 불러와 "가져오기" 할 수 있게 보여준다
+  async function loadFriendDecks(friendId, box) {
+    box.innerHTML = `<p class="friend-decks-msg">…</p>`;
+    let decks;
+    try {
+      decks = await Promise.race([
+        Social.searchDecks("", [friendId]),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 8000)),
+      ]);
+    } catch {
+      box.innerHTML = `<p class="friend-decks-msg">${t("fr.offline")}</p>`;
+      return;
+    }
+    box.dataset.loaded = "1";
+    if (!decks.length) {
+      box.innerHTML = `<p class="friend-decks-msg">${t("fr.noDecks")}</p>`;
+      return;
+    }
+    box.innerHTML = decks.map(r => `
+      <div class="friend-deck-row" data-id="${r.id}">
+        <div class="texts">
+          <div class="fr-name">${escapeHTML(r.name)}</div>
+          ${r.description ? `<div class="explore-desc">${escapeHTML(r.description)}</div>` : ""}
+        </div>
+        <span class="pill total">${t("explore.cards", { n: r.cardCount })}</span>
+        <button class="btn secondary sm get">${t("explore.get")}</button>
+      </div>`).join("");
+    box.querySelectorAll(".friend-deck-row .get").forEach(btn =>
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        try {
+          const { deck, count } = await Social.downloadDeck(btn.closest(".friend-deck-row").dataset.id);
+          toast(t("explore.got", { name: deck.name, n: count }));
+        } catch {
+          toast(t("fr.offline"));
+        } finally {
+          btn.disabled = false;
+        }
+      }));
   }
 
   $("#friendAddForm").addEventListener("submit", async (e) => {
