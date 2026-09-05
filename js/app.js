@@ -765,8 +765,6 @@
       activeRichField = el;
       try { document.execCommand("defaultParagraphSeparator", false, "br"); } catch {}
     });
-      try { document.execCommand("defaultParagraphSeparator", false, "br"); } catch {}
-    });
     el.addEventListener("focus", () => { activeRichField = el; });
     // 붙여넣기는 일반 텍스트로만 허용 — 외부 문서의 스타일이 그대로 딸려오는 걸 방지
     el.addEventListener("paste", (e) => {
