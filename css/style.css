@@ -334,6 +334,40 @@ input, textarea, select { font-family: inherit; }
 
 /* ═══ hero ═══ */
 .hero { text-align: center; margin: clamp(20px, 4.5vw, 52px) 0 clamp(30px, 5vw, 58px); }
+
+/* 오늘의 복습 계획 */
+.today-plan {
+  margin: 0 0 26px;
+  padding: 18px 20px;
+  border: 1.2px solid var(--edge-rose);
+  border-radius: var(--r-md);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--blush-50) 70%, transparent), color-mix(in srgb, var(--lime-100) 55%, transparent));
+}
+.today-plan-head {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.today-plan-title { font-family: var(--font-display); font-size: 17px; color: var(--ink); }
+.today-plan-sub { font-size: 12.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.today-plan-list { display: flex; flex-direction: column; gap: 8px; }
+.today-plan-empty { font-size: 13.5px; color: var(--sage-500); margin: 2px 0; }
+.today-row {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; text-align: left;
+  padding: 12px 14px;
+  border: 1px solid var(--edge);
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--paper) 82%, transparent);
+  transition: border-color .18s, box-shadow .18s, transform .18s;
+}
+.today-row:hover {
+  border-color: color-mix(in srgb, var(--rose-500) 45%, transparent);
+  box-shadow: var(--shadow-xs);
+  transform: translateX(2px);
+}
+.today-row-name { flex: 1; min-width: 0; font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.today-row-counts { display: inline-flex; gap: 6px; flex-shrink: 0; }
+.today-row-go { color: var(--rose-600); flex-shrink: 0; }
 .hero.small { margin-bottom: 34px; }
 .hero-eyebrow {
   display: flex; align-items: center; justify-content: center; gap: 14px;
@@ -1298,6 +1332,25 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
 .friend-row .fr-name { flex: 1; font-weight: 620; font-size: 14.5px; }
 .friend-row .fr-meta { display: flex; gap: 7px; }
 .friend-empty { text-align: center; color: var(--ink-3); font-size: 14px; padding: 26px 0; }
+
+/* 친구 → 공개 덱 펼쳐 보기 · 가져오기 */
+.friend-item { list-style: none; }
+.friend-row-btn { width: 100%; text-align: left; cursor: pointer; transition: border-color .18s, box-shadow .18s; }
+.friend-row-btn:hover { border-color: color-mix(in srgb, var(--sage-400) 45%, transparent); }
+.friend-chevron { color: var(--ink-3); flex-shrink: 0; transition: transform .2s; }
+.friend-item.open .friend-chevron { transform: rotate(180deg); }
+.friend-decks { display: flex; flex-direction: column; gap: 7px; padding: 9px 8px 4px 8px; }
+.friend-decks-msg { color: var(--ink-3); font-size: 13px; padding: 6px 8px; }
+.friend-deck-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 14px;
+  border: 1px solid var(--edge);
+  border-radius: var(--r-sm);
+  background: var(--paper-soft);
+}
+.friend-deck-row .texts { flex: 1; min-width: 0; }
+.friend-deck-row .fr-name { font-weight: 600; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.friend-deck-row .get { flex-shrink: 0; }
 
 /* ═══ modal ═══ */
 .modal {
