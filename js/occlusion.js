@@ -77,7 +77,11 @@ const Occlusion = (() => {
   }
 
   function stagePos(e) {
-    const r = $("#occStage").getBoundingClientRect();
+    // 좌표는 이미지(프레임) 기준 % — 스테이지가 이미지보다 커도 마스크가 밀리지 않게 한다
+    const frame = $("#occFrame");
+    const r = (frame && frame.getBoundingClientRect().width)
+      ? frame.getBoundingClientRect()
+      : $("#occStage").getBoundingClientRect();
     return {
       x: Math.min(100, Math.max(0, ((e.clientX - r.left) / r.width) * 100)),
       y: Math.min(100, Math.max(0, ((e.clientY - r.top) / r.height) * 100)),
