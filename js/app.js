@@ -183,7 +183,11 @@
         if (tag === "DIV" || tag === "P") {
           // 브라우저가 Enter 입력마다 만드는 줄바꿈용 블록 — 내부 서식은 유지한 채 <br>로 바꾼다
           clean(child);
-          if (child.previousSibling) child.parentNode.insertBefore(document.createElement("br"), child);
+          // 빈 줄용 <div><br></div> 는 filler <br> 하나만 들었다 — 앞에 넣는 <br>와 겹쳐 줄바꿈이 배로 늘어나므로 하나만 남긴다
+          const onlyBr = child.childNodes.length === 1 && child.firstChild.nodeName === "BR";
+          const hadPrev = !!child.previousSibling;
+          if (hadPrev) child.parentNode.insertBefore(document.createElement("br"), child);
+          if (onlyBr && hadPrev) { child.remove(); return; }
           while (child.firstChild) child.parentNode.insertBefore(child.firstChild, child);
           child.remove();
           return;
@@ -238,23 +242,26 @@
   }
 
   function renderCloze(text, targetIdx, revealed) {
+    // 전체를 먼저 새니타이즈해 태그 짝을 보존한다 ({{ }}는 텍스트라 그대로 남음).
+    // 이렇게 하면 <b>{{c1::답}}</b> 처럼 빈칸 토큰을 감싼 서식도 살아남는다.
+    const safe = sanitizeRichHTML(text);
     let html = "";
     let last = 0;
-    for (const m of text.matchAll(CLOZE_RE)) {
-      html += sanitizeRichHTML(text.slice(last, m.index));
+    for (const m of safe.matchAll(CLOZE_RE)) {
+      html += safe.slice(last, m.index);
       const idx = Number(m[1]);
-      const answer = m[2];
+      const answer = m[2];       // 이미 새니타이즈된 HTML
       const hint = m[3];
       if (idx === targetIdx) {
         html += revealed
-          ? `<span class="cloze-answer">${sanitizeRichHTML(answer)}</span>`
-          : `<span class="cloze-blank">${hint ? sanitizeRichHTML(hint) : "⋯"}</span>`;
+          ? `<span class="cloze-answer">${answer}</span>`
+          : `<span class="cloze-blank">${hint || "⋯"}</span>`;
       } else {
-        html += sanitizeRichHTML(answer);
+        html += answer;
       }
       last = m.index + m[0].length;
     }
-    html += sanitizeRichHTML(text.slice(last));
+    html += safe.slice(last);
     return html;
   }
 
