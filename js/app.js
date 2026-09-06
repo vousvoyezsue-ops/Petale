@@ -841,6 +841,28 @@
     toast(t("toast.exported"));
   });
 
+  // 덱 파일로 내보내기 (이미지 포함) — 친구에게 파일 전달용
+  $("#btnExportDeck").addEventListener("click", () => {
+    const deck = Store.getDeck(currentDeckId);
+    const bundle = Store.exportDeckBundle(currentDeckId);
+    if (!bundle) return;
+    const blob = new Blob([JSON.stringify(bundle)], { type: "application/json" });
+    downloadBlob(blob, `${deck.name.replace(/[\\/:*?"<>|]/g, "_")}.petale.json`);
+    toast(t("toast.exported"));
+  });
+
+  // 덱 학습 초기화 — 모든 카드를 새 카드 상태로 (예약된 복습 일정 초기화)
+  $("#btnResetDeck").addEventListener("click", () => {
+    const deck = Store.getDeck(currentDeckId);
+    const n = Store.cardsOf(currentDeckId).length;
+    if (!n) { toast(t("toast.resetDone", { n: 0 })); return; }
+    confirmDialog(t("confirm.resetDeck", { name: deck.name }), t("confirm.resetDeckText", { n }), () => {
+      const cnt = Store.resetDeckSchedule(currentDeckId);
+      renderDeck();
+      toast(t("toast.resetDone", { n: cnt }));
+    });
+  });
+
   $("#btnDeleteDeck").addEventListener("click", () => {
     const deck = Store.getDeck(currentDeckId);
     const n = Store.cardsOf(currentDeckId).length;
@@ -1230,6 +1252,13 @@
     pickFile("apkg", file);
   });
 
+  $("#impDeckFile").addEventListener("click", () => $("#deckFile").click());
+  $("#deckFile").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    pickFile("deckfile", file);
+  });
+
   // 텍스트를 입력하면 선택된 파일은 해제 (상호배타)
   $("#bulkText").addEventListener("input", () => {
     if ($("#bulkText").value.trim() && pendingFile) {
@@ -1331,6 +1360,22 @@
     }
   }
 
+  // Petale 덱 파일(.json, 이미지 포함) 가져오기 — 새 덱으로 복원
+  async function runDeckFileImport(file) {
+    $("#importError").textContent = "";
+    try {
+      const bundle = JSON.parse(await file.text());
+      const { deck, count } = Store.importDeckBundle(bundle);
+      $("#importModal").close();
+      currentDeckId = deck.id;
+      cardSelectMode = false; selectedCards.clear();
+      show("deck");
+      toast(t("imp.done", { n: count }));
+    } catch (e) {
+      $("#importError").textContent = e && e.message === "bad_file" ? t("imp.badDeckFile") : t("imp.fail");
+    }
+  }
+
   function runTextImport() {
     // 카드는 "//" 로 구분 — 한 카드 안에서는 자유롭게 줄바꿈할 수 있다
     const blocks = $("#bulkText").value.split("//").map(b => b.trim()).filter(Boolean);
@@ -1369,6 +1414,7 @@
     $("#importError").textContent = "";
     if (pendingFile?.kind === "apkg") { runApkgImport(pendingFile.file); return; }
     if (pendingFile?.kind === "csv") { runCsvImport(pendingFile.file); return; }
+    if (pendingFile?.kind === "deckfile") { runDeckFileImport(pendingFile.file); return; }
     if ($("#bulkText").value.trim()) { runTextImport(); return; }
     $("#importError").textContent = t("imp.pickFirst");
   });
