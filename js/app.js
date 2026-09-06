@@ -998,6 +998,19 @@
     catch { toast(t("toast.imageFail")); }
   });
   $("#noteImgRemove").addEventListener("click", () => { noteImageData = null; renderNoteImagePreview(); });
+  // 메모 칸에 이미지 붙여넣기(Ctrl+V) — 클립보드에 이미지가 있으면 메모 이미지로 첨부
+  $("#cardNotesInput").addEventListener("paste", async (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type && item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) { try { noteImageData = await fileToNoteDataURL(file); renderNoteImagePreview(); } catch { toast(t("toast.imageFail")); } }
+        return;
+      }
+    }
+  });
 
   $("#cardForm").addEventListener("submit", (e) => {
     const notes = $("#cardNotesInput").value.trim();
@@ -1591,7 +1604,10 @@
     session.queue.shift();
 
     if (rating === 0) {
-      session.queue.push(card.id); // '다시'는 세션 내 재출제
+      // '다시'는 세션 내에서 곧 다시 보여준다 — 덱 끝(새 카드 뒤)이 아니라
+      // 지금 학습 중인 흐름에 이어지도록 몇 칸 뒤에 재삽입한다.
+      const gap = Math.min(3, session.queue.length);
+      session.queue.splice(gap, 0, card.id);
     } else {
       session.done++;
     }
