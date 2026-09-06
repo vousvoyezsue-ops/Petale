@@ -123,6 +123,7 @@ const I18N = (() => {
       "deck.new": "새 카드",
       "deck.total": "전체 카드",
       "deck.study": "학습 시작",
+      "deck.studyStarred": "별표 학습",
       "deck.addCard": "＋ 카드 추가",
       "deck.import": "가져오기",
       "deck.cards": "카드",
@@ -206,6 +207,7 @@ const I18N = (() => {
       "study.doneSub": "카드 {n}장을 복습했습니다.",
       "study.backToDeck": "덱으로 돌아가기",
       "study.nothingDue": "지금 학습할 카드가 없어요",
+      "study.noStarred": "별표한 카드가 없어요",
       "study.speak": "읽어주기",
 
       // interval preview
@@ -480,6 +482,7 @@ const I18N = (() => {
       "deck.new": "New cards",
       "deck.total": "Total cards",
       "deck.study": "Study",
+      "deck.studyStarred": "Study starred",
       "deck.addCard": "＋ Add card",
       "deck.import": "Import",
       "deck.cards": "Cards",
@@ -560,6 +563,7 @@ const I18N = (() => {
       "study.doneSub": "You reviewed {n} cards.",
       "study.backToDeck": "Back to deck",
       "study.nothingDue": "Nothing to study right now",
+      "study.noStarred": "No starred cards yet",
       "study.speak": "Read aloud",
 
       "iv.min": "{n}m",
