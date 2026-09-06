@@ -356,6 +356,64 @@ const Store = (() => {
     return state.newLog[`${deckId}|${todayKey()}`] || 0;
   }
 
+  // 덱 학습 초기화: 모든 카드를 새 카드 상태로 되돌린다 (예약된 복습 일정도 모두 초기화)
+  function resetDeckSchedule(deckId) {
+    let n = 0;
+    for (const c of state.cards) {
+      if (c.deckId !== deckId) continue;
+      Object.assign(c, SRS.newCardState());
+      c.suspended = false;
+      n++;
+    }
+    // 오늘 새 카드 도입 기록도 지워 다시 새 카드로 취급되게 한다
+    for (const k of Object.keys(state.newLog)) {
+      if (k.startsWith(deckId + "|")) delete state.newLog[k];
+    }
+    save();
+    return n;
+  }
+
+  // 덱을 이미지까지 담은 파일용 번들로 내보낸다 (친구에게 파일로 전달 → 가져오기)
+  function exportDeckBundle(deckId) {
+    const deck = getDeck(deckId);
+    if (!deck) return null;
+    const cards = cardsOf(deckId).map(c => {
+      const { id, deckId: _d, ...rest } = c; // 로컬 id·deckId는 제외
+      return rest;
+    });
+    const media = {};
+    for (const c of cards) {
+      for (const key of ["imageId", "frontImageId", "backImageId", "noteImageId"]) {
+        const mid = c[key];
+        if (mid && state.media[mid] && !media[mid]) media[mid] = state.media[mid];
+      }
+    }
+    return { petale: "deck", v: 1, name: deck.name, desc: deck.desc || "", cards, media };
+  }
+
+  // 덱 번들 가져오기: 미디어 id를 새로 매핑해 카드 이미지가 깨지지 않게 복원한다
+  function importDeckBundle(bundle) {
+    if (!bundle || bundle.petale !== "deck" || !Array.isArray(bundle.cards)) throw new Error("bad_file");
+    const idMap = {};
+    for (const [oldId, dataURL] of Object.entries(bundle.media || {})) {
+      if (typeof dataURL === "string" && dataURL.startsWith("data:")) idMap[oldId] = addMedia(dataURL);
+    }
+    const now = Date.now();
+    const deck = addDeck((bundle.name || "덱").slice(0, 60), (bundle.desc || "").slice(0, 200));
+    let count = 0;
+    bundle.cards.forEach((c, i) => {
+      if (!c || typeof c !== "object") return;
+      const card = { ...c, id: uid() + i.toString(36), deckId: deck.id, created: now + i, ...SRS.newCardState() };
+      for (const key of ["imageId", "frontImageId", "backImageId", "noteImageId"]) {
+        if (card[key]) card[key] = idMap[card[key]] || null;
+      }
+      state.cards.push(card);
+      count++;
+    });
+    save();
+    return { deck, count };
+  }
+
   /* ── stats ── */
   function deckCounts(deckId, now = Date.now()) {
     const cards = cardsOf(deckId);
@@ -428,6 +486,7 @@ const Store = (() => {
     addMedia, getMedia, putMedia, referencedMedia, gcMedia,
     addCard, updateCard, deleteCard, deleteCards, cardsOf, bulkAddCards,
     applyReview, undoReview, newIntroducedToday,
+    resetDeckSchedule, exportDeckBundle, importDeckBundle,
     deckCounts, streak, forecast, retention, exportDeckCSV,
     exportJSON, importJSON,
     get state() { return state; },
