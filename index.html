@@ -226,7 +226,9 @@
       <div class="deck-head-actions">
         <button class="btn ghost sm" id="btnShare"></button>
         <button class="btn ghost sm" id="btnEditDeck" data-i18n="deck.edit"></button>
+        <button class="btn ghost sm" id="btnExportDeck" data-i18n="deck.exportFile"></button>
         <button class="btn ghost sm" id="btnCsv" data-i18n="deck.exportCsv"></button>
+        <button class="btn ghost sm" id="btnResetDeck" data-i18n="deck.reset"></button>
         <button class="btn ghost sm danger" id="btnDeleteDeck" data-i18n="deck.delete"></button>
       </div>
     </div>
@@ -831,6 +833,12 @@
       <span class="imp-txt"><b data-i18n="imp.csv"></b><small data-i18n="imp.csvDesc"></small></span>
     </button>
     <input type="file" id="csvFile" accept=".csv,.tsv,.txt" hidden>
+
+    <button type="button" class="import-option" id="impDeckFile">
+      <span class="imp-ic"><svg width="21" height="21"><use href="#i-layers"/></svg></span>
+      <span class="imp-txt"><b data-i18n="imp.deckFile"></b><small data-i18n="imp.deckFileDesc"></small></span>
+    </button>
+    <input type="file" id="deckFile" accept=".json,application/json" hidden>
 
     <div class="import-option static">
       <span class="imp-ic"><svg width="21" height="21"><use href="#i-pencil"/></svg></span>
