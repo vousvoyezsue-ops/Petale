@@ -937,7 +937,7 @@
   // 카드 저장 후: 덱 목록 갱신 + 학습 중이면 현재 카드 다시 그림
   function afterCardSaved() {
     renderDeck();
-    if (!$("#view-study").classList.contains("hidden") && session && session.queue.length) {
+    if (!$("#view-study").classList.contains("hidden") && session && session.current) {
       const card = currentCard();
       if (card && card.id === editingCardId) {
         renderFace($("#acQuestion"), card, session.revealed);
@@ -1418,7 +1418,8 @@
   function startSession(deckId) {
     const queue = buildQueue(deckId);
     if (!queue.length) { toast(t("study.nothingDue")); return; }
-    session = { queue, done: 0, total: queue.length, revealed: false, global: !deckId, history: [] };
+    // main: 복습·새 카드(복습 먼저, 새 카드 나중) / learning: 세션 중 '다시·어려움' 누른 학습 카드 {id, dueAt}
+    session = { main: queue, learning: [], current: null, done: 0, total: queue.length, revealed: false, global: !deckId, history: [] };
     $("#studyDone").classList.add("hidden");
     $(".study-stage").classList.remove("hidden");
     $("#btnUndo").classList.add("hidden");
@@ -1490,7 +1491,33 @@
   });
 
   function currentCard() {
-    return Store.state.cards.find(c => c.id === session.queue[0]);
+    return Store.state.cards.find(c => c.id === session.current);
+  }
+
+  // 다음에 보여줄 카드 선택 (Anki식 시간 인식 큐)
+  //  1) 학습(다시/재학습) 카드가 다시 볼 시간이 됐으면 우선 — 가장 이른 것부터
+  //  2) 아직 시간이 안 됐으면 그 공백 동안 복습·새 카드로 채운다
+  //  3) 남은 게 학습 카드뿐이면 가장 이른 것부터 (조금 일찍이라도)
+  function pickNext(now) {
+    session.learning.sort((a, b) => a.dueAt - b.dueAt);
+    if (session.learning.length && session.learning[0].dueAt <= now) return session.learning.shift().id;
+    if (session.main.length) return session.main.shift();
+    if (session.learning.length) return session.learning.shift().id;
+    return null;
+  }
+
+  function showCard(id) {
+    session.current = id;
+    const card = currentCard();
+    session.revealed = false;
+    ratingRow.classList.add("hidden");
+    $("#revealRow").classList.remove("hidden");
+    $("#acAnswerWrap").classList.add("hidden");
+    $("#keyHint").textContent = t("study.revealHint");
+    $("#speakBtn").hidden = !(Store.settings.tts && "speechSynthesis" in window && card.type !== "occlusion");
+    answerCard.classList.toggle("media-card", isMediaCard(card));
+    renderFace($("#acQuestion"), card, false);
+    showNotes(card, false);
   }
 
   // 답 공개 시 카드의 추가 설명(메모)을 보여준다
@@ -1538,20 +1565,10 @@
   }
 
   function nextCard() {
+    const id = pickNext(Date.now());
+    if (!id) { session.current = null; updateProgress(); finishSession(); return; }
+    showCard(id); // 이미지/가리기 카드는 media-card 로 넓게 표시(showCard 내부 처리)
     updateProgress();
-    if (!session.queue.length) { finishSession(); return; }
-
-    const card = currentCard();
-    session.revealed = false;
-    ratingRow.classList.add("hidden");
-    $("#revealRow").classList.remove("hidden");
-    $("#acAnswerWrap").classList.add("hidden");
-    $("#keyHint").textContent = t("study.revealHint");
-    $("#speakBtn").hidden = !(Store.settings.tts && "speechSynthesis" in window && card.type !== "occlusion");
-    // 이미지/가리기 카드는 넓게·여백 최소화(스크롤 없이 크게 보이도록)
-    answerCard.classList.toggle("media-card", isMediaCard(card));
-    renderFace($("#acQuestion"), card, false);
-    showNotes(card, false);
   }
 
   function isMediaCard(card) {
@@ -1563,11 +1580,10 @@
     $("#studyBar").style.width = `${pct}%`;
     $("#studyCount").textContent = `${session.done} / ${session.total}`;
 
-    const remaining = session.queue
-      .map(id => Store.state.cards.find(c => c.id === id))
-      .filter(Boolean);
-    const neu = remaining.filter(SRS.isNew).length;
-    const due = remaining.length - neu;
+    // 남은 카드 = main(복습·새) + learning(학습 중) + 현재 카드
+    const mainCards = session.main.map(id => Store.state.cards.find(c => c.id === id)).filter(Boolean);
+    const neu = mainCards.filter(SRS.isNew).length;
+    const due = (mainCards.length - neu) + session.learning.length + (session.current ? 1 : 0);
     $("#sessionChips").innerHTML = `
       ${due ? `<span class="pill due">${t("pill.due", { n: due })}</span>` : ""}
       ${neu ? `<span class="pill new">${t("pill.new", { n: neu })}</span>` : ""}`;
@@ -1575,7 +1591,7 @@
 
   // Anki 방식: 전환 없이 같은 화면에서 답을 공개한다
   function reveal() {
-    if (!session || !session.queue.length || session.revealed) return;
+    if (!session || !session.current || session.revealed) return;
     session.revealed = true;
 
     const card = currentCard();
@@ -1597,19 +1613,18 @@
   }
 
   function rate(rating) {
-    if (!session || !session.revealed) return;
-    const card = currentCard();
-    const snapshot = Store.applyReview(card.id, rating);
+    if (!session || !session.revealed || !session.current) return;
+    const id = session.current;
+    const snapshot = Store.applyReview(id, rating);
     Social.pushStatsQuiet();
-    session.queue.shift();
+    session.current = null;
 
-    if (rating === 0) {
-      // '다시'는 세션 내에서 곧 다시 보여준다 — 덱 끝(새 카드 뒤)이 아니라
-      // 지금 학습 중인 흐름에 이어지도록 몇 칸 뒤에 재삽입한다.
-      const gap = Math.min(3, session.queue.length);
-      session.queue.splice(gap, 0, card.id);
+    // 리뷰 후에도 interval===0 이면 아직 학습 단계(다시·새 카드 어려움·재학습) → 그 due 시각에 다시 출제
+    const fresh = Store.state.cards.find(c => c.id === id);
+    if (fresh && fresh.interval === 0) {
+      session.learning.push({ id, dueAt: fresh.due });
     } else {
-      session.done++;
+      session.done++; // 졸업(하루 이상 간격) → 이번 세션 완료
     }
     if (snapshot) {
       session.history.push(snapshot);
@@ -1625,25 +1640,25 @@
     Store.undoReview(entry);
     Social.pushStatsQuiet();
 
-    if (entry.rating === 0) {
-      // '다시'로 큐 끝에 재삽입했던 항목 제거
-      const i = session.queue.lastIndexOf(entry.cardId);
-      if (i >= 0) session.queue.splice(i, 1);
-    } else if (session.done > 0) {
-      session.done--;
-    }
-    session.queue.unshift(entry.cardId);
+    // 방금 평가한 카드가 학습 큐에 들어가 있었으면 빼고, 아니면 완료 카운트를 되돌린다
+    const li = session.learning.findIndex(l => l.id === entry.cardId);
+    if (li >= 0) session.learning.splice(li, 1);
+    else if (session.done > 0) session.done--;
+    // 지금 보여주던 카드는 잃지 않도록 main 앞으로 되돌린다
+    if (session.current) session.main.unshift(session.current);
+
     $("#studyDone").classList.add("hidden");
     $(".study-stage").classList.remove("hidden");
     $("#btnUndo").classList.toggle("hidden", !session.history.length);
     toast(t("toast.undone"));
-    nextCard();
+    showCard(entry.cardId); // 되돌린 카드를 다시 보여준다
+    updateProgress();
   }
   $("#btnUndo").addEventListener("click", undo);
 
   // 학습 중 현재 카드 편집
   $("#btnEditStudyCard").addEventListener("click", () => {
-    if (!session || !session.queue.length) return;
+    if (!session || !session.current) return;
     openCardModal(currentCard().id);
   });
 
@@ -2211,7 +2226,7 @@
     const v = views.find(x => !$(`#view-${x}`).classList.contains("hidden"));
     if (v === "home") renderHome();
     else if (v === "deck") renderDeck();
-    else if (v === "study" && session && session.queue.length) {
+    else if (v === "study" && session && session.current) {
       const c = currentCard();
       renderFace($("#acQuestion"), c, session.revealed);
       if (session.revealed && c.type === "basic") renderFace($("#acAnswer"), c, true);
