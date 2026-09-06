@@ -593,6 +593,10 @@
       <div class="mini-stat tone-green"><b>${c.neu}</b><span>${t("deck.new")}</span></div>
       <div class="mini-stat tone-ink"><b>${c.total}</b><span>${t("deck.total")}</span></div>`;
 
+    // 별표한 카드가 있을 때만 '별표 학습' 버튼 노출
+    const starredCount = Store.cardsOf(deck.id).filter(c => c.starred && !c.suspended).length;
+    $("#btnStudyStarred").classList.toggle("hidden", !starredCount);
+
     renderShareButton();
     renderCardList();
   }
@@ -665,6 +669,9 @@
       row.querySelector(".star").addEventListener("click", () => {
         Store.updateCard(id, { starred: !card.starred });
         renderCardList();
+        // '별표 학습' 버튼 노출 갱신
+        const sc = Store.cardsOf(currentDeckId).filter(c => c.starred && !c.suspended).length;
+        $("#btnStudyStarred").classList.toggle("hidden", !sc);
       });
       row.querySelector(".susp").addEventListener("click", () => {
         Store.updateCard(id, { suspended: !card.suspended });
@@ -1461,19 +1468,27 @@
     return [...shuffle(due), ...shuffle(neu)].map(c => c.id);
   }
 
-  function startSession(deckId) {
-    const queue = buildQueue(deckId);
-    if (!queue.length) { toast(t("study.nothingDue")); return; }
+  function startSessionWith(queue, { global = false, emptyMsg } = {}) {
+    if (!queue.length) { toast(emptyMsg || t("study.nothingDue")); return; }
     // main: 복습·새 카드(복습 먼저, 새 카드 나중) / learning: 세션 중 '다시·어려움' 누른 학습 카드 {id, dueAt}
-    session = { main: queue, learning: [], current: null, done: 0, total: queue.length, revealed: false, global: !deckId, history: [] };
+    session = { main: queue, learning: [], current: null, done: 0, total: queue.length, revealed: false, global, history: [] };
     $("#studyDone").classList.add("hidden");
     $(".study-stage").classList.remove("hidden");
     $("#btnUndo").classList.add("hidden");
     show("study");
     nextCard();
   }
+  function startSession(deckId) { startSessionWith(buildQueue(deckId), { global: !deckId }); }
+
+  // 별표한 카드만 학습 — 예약 일정과 무관하게 별표된(정지 아님) 카드를 모아 본다
+  function startStarredSession(deckId) {
+    const shuffle = arr => arr.map(v => [Math.random(), v]).sort((a, b) => a[0] - b[0]).map(p => p[1]);
+    const ids = shuffle(Store.cardsOf(deckId).filter(c => c.starred && !c.suspended)).map(c => c.id);
+    startSessionWith(ids, { emptyMsg: t("study.noStarred") });
+  }
 
   $("#btnStudy").addEventListener("click", () => startSession(currentDeckId));
+  $("#btnStudyStarred").addEventListener("click", () => startStarredSession(currentDeckId));
   $("#btnStudyAll").addEventListener("click", () => startSession(null));
 
   /* ── 연습 모드 (퀴즈/쓰기/매치) ── */
