@@ -2110,6 +2110,8 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
 
 /* ═══ study top-right ═══ */
 .study-top-right { display: flex; align-items: center; gap: 10px; }
+#btnStarStudyCard.on { color: #e3a92e; }
+#btnStarStudyCard.on svg { fill: currentColor; }
 
 /* ═══ forecast (7일 예보) ═══ */
 .forecast {

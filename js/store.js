@@ -323,9 +323,10 @@ const Store = (() => {
   function applyReview(cardId, rating) {
     const c = state.cards.find(x => x.id === cardId);
     if (!c) return null;
-    const prev = { ef: c.ef, interval: c.interval, reps: c.reps, lapses: c.lapses, due: c.due };
+    const prev = { ef: c.ef, interval: c.interval, reps: c.reps, lapses: c.lapses, due: c.due, againCount: c.againCount || 0 };
     const wasNew = SRS.isNew(c);
     Object.assign(c, SRS.schedule(c, rating));
+    if (rating === 0) c.againCount = (c.againCount || 0) + 1; // '다시' 누적 횟수 (자주 틀린 카드 찾기용)
     const key = todayKey();
     state.reviews[key] = (state.reviews[key] || 0) + 1;
     state.ratingCounts[rating] = (state.ratingCounts[rating] || 0) + 1;

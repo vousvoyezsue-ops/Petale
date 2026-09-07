@@ -244,6 +244,10 @@
         <svg width="16" height="16"><use href="#i-star"/></svg>
         <span data-i18n="deck.studyStarred"></span>
       </button>
+      <button class="btn secondary large hidden" id="btnStudyLeeches">
+        <svg width="16" height="16"><use href="#i-flame"/></svg>
+        <span data-i18n="deck.studyLeeches"></span>
+      </button>
       <button class="btn secondary large" id="btnAddCard" data-i18n="deck.addCard"></button>
       <button class="btn ghost large" id="btnImportCards">
         <svg width="16" height="16"><use href="#i-download"/></svg>
@@ -308,9 +312,16 @@
       </button>
       <div class="study-top-right">
         <div class="session-chips" id="sessionChips"></div>
+        <button class="btn ghost sm" id="btnStarStudyCard" data-i18n-title="study.star" title="star">
+          <svg width="14" height="14"><use href="#i-star"/></svg>
+        </button>
         <button class="btn ghost sm" id="btnEditStudyCard" data-i18n-title="study.edit" title="edit">
           <svg width="14" height="14"><use href="#i-pencil"/></svg>
           <span data-i18n="study.edit"></span>
+        </button>
+        <button class="btn ghost sm danger" id="btnDeleteStudyCard" data-i18n-title="study.delete" title="delete">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+          <span data-i18n="study.delete"></span>
         </button>
         <button class="btn ghost sm hidden" id="btnUndo" data-i18n-title="study.undo">
           <svg width="14" height="14"><use href="#i-undo"/></svg>
