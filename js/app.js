@@ -21,6 +21,7 @@
   let selectedDecks = new Set(); // 선택된 덱 id
   let cardSelectMode = false;    // 덱 상세 카드 다중 선택 모드
   let selectedCards = new Set(); // 선택된 카드 id
+  const AGAIN_THRESHOLD = 5;     // '다시'를 이 횟수 이상 누른 카드 = 자주 틀림(leech)
   let cardType = "basic";       // 카드 모달의 현재 타입
   let session = null;           // { queue: [cardId], done, total, flipped }
   let authMode = "signin";
@@ -596,6 +597,9 @@
     // 별표한 카드가 있을 때만 '별표 학습' 버튼 노출
     const starredCount = Store.cardsOf(deck.id).filter(c => c.starred && !c.suspended).length;
     $("#btnStudyStarred").classList.toggle("hidden", !starredCount);
+    // '다시'를 자주 누른(≥5회) 카드가 있을 때만 '자주 틀림' 버튼 노출
+    const leechCount = Store.cardsOf(deck.id).filter(c => (c.againCount || 0) >= AGAIN_THRESHOLD && !c.suspended).length;
+    $("#btnStudyLeeches").classList.toggle("hidden", !leechCount);
 
     renderShareButton();
     renderCardList();
@@ -1480,15 +1484,20 @@
   }
   function startSession(deckId) { startSessionWith(buildQueue(deckId), { global: !deckId }); }
 
+  const shuffleIds = cards => cards.map(v => [Math.random(), v]).sort((a, b) => a[0] - b[0]).map(p => p[1].id);
+
   // 별표한 카드만 학습 — 예약 일정과 무관하게 별표된(정지 아님) 카드를 모아 본다
   function startStarredSession(deckId) {
-    const shuffle = arr => arr.map(v => [Math.random(), v]).sort((a, b) => a[0] - b[0]).map(p => p[1]);
-    const ids = shuffle(Store.cardsOf(deckId).filter(c => c.starred && !c.suspended)).map(c => c.id);
-    startSessionWith(ids, { emptyMsg: t("study.noStarred") });
+    startSessionWith(shuffleIds(Store.cardsOf(deckId).filter(c => c.starred && !c.suspended)), { emptyMsg: t("study.noStarred") });
+  }
+  // '다시'를 자주 누른(≥5회) 카드만 학습 — 자주 틀리는 카드 집중 복습
+  function startLeechSession(deckId) {
+    startSessionWith(shuffleIds(Store.cardsOf(deckId).filter(c => (c.againCount || 0) >= AGAIN_THRESHOLD && !c.suspended)), { emptyMsg: t("study.noLeeches") });
   }
 
   $("#btnStudy").addEventListener("click", () => startSession(currentDeckId));
   $("#btnStudyStarred").addEventListener("click", () => startStarredSession(currentDeckId));
+  $("#btnStudyLeeches").addEventListener("click", () => startLeechSession(currentDeckId));
   $("#btnStudyAll").addEventListener("click", () => startSession(null));
 
   /* ── 연습 모드 (퀴즈/쓰기/매치) ── */
@@ -1579,6 +1588,7 @@
     answerCard.classList.toggle("media-card", isMediaCard(card));
     renderFace($("#acQuestion"), card, false);
     showNotes(card, false);
+    updateStudyStar();
   }
 
   // 답 공개 시 카드의 추가 설명(메모)을 보여준다
@@ -1721,6 +1731,35 @@
   $("#btnEditStudyCard").addEventListener("click", () => {
     if (!session || !session.current) return;
     openCardModal(currentCard().id);
+  });
+
+  // 학습 중 별표 토글
+  function updateStudyStar() {
+    const card = session && session.current ? currentCard() : null;
+    $("#btnStarStudyCard").classList.toggle("on", !!(card && card.starred));
+  }
+  $("#btnStarStudyCard").addEventListener("click", () => {
+    if (!session || !session.current) return;
+    const card = currentCard();
+    Store.updateCard(card.id, { starred: !card.starred });
+    updateStudyStar();
+  });
+
+  // 학습 중 현재 카드 삭제
+  $("#btnDeleteStudyCard").addEventListener("click", () => {
+    if (!session || !session.current) return;
+    const id = session.current;
+    confirmDialog(t("confirm.deleteCard"), t("confirm.deleteCardText"), () => {
+      Store.deleteCard(id);
+      session.current = null;
+      session.main = session.main.filter(x => x !== id);
+      session.learning = session.learning.filter(l => l.id !== id);
+      session.history = session.history.filter(h => h.cardId !== id); // 삭제된 카드의 undo 항목 제거
+      if (session.total > session.done) session.total--;
+      $("#btnUndo").classList.toggle("hidden", !session.history.length);
+      toast(t("toast.cardDeleted"));
+      nextCard();
+    });
   });
 
   answerCard.addEventListener("click", () => reveal());
