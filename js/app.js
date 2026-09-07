@@ -21,7 +21,10 @@
   let selectedDecks = new Set(); // 선택된 덱 id
   let cardSelectMode = false;    // 덱 상세 카드 다중 선택 모드
   let selectedCards = new Set(); // 선택된 카드 id
-  const AGAIN_THRESHOLD = 5;     // '다시'를 이 횟수 이상 누른 카드 = 자주 틀림(leech)
+  const AGAIN_THRESHOLD = 5;     // '다시'를 이 횟수 이상 누른 카드 = 자주 틀림(leech) 후보
+  const MASTERED_INTERVAL = 21;  // 복습 간격이 이 일수(일) 이상이면 사실상 마스터 → 자주 틀림에서 제외
+  // '자주 틀림'(leech): 여러 번 틀렸지만 아직 마스터하지 못한, '지금도 어려운' 카드만
+  const isLeech = c => (c.againCount || 0) >= AGAIN_THRESHOLD && !c.suspended && c.interval < MASTERED_INTERVAL;
   let cardType = "basic";       // 카드 모달의 현재 타입
   let session = null;           // { queue: [cardId], done, total, flipped }
   let authMode = "signin";
@@ -598,7 +601,7 @@
     const starredCount = Store.cardsOf(deck.id).filter(c => c.starred && !c.suspended).length;
     $("#btnStudyStarred").classList.toggle("hidden", !starredCount);
     // '다시'를 자주 누른(≥5회) 카드가 있을 때만 '자주 틀림' 버튼 노출
-    const leechCount = Store.cardsOf(deck.id).filter(c => (c.againCount || 0) >= AGAIN_THRESHOLD && !c.suspended).length;
+    const leechCount = Store.cardsOf(deck.id).filter(isLeech).length;
     $("#btnStudyLeeches").classList.toggle("hidden", !leechCount);
 
     renderShareButton();
@@ -1492,7 +1495,7 @@
   }
   // '다시'를 자주 누른(≥5회) 카드만 학습 — 자주 틀리는 카드 집중 복습
   function startLeechSession(deckId) {
-    startSessionWith(shuffleIds(Store.cardsOf(deckId).filter(c => (c.againCount || 0) >= AGAIN_THRESHOLD && !c.suspended)), { emptyMsg: t("study.noLeeches") });
+    startSessionWith(shuffleIds(Store.cardsOf(deckId).filter(isLeech)), { emptyMsg: t("study.noLeeches") });
   }
 
   $("#btnStudy").addEventListener("click", () => startSession(currentDeckId));
