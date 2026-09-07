@@ -1198,7 +1198,9 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
   font-size: clamp(26px, 4vw, 34px);
   margin-bottom: 12px;
 }
-.done-sub { color: var(--ink-2); margin-bottom: 32px; font-size: 15px; }
+.done-sub { color: var(--ink-2); margin-bottom: 6px; font-size: 15px; }
+.done-note { color: var(--ink-2); font-size: 14px; margin-bottom: 4px; }
+.done-next { color: var(--ink-3); font-size: 13px; margin-bottom: 32px; font-variant-numeric: tabular-nums; }
 
 .petal-burst { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
 .petal-burst span {
