@@ -1475,7 +1475,7 @@
   function startSessionWith(queue, { global = false, emptyMsg } = {}) {
     if (!queue.length) { toast(emptyMsg || t("study.nothingDue")); return; }
     // main: 복습·새 카드(복습 먼저, 새 카드 나중) / learning: 세션 중 '다시·어려움' 누른 학습 카드 {id, dueAt}
-    session = { main: queue, learning: [], current: null, done: 0, total: queue.length, revealed: false, global, history: [] };
+    session = { main: queue, learning: [], current: null, done: 0, total: queue.length, revealed: false, global, history: [], again: 0 };
     $("#studyDone").classList.add("hidden");
     $(".study-stage").classList.remove("hidden");
     $("#btnUndo").classList.add("hidden");
@@ -1688,6 +1688,7 @@
     const id = session.current;
     const snapshot = Store.applyReview(id, rating);
     Social.pushStatsQuiet();
+    if (rating === 0) session.again++; // 이번 세션 '다시' 누른 횟수 (완료 요약용)
     session.current = null;
 
     // 리뷰 후에도 interval===0 이면 아직 학습 단계(다시·새 카드 어려움·재학습) → 그 due 시각에 다시 출제
@@ -1710,6 +1711,7 @@
     const entry = session.history.pop();
     Store.undoReview(entry);
     Social.pushStatsQuiet();
+    if (entry.rating === 0 && session.again > 0) session.again--;
 
     // 방금 평가한 카드가 학습 큐에 들어가 있었으면 빼고, 아니면 완료 카운트를 되돌린다
     const li = session.learning.findIndex(l => l.id === entry.cardId);
@@ -1798,12 +1800,43 @@
     if (e.code === "Escape") quitStudy();
   });
 
+  // 밀리초 → 사람이 읽는 짧은 기간(분·시간·일·개월·년)
+  function fmtDuration(ms) {
+    const DAY = 86400000;
+    if (ms < 3600000) return t("iv.min", { n: Math.max(1, Math.round(ms / 60000)) });
+    if (ms < DAY) return t("iv.hour", { n: Math.round(ms / 3600000) });
+    const days = Math.round(ms / DAY);
+    if (days < 30) return t("iv.day", { n: days });
+    if (days < 365) return t("iv.month", { n: (days / 30).toFixed(1).replace(/\.0$/, "") });
+    return t("iv.year", { n: (days / 365).toFixed(1).replace(/\.0$/, "") });
+  }
+
+  // 이번 학습 범위에서 다음 복습까지 남은 시간(가장 이른 예약 카드). 없으면 null
+  function nextReviewMs() {
+    const now = Date.now();
+    const pool = session.global ? Store.state.cards : Store.cardsOf(currentDeckId);
+    let min = Infinity;
+    for (const c of pool) {
+      if (c.suspended || SRS.isNew(c)) continue;
+      if (c.due > now && c.due < min) min = c.due;
+    }
+    return min === Infinity ? null : min - now;
+  }
+
   function finishSession() {
     $(".study-stage").classList.add("hidden");
     ratingRow.classList.add("hidden");
     $("#keyHint").textContent = "";
     $("#sessionChips").innerHTML = "";
     $("#doneSummary").textContent = t("study.doneSub", { n: session.total });
+    // 틀림 없이 마쳤으면 격려, 아니면 '다시' 횟수를 조용히 알려준다
+    $("#doneStats").textContent = session.again > 0
+      ? t("study.doneAgain", { n: session.again })
+      : t("study.donePerfect");
+    const next = nextReviewMs();
+    $("#doneNext").textContent = next != null
+      ? t("study.doneNext", { d: fmtDuration(next) })
+      : t("study.doneNextNone");
     $("#studyDone").classList.remove("hidden");
     burstPetals();
   }
