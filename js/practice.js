@@ -48,13 +48,41 @@ const Practice = (() => {
   /* ══════════ 퀴즈 (객관식) ══════════ */
   let quiz = null; // { items:[{q,a,options}], i, correct }
 
+  // 두 답의 유사도(0~1): 문자 바이그램 겹침 + 길이 근접도.
+  // 정답과 비슷한 오답을 골라 선택지가 너무 뻔해지지 않게 한다.
+  function similarity(a, b) {
+    a = String(a).toLowerCase(); b = String(b).toLowerCase();
+    const bigrams = (s) => {
+      const t = "  " + s + "  ", set = new Set();
+      for (let i = 0; i < t.length - 1; i++) set.add(t.slice(i, i + 2));
+      return set;
+    };
+    const ga = bigrams(a), gb = bigrams(b);
+    let inter = 0; ga.forEach(x => { if (gb.has(x)) inter++; });
+    const jac = inter / (ga.size + gb.size - inter || 1);
+    const lenClose = 1 - Math.abs(a.length - b.length) / Math.max(a.length, b.length, 1);
+    return jac * 0.7 + lenClose * 0.3;
+  }
+
+  // 정답과 가장 비슷한 후보군에서 무작위로 오답 n개를 뽑는다(변별력 + 매번 다른 조합)
+  function pickDistractors(correct, answers, n = 3) {
+    const others = answers.filter(a => a !== correct);
+    if (others.length <= n) return shuffle(others);
+    const ranked = others
+      .map(a => [similarity(a, correct), a])
+      .sort((x, y) => y[0] - x[0])
+      .map(r => r[1]);
+    const poolSize = Math.min(others.length, Math.max(n + 3, 6));
+    return shuffle(ranked.slice(0, poolSize)).slice(0, n);
+  }
+
   function startQuiz(deckId, exit) {
     const p = pool(deckId);
     if (p.length < 2) return false;
     onExit = exit;
-    const answers = p.map(x => x.a);
+    const answers = [...new Set(p.map(x => x.a))]; // 중복 정답 제거
     const items = shuffle(p).slice(0, 20).map(item => {
-      const wrong = shuffle(answers.filter(a => a !== item.a)).slice(0, 3);
+      const wrong = pickDistractors(item.a, answers);
       return { ...item, options: shuffle([item.a, ...wrong]) };
     });
     quiz = { items, i: 0, correct: 0, locked: false };
