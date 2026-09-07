@@ -38,10 +38,21 @@ const SRS = (() => {
     return { ef: 2.5, interval: 0, reps: 0, lapses: 0, due: Date.now() };
   }
 
+  // 복습 간격에 소량의 무작위(±약 5%)를 더해 복습 부담을 분산한다.
+  // 같은 날 만든 카드가 계속 같은 날 몰리는 것을 막는다. 3일 미만은 그대로 둔다
+  // (짧은 간격은 분산 이득이 없고 상대 변화가 크다).
+  function fuzzInterval(days) {
+    if (days < 3) return days;
+    const amt = Math.max(1, Math.round(days * 0.05));
+    const delta = Math.round((Math.random() * 2 - 1) * amt); // -amt … +amt
+    return Math.max(1, days + delta);
+  }
+
   // rating을 적용한 다음 상태를 계산한다 (원본은 변경하지 않음)
   // 새/학습 중 카드(reps 0): 다시·어려움 간격은 설정값(steps) 따름 · 보통 1일 · 쉬움 4일
   // 복습 카드(reps ≥ 1): SM-2 기반 간격 확장
-  function schedule(card, rating, now = Date.now()) {
+  // fuzz=true 이면 졸업 간격에 분산을 적용한다(실제 저장 시). 버튼 미리보기는 fuzz 없이 계산.
+  function schedule(card, rating, now = Date.now(), fuzz = false) {
     let { ef, interval, reps, lapses } = card;
     const learning = reps === 0; // 아직 졸업하지 않은(새·학습 단계) 카드
 
@@ -67,7 +78,8 @@ const SRS = (() => {
     }
 
     interval = Math.min(interval, 365 * 4);
-    return { ef, interval, reps: reps + 1, lapses, due: now + interval * DAY };
+    const outInterval = fuzz ? fuzzInterval(interval) : interval;
+    return { ef, interval: outInterval, reps: reps + 1, lapses, due: now + outInterval * DAY };
   }
 
   // 버튼 라벨용 예상 간격 문자열
