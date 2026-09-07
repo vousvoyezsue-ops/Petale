@@ -13,6 +13,15 @@ const Practice = (() => {
   const esc = (s) => String(s).replace(/[&<>"']/g, c =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
+  // 카드 앞/뒷면은 서식이 들어간 리치 HTML로 저장된다. 연습 모드(쓰기·퀴즈·매치)는
+  // 평문으로 다뤄야 화면에 태그가 그대로 노출되지 않고, 정답 대조도 정확해진다.
+  const htmlToText = (html) => {
+    const tmp = String(html || "").replace(/<(?:br|\/p|\/div|\/li)\s*\/?>/gi, " ");
+    const d = document.createElement("div");
+    d.innerHTML = tmp;
+    return (d.textContent || "").replace(/\s+/g, " ").trim();
+  };
+
   const CLOZE_RE = /\{\{c(\d+)::([\s\S]*?)(?:::([\s\S]*?))?\}\}/g;
 
   // 텍스트 Q/A 쌍으로 변환 가능한 카드만 (일시정지 제외)
@@ -20,14 +29,14 @@ const Practice = (() => {
     return Store.cardsOf(deckId)
       .filter(c => !c.suspended)
       .map(c => {
-        if (c.type === "basic") return { q: c.front, a: c.back };
+        if (c.type === "basic") return { q: htmlToText(c.front), a: htmlToText(c.back) };
         if (c.type === "cloze") {
           let answer = null;
           const q = c.front.replace(CLOZE_RE, (_, i, ans) => {
             if (Number(i) === c.clozeIndex) { answer = ans; return "＿＿＿"; }
             return ans;
           });
-          return answer ? { q, a: answer } : null;
+          return answer ? { q: htmlToText(q), a: htmlToText(answer) } : null;
         }
         return null; // occlusion은 연습 모드 제외
       })
@@ -118,6 +127,7 @@ const Practice = (() => {
   function renderWrite() {
     const { items, i } = write;
     write.revealed = false;
+    write.markedCorrect = false;
     $("#writeProgress").textContent = `${i + 1} / ${items.length}`;
     $("#writeBar").style.width = `${(i / items.length) * 100}%`;
     $("#writeQuestion").textContent = items[i].q;
@@ -127,6 +137,7 @@ const Practice = (() => {
     $("#writeCheck").classList.remove("hidden");
     $("#writeDontKnow").classList.remove("hidden");
     $("#writeNext").classList.add("hidden");
+    $("#writeMarkCorrect").classList.add("hidden");
     $("#writeInput").focus();
   }
 
@@ -143,6 +154,18 @@ const Practice = (() => {
     $("#writeCheck").classList.add("hidden");
     $("#writeDontKnow").classList.add("hidden");
     $("#writeNext").classList.remove("hidden");
+    // 자동 채점이 틀림으로 봤을 때만 수동 정답 처리 버튼 노출(오타·동의어·서식 차이 구제)
+    $("#writeMarkCorrect").classList.toggle("hidden", ok);
+    $("#writeNext").focus();
+  }
+
+  // 사용자가 직접 정답으로 인정 (자동 채점 오탐 구제). 한 문항당 한 번만 반영
+  function markCorrect() {
+    if (!write || !write.revealed || write.markedCorrect) return;
+    write.markedCorrect = true;
+    write.correct++;
+    $("#writeFeedback").innerHTML = `<span class="wf ok">${t("write.correct")}</span>`;
+    $("#writeMarkCorrect").classList.add("hidden");
     $("#writeNext").focus();
   }
 
@@ -244,6 +267,7 @@ const Practice = (() => {
     $$("[data-practice-exit]").forEach(b => b.addEventListener("click", exit));
     $("#writeCheck").addEventListener("click", () => checkWrite(false));
     $("#writeDontKnow").addEventListener("click", () => checkWrite(true));
+    $("#writeMarkCorrect").addEventListener("click", markCorrect);
     $("#writeNext").addEventListener("click", nextWrite);
     $("#writeInput").addEventListener("keydown", (e) => {
       if (e.key === "Enter") { e.preventDefault(); write?.revealed ? nextWrite() : checkWrite(false); }
