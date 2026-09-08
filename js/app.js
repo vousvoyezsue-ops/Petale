@@ -963,7 +963,8 @@
       setCardType("cloze");
       setRich($("#clozeInput"), card.front);
     } else {
-      setCardType(card ? "basic" : cardType === "occlusion" ? "basic" : cardType);
+      // 새 카드는 항상 basic으로 시작(직전 타입을 기억하지 않아 헷갈리지 않게)
+      setCardType("basic");
       setRich($("#cardFrontInput"), card ? card.front : "");
       setRich($("#cardBackInput"), card ? card.back : "");
       if (!card) setRich($("#clozeInput"), "");
@@ -1065,7 +1066,7 @@
     if (cardType === "cloze") {
       const text = getRich($("#clozeInput"));
       const indices = clozeIndices(text);
-      if (!text || !indices.length) { e.preventDefault(); return; }
+      if (!text || !indices.length) { e.preventDefault(); toast(t("toast.clozeNeeded")); return; }
       if (editingCardId) {
         // 같은 노트에서 나온 형제 빈칸 카드들에 본문·메모·배율을 함께 반영(빈칸 추가·삭제 포함)
         Store.syncClozeSiblings(editingCardId, text, indices, { notes, noteImageId, ...scaleValues() });
