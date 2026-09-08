@@ -1164,12 +1164,14 @@
   // 빈칸 삽입 버튼: {{cN::…}} 을 커서 위치에 넣는다.
   // 선택 영역이 있으면 그 텍스트를 감싸고, 없으면 빈 빈칸을 넣고 커서를 안쪽에 둔다.
   // N은 현재 필드의 가장 큰 번호 + 1 로 자동 증가.
-  $("#richInsertCloze").addEventListener("mousedown", (e) => e.preventDefault());
-  $("#richInsertCloze").addEventListener("click", () => {
+  // 빈칸 삽입. sameGroup=true 면 새 번호를 매기지 않고 현재 가장 큰 번호를 재사용해
+  // 여러 곳을 같은 번호로 묶는다 → 그 카드에서 동시에 가려지고 동시에 공개된다.
+  function insertClozeToken(sameGroup) {
     const field = $("#clozeInput");
     field.focus();
     const existing = clozeIndices(field.textContent || "");
-    const n = existing.length ? Math.max(...existing) + 1 : 1;
+    const max = existing.length ? Math.max(...existing) : 0;
+    const n = sameGroup ? (max || 1) : max + 1;
     const sel = window.getSelection();
     const selected = sel && sel.rangeCount ? sel.toString() : "";
     const close = "}}";
@@ -1186,7 +1188,11 @@
         } catch { /* 무시 */ }
       }
     }
-  });
+  }
+  $("#richInsertCloze").addEventListener("mousedown", (e) => e.preventDefault());
+  $("#richInsertCloze").addEventListener("click", () => insertClozeToken(false));
+  $("#richInsertClozeSame").addEventListener("mousedown", (e) => e.preventDefault());
+  $("#richInsertClozeSame").addEventListener("click", () => insertClozeToken(true));
   $("#richFont").addEventListener("change", e => {
     if (!e.target.value) return;
     activeRichField.focus(); document.execCommand("styleWithCSS", false, true); document.execCommand("fontName", false, e.target.value); e.target.value = "";
