@@ -1383,16 +1383,15 @@
     }
   }
 
-  // Petale 덱 파일(.json, 이미지 포함) 가져오기 — 새 덱으로 복원
+  // Petale 덱 파일(.json, 이미지 포함) 가져오기 — 지금 열려 있는 덱에 카드 추가(이미지 포함)
   async function runDeckFileImport(file) {
     $("#importError").textContent = "";
     try {
       const bundle = JSON.parse(await file.text());
-      const { deck, count } = Store.importDeckBundle(bundle);
+      const { count } = Store.importDeckBundle(bundle, currentDeckId);
       $("#importModal").close();
-      currentDeckId = deck.id;
       cardSelectMode = false; selectedCards.clear();
-      show("deck");
+      renderDeck();
       toast(t("imp.done", { n: count }));
     } catch (e) {
       $("#importError").textContent = e && e.message === "bad_file" ? t("imp.badDeckFile") : t("imp.fail");
