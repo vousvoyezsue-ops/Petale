@@ -426,13 +426,32 @@ const Store = (() => {
   }
 
   // 덱 번들 가져오기: 미디어 id를 새로 매핑해 카드 이미지가 깨지지 않게 복원한다
-  function importDeckBundle(bundle) {
+  // targetDeckId 를 주면 그 덱에 카드를 추가(병합)하고, 없으면 번들 이름으로 새 덱을 만든다.
+  function importDeckBundle(bundle, targetDeckId = null) {
     if (!bundle || bundle.petale !== "deck" || !Array.isArray(bundle.cards)) throw new Error("bad_file");
     const idMap = {};
     for (const [oldId, dataURL] of Object.entries(bundle.media || {})) {
       if (typeof dataURL === "string" && dataURL.startsWith("data:")) idMap[oldId] = addMedia(dataURL);
     }
     const now = Date.now();
+    const deck = targetDeckId ? getDeck(targetDeckId) : null;
+    if (targetDeckId && !deck) throw new Error("bad_file");
+    if (!deck) return importIntoNewDeck(bundle, idMap, now);
+    let count = 0;
+    bundle.cards.forEach((c, i) => {
+      if (!c || typeof c !== "object") return;
+      const card = { ...c, id: uid() + i.toString(36), deckId: deck.id, created: now + i, ...SRS.newCardState() };
+      for (const key of ["imageId", "frontImageId", "backImageId", "noteImageId"]) {
+        if (card[key]) card[key] = idMap[card[key]] || null;
+      }
+      state.cards.push(card);
+      count++;
+    });
+    save();
+    return { deck, count };
+  }
+
+  function importIntoNewDeck(bundle, idMap, now) {
     const deck = addDeck((bundle.name || "덱").slice(0, 60), (bundle.desc || "").slice(0, 200));
     let count = 0;
     bundle.cards.forEach((c, i) => {
