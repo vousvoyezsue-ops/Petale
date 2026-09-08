@@ -319,6 +319,39 @@ const Store = (() => {
     return save();
   }
 
+  // cloze 노트 동기화: 한 노트에서 나온 형제 카드들(같은 clozeNoteId, 없으면 같은 덱·같은 front)의
+  // 본문·메모·배율을 함께 갱신하고, 빈칸 번호 추가·삭제까지 반영한다. 남는 카드의 학습 일정은 유지.
+  function syncClozeSiblings(cardId, newFront, indices, content = {}) {
+    const base = state.cards.find(c => c.id === cardId);
+    if (!base) return;
+    let noteId = base.clozeNoteId;
+    let siblings;
+    if (noteId) {
+      siblings = state.cards.filter(c => c.type === "cloze" && c.clozeNoteId === noteId);
+    } else {
+      // 레거시(식별자 없는 기존 카드): 같은 덱에서 같은 본문을 쓰는 cloze 카드를 형제로 보고 새 식별자 부여
+      noteId = uid();
+      siblings = state.cards.filter(c => c.type === "cloze" && c.deckId === base.deckId && c.front === base.front);
+    }
+    const wanted = new Set(indices);
+    const byIdx = new Map();
+    siblings.forEach(c => byIdx.set(c.clozeIndex, c));
+    // 남는 빈칸: 기존 형제는 내용만 갱신(일정 유지), 새 빈칸은 새 카드로 추가
+    indices.forEach(idx => {
+      const ex = byIdx.get(idx);
+      if (ex) Object.assign(ex, { front: newFront, clozeNoteId: noteId, ...content });
+      else state.cards.push({
+        id: uid(), deckId: base.deckId, type: "cloze", front: newFront, back: "",
+        clozeIndex: idx, clozeNoteId: noteId, created: Date.now(), ...content, ...SRS.newCardState(),
+      });
+    });
+    // 사라진 빈칸 번호의 형제 삭제
+    const kill = new Set(siblings.filter(c => !wanted.has(c.clozeIndex)).map(c => c.id));
+    if (kill.size) state.cards = state.cards.filter(c => !kill.has(c.id));
+    gcMedia();
+    save();
+  }
+
   // 평가 적용. 실행 취소용 스냅샷을 반환한다.
   function applyReview(cardId, rating) {
     const c = state.cards.find(x => x.id === cardId);
@@ -485,7 +518,7 @@ const Store = (() => {
     addDeck, updateDeck, deleteDeck, deleteDecks, getDeck, patchDeck,
     addFolder, updateFolder, deleteFolder, getFolder,
     addMedia, getMedia, putMedia, referencedMedia, gcMedia,
-    addCard, updateCard, deleteCard, deleteCards, cardsOf, bulkAddCards,
+    addCard, updateCard, deleteCard, deleteCards, cardsOf, bulkAddCards, syncClozeSiblings,
     applyReview, undoReview, newIntroducedToday,
     resetDeckSchedule, exportDeckBundle, importDeckBundle,
     deckCounts, streak, forecast, retention, exportDeckCSV,
