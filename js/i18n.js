@@ -182,6 +182,9 @@ const I18N = (() => {
       "cardModal.submitAdd": "추가",
       "cardModal.submitSave": "저장",
       "common.cancel": "취소",
+      "common.close": "닫기",
+      "cardView.front": "앞면",
+      "cardView.back": "뒷면",
 
       // occlusion
       "occ.title": "이미지 가리기 카드",
@@ -549,6 +552,9 @@ const I18N = (() => {
       "cardModal.submitAdd": "Add",
       "cardModal.submitSave": "Save",
       "common.cancel": "Cancel",
+      "common.close": "Close",
+      "cardView.front": "Front",
+      "cardView.back": "Back",
 
       "occ.title": "Image occlusion card",
       "occ.pick": "Choose image",
