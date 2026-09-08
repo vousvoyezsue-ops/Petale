@@ -995,6 +995,27 @@
   </div>
 </dialog>
 
+<!-- ═══════════ 모달: 카드 보기 (읽기 전용) ═══════════ -->
+<dialog class="modal" id="cardViewModal">
+  <div class="modal-body">
+    <div class="cardview">
+      <div class="cardview-face">
+        <span class="cardview-label" data-i18n="cardView.front"></span>
+        <div class="cardview-body" id="cardViewFront"></div>
+      </div>
+      <div class="cardview-face">
+        <span class="cardview-label" data-i18n="cardView.back"></span>
+        <div class="cardview-body" id="cardViewBack"></div>
+      </div>
+      <div class="cardview-notes hidden" id="cardViewNotes"></div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn ghost" data-close data-i18n="common.close"></button>
+      <button type="button" class="btn secondary" id="cardViewEdit" data-i18n="cardRow.edit"></button>
+    </div>
+  </div>
+</dialog>
+
 <!-- ═══════════ 모달: 공유 범위 선택 ═══════════ -->
 <dialog class="modal" id="shareModal">
   <div class="modal-body">
