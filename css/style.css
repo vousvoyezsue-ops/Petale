@@ -992,6 +992,21 @@ input, textarea, select { font-family: inherit; }
 .occ-mask.selected {
   box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--rose-600);
 }
+/* 묶인 마스크: 세이지 계열로 구분(같은 묶음끼리 같은 번호 배지) */
+.occ-mask.grouped {
+  background: color-mix(in srgb, var(--sage-500) 82%, white);
+  border-color: var(--olive-700);
+}
+/* 묶기 모드에서 고른 마스크 */
+.occ-mask.picked {
+  box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--olive-700);
+}
+.occ-stage.group-mode .occ-mask { cursor: pointer; }
+.occ-group-row {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  margin: 2px 0 8px;
+}
+.occ-group-hint { font-size: 12.5px; color: var(--ink-3); flex: 1; min-width: 140px; }
 .occ-handle {
   position: absolute;
   right: -7px; bottom: -7px;
