@@ -802,9 +802,15 @@
       <button type="button" class="btn secondary sm" id="occPick" data-i18n="occ.pick"></button>
       <input type="file" id="occFile" accept="image/*" hidden>
       <span class="occ-count" id="occCount"></span>
+      <button type="button" class="btn ghost sm" id="occGroupToggle" data-i18n="occ.groupMode"></button>
       <button type="button" class="btn ghost sm" id="occClear" data-i18n="occ.clear"></button>
     </div>
     <p class="occ-paste-hint" data-i18n="occ.pasteHint"></p>
+    <div class="occ-group-row hidden" id="occGroupRow">
+      <span class="occ-group-hint" data-i18n="occ.groupHint"></span>
+      <button type="button" class="btn secondary sm" id="occGroupApply" disabled data-i18n="occ.groupApply"></button>
+      <button type="button" class="btn ghost sm" id="occGroupClear" disabled data-i18n="occ.groupUngroup"></button>
+    </div>
 
     <div class="occ-stage empty" id="occStage">
       <div class="occ-frame" id="occFrame">
