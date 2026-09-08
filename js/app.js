@@ -684,6 +684,7 @@
         Store.updateCard(id, { suspended: !card.suspended });
         renderDeck(); // 학습 대기 수치도 갱신
       });
+      row.querySelector(".texts").addEventListener("click", () => openCardView(id));
       row.querySelector(".edit")?.addEventListener("click", () => openCardModal(id));
       row.querySelector(".del").addEventListener("click", () => {
         confirmDialog(t("confirm.deleteCard"), t("confirm.deleteCardText"), () => {
@@ -1636,6 +1637,34 @@
       img.alt = "";
       host.appendChild(img);
     }
+  }
+
+  // 카드 목록에서 개별 카드를 눌렀을 때: 앞·뒷면을 그대로 보여주는 읽기 전용 뷰어
+  function openCardView(id) {
+    const card = Store.state.cards.find(c => c.id === id);
+    if (!card) return;
+    renderFace($("#cardViewFront"), card, false); // 앞면(문제)
+    renderFace($("#cardViewBack"), card, true);   // 뒷면(정답)
+
+    const noteImg = card.noteImageId ? Store.getMedia(card.noteImageId) : null;
+    const hasText = card.notes && card.notes.trim();
+    const nEl = $("#cardViewNotes");
+    if (hasText || noteImg) {
+      let html = hasText ? `<div class="note-text">${escapeHTML(card.notes).replace(/\n/g, "<br>")}</div>` : "";
+      if (noteImg) html += `<img class="note-img" src="${noteImg}" alt="">`;
+      nEl.innerHTML = html;
+      nEl.classList.remove("hidden");
+    } else {
+      nEl.classList.add("hidden");
+      nEl.innerHTML = "";
+    }
+
+    // 이미지 가리기(occlusion)는 전용 편집기를 쓰므로 여기선 편집 버튼 숨김
+    const editBtn = $("#cardViewEdit");
+    editBtn.classList.toggle("hidden", card.type === "occlusion");
+    editBtn.onclick = () => { $("#cardViewModal").close(); openCardModal(id); };
+
+    $("#cardViewModal").showModal();
   }
 
   function nextCard() {

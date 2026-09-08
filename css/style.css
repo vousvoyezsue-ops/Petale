@@ -724,7 +724,32 @@ input, textarea, select { font-family: inherit; }
   border-color: var(--rose-500);
   color: #fff;
 }
-.card-row .texts { flex: 1; min-width: 0; }
+.card-row .texts { flex: 1; min-width: 0; cursor: pointer; }
+.card-row:not(.select-mode) .texts:hover .front { color: var(--sage-500); }
+
+/* ═══ 카드 보기 (읽기 전용 뷰어) ═══ */
+.cardview { display: flex; flex-direction: column; gap: 14px; }
+.cardview-face { display: flex; flex-direction: column; gap: 6px; }
+.cardview-label {
+  font-size: 11px; font-weight: 640; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--ink-3);
+}
+.cardview-body {
+  padding: 18px 20px;
+  border: 1px solid var(--edge);
+  border-radius: var(--r-lg);
+  background: var(--paper);
+  font-size: 17px; line-height: 1.6; color: var(--ink);
+  word-break: break-word;
+}
+.cardview-body .face-img { display: block; max-width: 100%; margin: 12px auto 0; border-radius: var(--r-md); }
+.cardview-notes {
+  padding: 14px 16px;
+  border-radius: var(--r-md);
+  background: var(--blush-50);
+  font-size: 14px; color: var(--ink-2); line-height: 1.55;
+}
+.cardview-notes .note-img { display: block; max-width: 100%; margin: 10px auto 0; border-radius: var(--r-sm); }
 .card-row .front { font-weight: 620; font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .card-row .back { font-size: 13px; color: var(--ink-3); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .type-chip {
