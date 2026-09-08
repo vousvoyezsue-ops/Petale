@@ -11,9 +11,11 @@ const Occlusion = (() => {
   const MIN_SIZE = 1.5;      // 마스크 최소 크기(%)
 
   let imageData = null;      // dataURL
-  let rects = [];            // [{x,y,w,h}] in %
+  let rects = [];            // [{x,y,w,h,g?}] in % — g는 묶음(그룹) 번호
   let selected = -1;         // 선택된 마스크 인덱스
   let drag = null;           // { type: 'draw'|'move'|'resize', ... }
+  let groupMode = false;     // 묶기 모드: 탭으로 함께 가릴 마스크를 고른다
+  let groupSel = new Set();  // 묶기 모드에서 고른 마스크 인덱스
 
   const $ = (s) => document.querySelector(s);
 
@@ -42,6 +44,9 @@ const Occlusion = (() => {
     rects = [];
     selected = -1;
     drag = null;
+    groupMode = false;
+    groupSel.clear();
+    $("#occStage").classList.remove("group-mode");
     $("#occStage").classList.add("empty");
     $("#occImg").src = "";
     $("#occImg").style.display = "none";
@@ -53,6 +58,8 @@ const Occlusion = (() => {
     imageData = Store.getMedia(card.imageId);
     rects = (card.rects || []).map(r => ({ ...r }));
     selected = -1; drag = null;
+    groupMode = false; groupSel.clear();
+    $("#occStage").classList.remove("group-mode");
     const img = $("#occImg");
     img.src = imageData || "";
     img.style.display = imageData ? "block" : "none";
@@ -91,6 +98,16 @@ const Occlusion = (() => {
   function onPointerDown(e) {
     if (!imageData) return;
     e.preventDefault();
+    // 묶기 모드: 마스크를 탭하면 묶음 선택에 넣거나 뺀다(이동·그리기 없음)
+    if (groupMode) {
+      const mask = e.target.closest(".occ-mask");
+      if (mask && !mask.classList.contains("tmp")) {
+        const idx = Number(mask.dataset.i);
+        if (groupSel.has(idx)) groupSel.delete(idx); else groupSel.add(idx);
+        renderMasks(); updateMeta();
+      }
+      return;
+    }
     $("#occStage").setPointerCapture?.(e.pointerId);
     const p = stagePos(e);
 
@@ -161,15 +178,33 @@ const Occlusion = (() => {
     };
   }
 
+  // 묶음 번호 → 표시용 순번(1,2,…)
+  function groupOrder() {
+    const order = [];
+    rects.forEach(r => { if (r.g != null && !order.includes(r.g)) order.push(r.g); });
+    return order;
+  }
+
   function renderMasks() {
     const host = $("#occMasks");
-    const parts = rects.map((r, i) => `
-      <div class="occ-mask ${i === selected ? "selected" : ""}" data-i="${i}"
+    const order = groupOrder();
+    const parts = rects.map((r, i) => {
+      const grouped = r.g != null;
+      const badge = grouped ? "◆" + (order.indexOf(r.g) + 1) : (i + 1);
+      const cls = [
+        i === selected ? "selected" : "",
+        grouped ? "grouped" : "",
+        groupSel.has(i) ? "picked" : "",
+      ].filter(Boolean).join(" ");
+      const showTools = !groupMode && i === selected;
+      return `
+      <div class="occ-mask ${cls}" data-i="${i}"
         style="left:${r.x}%;top:${r.y}%;width:${r.w}%;height:${r.h}%">
-        <b>${i + 1}</b>
-        ${i === selected ? `<button type="button" class="occ-del" title="삭제">✕</button>
+        <b>${badge}</b>
+        ${showTools ? `<button type="button" class="occ-del" title="삭제">✕</button>
         <i class="occ-handle"></i>` : ""}
-      </div>`);
+      </div>`;
+    });
     if (drag?.type === "draw" && drag.cur) {
       const r = drag.cur;
       parts.push(`<div class="occ-mask tmp"
@@ -178,10 +213,49 @@ const Occlusion = (() => {
     host.innerHTML = parts.join("");
   }
 
+  // 만들어질 카드 수 = 묶음 하나당 1장 + 묶이지 않은 마스크 각각 1장
+  function cardCount() {
+    const keys = new Set();
+    rects.forEach((r, i) => keys.add(r.g != null ? "g" + r.g : "i" + i));
+    return keys.size;
+  }
+
   function updateMeta() {
     $("#occCount").textContent = t("occ.masks", { n: rects.length });
-    $("#occCreate").textContent = t("occ.create", { n: rects.length });
+    $("#occCreate").textContent = t("occ.create", { n: cardCount() });
     $("#occCreate").disabled = !rects.length || !imageData;
+    $("#occGroupToggle")?.classList.toggle("active", groupMode);
+    $("#occGroupRow")?.classList.toggle("hidden", !groupMode);
+    const apply = $("#occGroupApply");
+    if (apply) apply.disabled = !(groupMode && groupSel.size >= 2);
+    const clear = $("#occGroupClear");
+    if (clear) clear.disabled = !(groupMode && [...groupSel].some(i => rects[i]?.g != null));
+  }
+
+  function toggleGroupMode() {
+    groupMode = !groupMode;
+    groupSel.clear();
+    selected = -1;
+    $("#occStage").classList.toggle("group-mode", groupMode);
+    renderMasks(); updateMeta();
+  }
+
+  // 고른 마스크들에 새 묶음 번호를 부여 → 한 카드에서 함께 가려지고 함께 공개됨
+  function applyGroup() {
+    if (groupSel.size < 2) return;
+    let g = 0;
+    rects.forEach(r => { if (r.g != null && r.g > g) g = r.g; });
+    g += 1;
+    groupSel.forEach(i => { if (rects[i]) rects[i].g = g; });
+    groupSel.clear();
+    renderMasks(); updateMeta();
+  }
+
+  // 고른 마스크의 묶음을 해제
+  function clearGroup() {
+    groupSel.forEach(i => { if (rects[i]) delete rects[i].g; });
+    groupSel.clear();
+    renderMasks(); updateMeta();
   }
 
   function removeMaskAt(idx) {
@@ -199,22 +273,36 @@ const Occlusion = (() => {
     const imageId = Store.addMedia(imageData);
     const mode = $("#occModeAll").checked ? "all" : "one";
     const label = $("#occLabel").value.trim();
-    return rects.map((_, i) => ({
-      type: "occlusion",
-      imageId,
-      rects: rects.map(r => ({ ...r })),
-      hideIndex: i,
-      occMode: mode,
-      front: label,
-      back: "",
-    }));
+    // 묶음(g)마다 카드 1장(hideGroup), 묶이지 않은 마스크는 각각 카드 1장(hideIndex)
+    const cards = [];
+    const seen = new Set();
+    rects.forEach((r, i) => {
+      const key = r.g != null ? "g" + r.g : "i" + i;
+      if (seen.has(key)) return;
+      seen.add(key);
+      const target = r.g != null ? { hideGroup: r.g } : { hideIndex: i };
+      cards.push({
+        type: "occlusion",
+        imageId,
+        rects: rects.map(x => ({ ...x })),
+        ...target,
+        occMode: mode,
+        front: label,
+        back: "",
+      });
+    });
+    return cards;
   }
 
   function buildEditFields(card) {
     if (!imageData || !rects.length) return null;
     let imageId = card.imageId;
     if (Store.getMedia(imageId) !== imageData) imageId = Store.addMedia(imageData);
-    return { imageId, rects: rects.map(r => ({ ...r })), hideIndex: Math.min(card.hideIndex || 0, rects.length - 1), occMode: $("#occModeAll").checked ? "all" : "one", front: $("#occLabel").value.trim() };
+    // 편집 중인 카드의 타깃 유지: 묶음 카드면 hideGroup, 아니면 hideIndex
+    const target = card.hideGroup != null
+      ? { hideGroup: card.hideGroup }
+      : { hideIndex: Math.min(card.hideIndex || 0, rects.length - 1) };
+    return { imageId, rects: rects.map(r => ({ ...r })), ...target, occMode: $("#occModeAll").checked ? "all" : "one", front: $("#occLabel").value.trim() };
   }
 
   function bindEditor() {
@@ -228,9 +316,12 @@ const Occlusion = (() => {
       if (f) { try { await pickImage(f); } catch { /* 무시 */ } }
     });
     $("#occClear").addEventListener("click", () => {
-      rects = []; selected = -1;
+      rects = []; selected = -1; groupSel.clear();
       renderMasks(); updateMeta();
     });
+    $("#occGroupToggle")?.addEventListener("click", toggleGroupMode);
+    $("#occGroupApply")?.addEventListener("click", applyGroup);
+    $("#occGroupClear")?.addEventListener("click", clearGroup);
 
     // 클립보드에서 이미지 붙여넣기(Ctrl+V) — 모달이 열려 있을 때만 동작
     document.addEventListener("paste", async (e) => {
