@@ -1067,10 +1067,12 @@
       const indices = clozeIndices(text);
       if (!text || !indices.length) { e.preventDefault(); return; }
       if (editingCardId) {
-        Store.updateCard(editingCardId, { front: text, notes, noteImageId, ...scaleValues() });
+        // 같은 노트에서 나온 형제 빈칸 카드들에 본문·메모·배율을 함께 반영(빈칸 추가·삭제 포함)
+        Store.syncClozeSiblings(editingCardId, text, indices, { notes, noteImageId, ...scaleValues() });
         toast(t("toast.cardUpdated"));
       } else {
-        const rows = indices.map(idx => ({ type: "cloze", front: text, back: "", clozeIndex: idx, notes, noteImageId, ...scaleValues() }));
+        const noteId = "n" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        const rows = indices.map(idx => ({ type: "cloze", front: text, back: "", clozeIndex: idx, clozeNoteId: noteId, notes, noteImageId, ...scaleValues() }));
         const ok = Store.bulkAddCards(currentDeckId, rows);
         toast(ok ? t("toast.cardsAdded", { n: rows.length }) : t("toast.storageFull"));
       }
