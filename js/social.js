@@ -485,9 +485,10 @@ const Social = (() => {
   }
 
   // 공개 덱을 내 컬렉션으로 복사 — 이미지가 있으면 서명된 URL로 받아와 로컬에 저장
-  async function downloadDeck(sharedId) {
+  // 발행본을 읽어 로컬 카드 배열로 변환(이미지 포함). 덱은 만들지 않는다.
+  async function fetchSharedDeck(sharedId) {
     const { data, error } = await sb().from("petale_shared_decks")
-      .select("name, description, payload").eq("id", sharedId).single();
+      .select("name, description, payload, updated_at").eq("id", sharedId).single();
     if (error || !data) throw error || new Error("not_found");
     const rawCards = (data.payload?.cards || []).filter(c => c && (c.type === "basic" || c.type === "cloze" || c.type === "occlusion"));
     if (!rawCards.length) throw new Error("empty");
@@ -529,11 +530,37 @@ const Social = (() => {
       }
     }
     if (!cards.length) throw new Error("empty");
+    return { name: data.name, description: data.description || "", updatedAt: data.updated_at || null, cards };
+  }
 
-    const deck = Store.addDeck(data.name.slice(0, 60), data.description || "");
+  async function downloadDeck(sharedId) {
+    const { name, description, updatedAt, cards } = await fetchSharedDeck(sharedId);
+    const deck = Store.addDeck(name.slice(0, 60), description);
     Store.bulkAddCards(deck.id, cards);
+    // 원본과 연결을 기억 → 나중에 업데이트 확인/다시 받기 가능
+    Store.patchDeck(deck.id, { sourceId: sharedId, sourceUpdatedAt: updatedAt });
     sb().rpc("petale_bump_downloads", { p_deck: sharedId }).then(() => {}, () => {});
     return { deck, count: cards.length };
+  }
+
+  // 받은 덱의 원본이 재발행돼 더 최신인지 확인
+  async function checkDeckUpdate(sharedId, sinceUpdatedAt) {
+    try {
+      const { data, error } = await sb().from("petale_shared_decks")
+        .select("updated_at").eq("id", sharedId).maybeSingle();
+      if (error || !data) return { hasUpdate: false, gone: !data };
+      const upd = data.updated_at || null;
+      const hasUpdate = !!upd && (!sinceUpdatedAt || new Date(upd) > new Date(sinceUpdatedAt));
+      return { hasUpdate, updatedAt: upd };
+    } catch { return { hasUpdate: false }; }
+  }
+
+  // 받은 덱을 원본 최신본으로 교체(카드 갈아끼움 — 학습 진행상황은 초기화)
+  async function pullDeckUpdate(deckId, sharedId) {
+    const { updatedAt, cards } = await fetchSharedDeck(sharedId);
+    Store.replaceDeckCards(deckId, cards);
+    Store.patchDeck(deckId, { sourceId: sharedId, sourceUpdatedAt: updatedAt });
+    return { count: cards.length };
   }
 
   function cleanUrl() {
@@ -621,7 +648,7 @@ const Social = (() => {
     sendRequest, respondRequest, fetchOverview,
     pushStats, pushStatsQuiet,
     syncOnLogin, schedulePush, pushCollection, syncMedia,
-    publishDeck, unpublishDeck, searchDecks, downloadDeck,
+    publishDeck, unpublishDeck, searchDecks, downloadDeck, checkDeckUpdate, pullDeckUpdate,
     get profile() { return profile; },
   };
 })();

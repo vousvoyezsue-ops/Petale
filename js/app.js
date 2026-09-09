@@ -606,7 +606,32 @@
 
     renderShareButton();
     renderCardList();
+    checkDeckUpdate(deck);
   }
+
+  // 받은(다운로드한) 덱이면 원본이 갱신됐는지 조용히 확인해 업데이트 버튼을 노출
+  function checkDeckUpdate(deck) {
+    const btn = $("#btnDeckUpdate");
+    btn.classList.add("hidden");
+    if (!deck.sourceId || !Social.checkDeckUpdate) return;
+    Social.checkDeckUpdate(deck.sourceId, deck.sourceUpdatedAt).then(r => {
+      if (currentDeckId === deck.id && r && r.hasUpdate) btn.classList.remove("hidden");
+    }).catch(() => {});
+  }
+
+  $("#btnDeckUpdate").addEventListener("click", () => {
+    const deck = Store.getDeck(currentDeckId);
+    if (!deck || !deck.sourceId) return;
+    confirmDialog(t("update.title"), t("update.text"), async () => {
+      try {
+        const { count } = await Social.pullDeckUpdate(currentDeckId, deck.sourceId);
+        renderDeck();
+        toast(t("update.done", { n: count }));
+      } catch {
+        toast(t("update.fail"));
+      }
+    });
+  });
 
   let listFilter = "all"; // all | starred | suspended
 
