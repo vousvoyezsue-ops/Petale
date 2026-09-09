@@ -352,6 +352,24 @@ const Store = (() => {
     save();
   }
 
+  // 덱의 카드를 통째로 교체(공유 덱 업데이트 받기용). 학습 일정은 새로 시작.
+  function replaceDeckCards(deckId, rows) {
+    state.cards = state.cards.filter(c => c.deckId !== deckId);
+    const now = Date.now();
+    rows.forEach((row, i) => {
+      state.cards.push({
+        id: uid() + i.toString(36),
+        deckId,
+        type: "basic",
+        created: now + i,
+        ...row,
+        ...SRS.newCardState(),
+      });
+    });
+    gcMedia();
+    return save();
+  }
+
   // 평가 적용. 실행 취소용 스냅샷을 반환한다.
   function applyReview(cardId, rating) {
     const c = state.cards.find(x => x.id === cardId);
@@ -537,7 +555,7 @@ const Store = (() => {
     addDeck, updateDeck, deleteDeck, deleteDecks, getDeck, patchDeck,
     addFolder, updateFolder, deleteFolder, getFolder,
     addMedia, getMedia, putMedia, referencedMedia, gcMedia,
-    addCard, updateCard, deleteCard, deleteCards, cardsOf, bulkAddCards, syncClozeSiblings,
+    addCard, updateCard, deleteCard, deleteCards, cardsOf, bulkAddCards, syncClozeSiblings, replaceDeckCards,
     applyReview, undoReview, newIntroducedToday,
     resetDeckSchedule, exportDeckBundle, importDeckBundle,
     deckCounts, streak, forecast, retention, exportDeckCSV,
