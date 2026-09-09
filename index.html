@@ -296,6 +296,7 @@
       <span class="bulk-count" id="cardBulkCount"></span>
       <div class="bulk-actions">
         <button type="button" class="btn ghost sm light" id="cardBulkPickAll" data-i18n="home.selectAll"></button>
+        <button type="button" class="btn secondary sm" id="cardBulkMove" data-i18n="home.moveSelected"></button>
         <button type="button" class="btn danger-solid sm" id="cardBulkDelete">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
           <span data-i18n="home.deleteSelected"></span>
@@ -999,6 +1000,22 @@
     <div class="modal-actions">
       <button type="button" class="btn ghost" data-close data-i18n="common.cancel"></button>
       <button type="button" class="btn danger-solid" id="confirmYes" data-i18n="confirm.yes"></button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ═══════════ 모달: 카드 다른 덱으로 이동 ═══════════ -->
+<dialog class="modal" id="moveModal">
+  <div class="modal-body">
+    <h3 data-i18n="move.title"></h3>
+    <p class="confirm-text" id="moveSub"></p>
+    <label class="field">
+      <span data-i18n="move.toDeck"></span>
+      <select id="moveDeckSel"></select>
+    </label>
+    <div class="modal-actions">
+      <button type="button" class="btn ghost" data-close data-i18n="common.cancel"></button>
+      <button type="button" class="btn primary" id="moveConfirm" data-i18n="move.confirm"></button>
     </div>
   </div>
 </dialog>

@@ -303,6 +303,14 @@ const Store = (() => {
   }
   function cardsOf(deckId) { return state.cards.filter(c => c.deckId === deckId); }
 
+  // 선택한 카드들을 다른 덱으로 이동(학습 일정·내용은 그대로 유지)
+  function moveCards(ids, targetDeckId) {
+    if (!getDeck(targetDeckId)) return;
+    const set = new Set(ids);
+    state.cards.forEach(c => { if (set.has(c.id)) c.deckId = targetDeckId; });
+    save();
+  }
+
   // 대량 추가(가져오기): [{type, front, back, imageId, rects, hideIndex, clozeIndex}, …]
   function bulkAddCards(deckId, rows) {
     const now = Date.now();
@@ -555,7 +563,7 @@ const Store = (() => {
     addDeck, updateDeck, deleteDeck, deleteDecks, getDeck, patchDeck,
     addFolder, updateFolder, deleteFolder, getFolder,
     addMedia, getMedia, putMedia, referencedMedia, gcMedia,
-    addCard, updateCard, deleteCard, deleteCards, cardsOf, bulkAddCards, syncClozeSiblings, replaceDeckCards,
+    addCard, updateCard, deleteCard, deleteCards, cardsOf, moveCards, bulkAddCards, syncClozeSiblings, replaceDeckCards,
     applyReview, undoReview, newIntroducedToday,
     resetDeckSchedule, exportDeckBundle, importDeckBundle,
     deckCounts, streak, forecast, retention, exportDeckCSV,

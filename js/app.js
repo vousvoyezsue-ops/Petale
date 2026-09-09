@@ -761,6 +761,28 @@
       toast(t("toast.cardsDeleted", { n }));
     });
   });
+  // 선택 카드를 다른 덱으로 이동
+  $("#cardBulkMove").addEventListener("click", () => {
+    const n = selectedCards.size;
+    if (!n) return;
+    const others = Store.state.decks.filter(d => d.id !== currentDeckId);
+    if (!others.length) { toast(t("move.noTarget")); return; }
+    $("#moveSub").textContent = t("move.sub", { n });
+    $("#moveDeckSel").innerHTML = others
+      .map(d => `<option value="${d.id}">${escapeHTML(d.name)}</option>`).join("");
+    $("#moveModal").showModal();
+  });
+  $("#moveConfirm").addEventListener("click", () => {
+    const n = selectedCards.size;
+    const target = $("#moveDeckSel").value;
+    if (!n || !target) return;
+    Store.moveCards([...selectedCards], target);
+    $("#moveModal").close();
+    cardSelectMode = false;
+    selectedCards.clear();
+    renderDeck();
+    toast(t("toast.cardsMoved", { n }));
+  });
 
   /* ══════════ 덱 모달 ══════════ */
   const deckModal = $("#deckModal");
