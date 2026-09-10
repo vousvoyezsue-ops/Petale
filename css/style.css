@@ -759,14 +759,14 @@ input, textarea, select { font-family: inherit; }
 .doc-body li { margin: .2em 0; }
 .doc-body blockquote { margin: 0 0 .8em; padding-left: 14px; border-left: 3px solid var(--edge); color: var(--ink-2); }
 /* 빈칸: 내용을 가린 막대, 탭하면 공개 */
-.dblank {
-  color: transparent;
+#docBody .dblank {
+  color: transparent !important;
   background: color-mix(in srgb, var(--ink-3) 30%, var(--paper));
   border-radius: 4px; padding: 0 3px; cursor: pointer;
   transition: background .15s, color .15s;
 }
-.dblank.shown { color: var(--olive-700); background: var(--lime-100); font-weight: 600; }
-.doc-body.editing .dblank { color: var(--olive-700); background: color-mix(in srgb, var(--sage-400) 24%, var(--paper)); }
+#docBody .dblank.shown { color: var(--olive-700) !important; background: var(--lime-100); font-weight: 600; }
+#docBody.editing .dblank { color: var(--olive-700) !important; background: color-mix(in srgb, var(--sage-400) 24%, var(--paper)); }
 .doc-body.editing .dword { cursor: pointer; border-radius: 3px; padding: 0 1px; }
 .doc-body.editing .dword:hover { background: var(--lime-100); }
 
