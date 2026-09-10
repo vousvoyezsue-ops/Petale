@@ -327,6 +327,28 @@ const Store = (() => {
     return save();
   }
 
+  // 이미지 가리기 동기화: 같은 이미지에서 나온 형제 카드들에 마스크 위치·이미지·모드·라벨을
+  // 함께 반영한다(각 카드의 타깃 hideIndex/hideGroup은 유지). 마스크 위치/범위 수정이 모든 카드에 적용됨.
+  function syncOcclusionSiblings(cardId, fields) {
+    const base = state.cards.find(c => c.id === cardId);
+    if (!base) return;
+    const oldImage = base.imageId;
+    const rectCount = (fields.rects || base.rects || []).length;
+    state.cards.forEach(c => {
+      if (c.type !== "occlusion" || c.imageId !== oldImage) return;
+      if (fields.imageId != null) c.imageId = fields.imageId;
+      if (fields.rects) c.rects = fields.rects.map(r => ({ ...r }));
+      if (fields.occMode != null) c.occMode = fields.occMode;
+      if (fields.front != null) c.front = fields.front;
+      ["cardScale", "fontScale", "imageScale"].forEach(k => { if (fields[k] != null) c[k] = fields[k]; });
+      // 인덱스 타깃이면 마스크 수가 줄었을 때 범위를 벗어나지 않게 보정
+      if (c.hideGroup == null && typeof c.hideIndex === "number" && rectCount > 0) {
+        c.hideIndex = Math.min(c.hideIndex, rectCount - 1);
+      }
+    });
+    save();
+  }
+
   // cloze 노트 동기화: 한 노트에서 나온 형제 카드들(같은 clozeNoteId, 없으면 같은 덱·같은 front)의
   // 본문·메모·배율을 함께 갱신하고, 빈칸 번호 추가·삭제까지 반영한다. 남는 카드의 학습 일정은 유지.
   function syncClozeSiblings(cardId, newFront, indices, content = {}) {
@@ -563,7 +585,7 @@ const Store = (() => {
     addDeck, updateDeck, deleteDeck, deleteDecks, getDeck, patchDeck,
     addFolder, updateFolder, deleteFolder, getFolder,
     addMedia, getMedia, putMedia, referencedMedia, gcMedia,
-    addCard, updateCard, deleteCard, deleteCards, cardsOf, moveCards, bulkAddCards, syncClozeSiblings, replaceDeckCards,
+    addCard, updateCard, deleteCard, deleteCards, cardsOf, moveCards, bulkAddCards, syncClozeSiblings, syncOcclusionSiblings, replaceDeckCards,
     applyReview, undoReview, newIntroducedToday,
     resetDeckSchedule, exportDeckBundle, importDeckBundle,
     deckCounts, streak, forecast, retention, exportDeckCSV,

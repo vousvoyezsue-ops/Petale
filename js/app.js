@@ -1270,7 +1270,8 @@
       const card = Store.state.cards.find(c => c.id === editingOccCardId);
       const fields = card && Occlusion.buildEditFields(card);
       if (!fields) return;
-      Store.updateCard(editingOccCardId, { ...fields, ...scaleValues() });
+      // 마스크 위치·범위 수정을 같은 이미지의 모든 형제 카드에 반영
+      Store.syncOcclusionSiblings(editingOccCardId, { ...fields, ...scaleValues() });
       editingOccCardId = null;
       Store.gcMedia(); $("#occModal").close(); renderDeck(); toast(t("toast.cardUpdated"));
       return;
