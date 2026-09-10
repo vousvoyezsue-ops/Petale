@@ -154,6 +154,7 @@
   <div class="topbar-right">
     <nav class="topnav" role="tablist">
       <button class="nav-link active" data-view="home" data-i18n="nav.decks">덱</button>
+      <button class="nav-link" data-view="docs" data-i18n="nav.docs">문서</button>
       <button class="nav-link" data-view="explore" data-i18n="nav.explore">탐색</button>
       <button class="nav-link" data-view="stats" data-i18n="nav.stats">통계</button>
       <button class="nav-link" data-view="friends" data-i18n="nav.friends">친구</button>
@@ -209,6 +210,37 @@
         </button>
       </div>
     </div>
+  </section>
+
+  <!-- ═══════════ 문서 목록 ═══════════ -->
+  <section class="view hidden" id="view-docs">
+    <div class="hero">
+      <h1 class="hero-title" data-i18n="docs.title"></h1>
+      <p class="hero-sub" data-i18n="docs.sub"></p>
+    </div>
+    <div class="doc-grid" id="docGrid"></div>
+    <button class="fab" id="btnNewDoc" data-i18n-title="docs.new" aria-label="new doc">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+  </section>
+
+  <!-- ═══════════ 문서 리더 (빈칸) ═══════════ -->
+  <section class="view hidden" id="view-docreader">
+    <div class="docreader-top">
+      <button class="back-link" data-back="docs">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+        <span data-i18n="docs.back"></span>
+      </button>
+      <div class="docreader-actions">
+        <button class="btn ghost sm" id="btnDocReveal" data-i18n="docs.revealAll"></button>
+        <button class="btn ghost sm" id="btnDocEdit" data-i18n="docs.edit"></button>
+        <button class="btn ghost sm" id="btnDocRename" data-i18n="deck.edit"></button>
+        <button class="btn ghost sm danger" id="btnDocDelete" data-i18n="docs.delete"></button>
+      </div>
+    </div>
+    <h2 class="docreader-title" id="docReaderTitle"></h2>
+    <p class="doc-edit-hint hidden" id="docEditHint" data-i18n="docs.editHint"></p>
+    <article class="doc-body" id="docBody"></article>
   </section>
 
   <!-- ═══════════ 덱 상세 ═══════════ -->
@@ -1007,6 +1039,28 @@
     <div class="modal-actions">
       <button type="button" class="btn ghost" data-close data-i18n="common.cancel"></button>
       <button type="button" class="btn danger-solid" id="confirmYes" data-i18n="confirm.yes"></button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ═══════════ 모달: 새 문서 ═══════════ -->
+<dialog class="modal" id="docModal">
+  <div class="modal-body">
+    <h3 id="docModalTitle"></h3>
+    <label class="field">
+      <span data-i18n="docs.name"></span>
+      <input type="text" id="docNameInput" maxlength="80" data-i18n-placeholder="docs.namePh">
+    </label>
+    <label class="field">
+      <span data-i18n="docs.content"></span>
+      <textarea id="docTextInput" rows="8" class="bulk-textarea" data-i18n-placeholder="docs.contentPh"></textarea>
+    </label>
+    <button type="button" class="btn ghost sm" id="docPickFile" data-i18n="docs.pickFile"></button>
+    <input type="file" id="docFileInput" accept=".html,.htm,.txt,text/html,text/plain" hidden>
+    <p class="set-hint" data-i18n="docs.autoHint"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn ghost" data-close data-i18n="common.cancel"></button>
+      <button type="button" class="btn primary" id="docSave" data-i18n="docs.create"></button>
     </div>
   </div>
 </dialog>

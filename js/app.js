@@ -285,7 +285,7 @@
   }
 
   /* ══════════ 화면 전환 ══════════ */
-  const views = ["home", "deck", "study", "stats", "friends", "quiz", "write", "match", "flash", "explore"];
+  const views = ["home", "deck", "study", "stats", "friends", "quiz", "write", "match", "flash", "explore", "docs", "docreader"];
 
   function show(view) {
     Practice.stopMatchTimer(); // 매치 중 다른 화면으로 이탈 시 타이머 정리
@@ -297,12 +297,234 @@
     if (view === "stats") renderStats();
     if (view === "friends") renderFriends();
     if (view === "explore") renderExplore();
+    if (view === "docs") renderDocs();
     window.scrollTo({ top: 0 });
   }
 
   $("#brandHome").addEventListener("click", () => show("home"));
   $$(".nav-link").forEach(b => b.addEventListener("click", () => show(b.dataset.view)));
   $$("[data-back]").forEach(b => b.addEventListener("click", () => show(b.dataset.back)));
+
+  /* ══════════ 문서 (빈칸 리더) ══════════ */
+  const DOC_TAGS = new Set(["H1","H2","H3","H4","H5","H6","P","UL","OL","LI","BLOCKQUOTE","B","STRONG","I","EM","U","MARK","BR","HR","SPAN","DIV"]);
+  const DOC_TOKEN = /\{\{c\d+::([\s\S]*?)\}\}/g;
+  let curDocId = null, docRevealed = false, docEditing = false, docModalMode = "new", docModalId = null;
+
+  // 붙여넣은 문서를 허용 태그만 남기고 정리(속성·스크립트 제거). {{cN::}} 텍스트는 보존.
+  function sanitizeDocHTML(html) {
+    const doc = new DOMParser().parseFromString(String(html || ""), "text/html");
+    doc.querySelectorAll("script,style,noscript,iframe,template,link,meta,head").forEach(n => n.remove());
+    const walk = (node) => {
+      [...node.childNodes].forEach(ch => {
+        if (ch.nodeType !== 1) return;
+        walk(ch);
+        if (!DOC_TAGS.has(ch.tagName)) {
+          const parent = ch.parentNode;
+          while (ch.firstChild) parent.insertBefore(ch.firstChild, ch);
+          parent.removeChild(ch);
+        } else {
+          [...ch.attributes].forEach(a => ch.removeAttribute(a.name));
+        }
+      });
+    };
+    walk(doc.body);
+    return doc.body.innerHTML;
+  }
+
+  function renumberDoc(html) {
+    let n = 0;
+    return String(html).replace(DOC_TOKEN, (_, a) => `{{c${++n}::${a}}}`);
+  }
+
+  // 강조(굵게·형광펜·밑줄·이탤릭)된 부분을 {{cN::…}} 빈칸으로 변환
+  function docAutoBlank(html) {
+    const doc = new DOMParser().parseFromString(String(html || ""), "text/html");
+    doc.querySelectorAll("b,strong,mark,u,em").forEach(el => {
+      if (el.querySelector("b,strong,mark,u,em")) return; // 중첩은 안쪽만
+      const text = (el.textContent || "").trim();
+      if (!text) { el.remove(); return; }
+      el.replaceWith(doc.createTextNode(`{{c1::${text}}}`));
+    });
+    return renumberDoc(doc.body.innerHTML);
+  }
+
+  function plainToHtml(raw) {
+    const esc = s => s.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+    return raw.split(/\n{2,}/).map(p => `<p>${esc(p).replace(/\n/g, "<br>")}</p>`).join("");
+  }
+
+  function buildDocHtml(raw, auto) {
+    const hasTags = /<[a-z!/][\s\S]*?>/i.test(raw);
+    let html = sanitizeDocHTML(hasTags ? raw : plainToHtml(raw));
+    if (auto) html = docAutoBlank(html);
+    return renumberDoc(html);
+  }
+
+  function renderDocs() {
+    const grid = $("#docGrid");
+    const docs = Store.state.docs.slice().sort((a, b) => b.created - a.created);
+    if (!docs.length) { grid.innerHTML = `<p class="list-empty">${t("docs.empty")}</p>`; return; }
+    grid.innerHTML = docs.map(d => {
+      const blanks = (d.html.match(DOC_TOKEN) || []).length;
+      const preview = escapeHTML(sanitizeDocHTML(d.html).replace(/<[^>]+>/g, " ").replace(DOC_TOKEN, "___").replace(/\s+/g, " ").trim().slice(0, 80));
+      return `<article class="doc-card" data-id="${d.id}" tabindex="0" role="button">
+        <h3 class="doc-card-title">${escapeHTML(d.name)}</h3>
+        <p class="doc-card-preview">${preview}</p>
+        <span class="doc-card-meta">${t("docs.blanks", { n: blanks })}</span>
+      </article>`;
+    }).join("");
+    grid.querySelectorAll(".doc-card").forEach(el => {
+      el.addEventListener("click", () => openDocReader(el.dataset.id));
+      el.addEventListener("keydown", e => { if (e.code === "Enter" || e.code === "Space") { e.preventDefault(); openDocReader(el.dataset.id); } });
+    });
+  }
+
+  function openDocReader(id) {
+    const doc = Store.getDoc(id);
+    if (!doc) return;
+    curDocId = id;
+    docRevealed = false;
+    docEditing = false;
+    show("docreader");
+    $("#docReaderTitle").textContent = doc.name;
+    renderDocBody();
+    syncDocButtons();
+  }
+
+  function renderDocBody() {
+    const doc = Store.getDoc(curDocId);
+    if (!doc) return;
+    const host = $("#docBody");
+    host.innerHTML = sanitizeDocHTML(doc.html);
+    tokenizeBlanks(host);
+    if (docEditing) wrapWords(host);
+    host.classList.toggle("editing", docEditing);
+    applyReveal();
+  }
+
+  function tokenizeBlanks(root) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    const targets = [];
+    let node;
+    while ((node = walker.nextNode())) { DOC_TOKEN.lastIndex = 0; if (DOC_TOKEN.test(node.nodeValue)) targets.push(node); }
+    targets.forEach(tn => {
+      const s = tn.nodeValue, frag = document.createDocumentFragment();
+      let last = 0, m; DOC_TOKEN.lastIndex = 0;
+      while ((m = DOC_TOKEN.exec(s))) {
+        if (m.index > last) frag.appendChild(document.createTextNode(s.slice(last, m.index)));
+        const span = document.createElement("span");
+        span.className = "dblank"; span.dataset.a = m[1]; span.textContent = m[1];
+        frag.appendChild(span);
+        last = m.index + m[0].length;
+      }
+      if (last < s.length) frag.appendChild(document.createTextNode(s.slice(last)));
+      tn.parentNode.replaceChild(frag, tn);
+    });
+  }
+
+  function wrapWords(root) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    const nodes = [];
+    let n;
+    while ((n = walker.nextNode())) { if (!n.parentElement.closest(".dblank") && n.nodeValue.trim()) nodes.push(n); }
+    nodes.forEach(tn => {
+      const frag = document.createDocumentFragment();
+      tn.nodeValue.split(/(\s+)/).forEach(part => {
+        if (!part) return;
+        if (/^\s+$/.test(part)) frag.appendChild(document.createTextNode(part));
+        else { const s = document.createElement("span"); s.className = "dword"; s.textContent = part; frag.appendChild(s); }
+      });
+      tn.parentNode.replaceChild(frag, tn);
+    });
+  }
+
+  function applyReveal() {
+    $$("#docBody .dblank").forEach(b => b.classList.toggle("shown", docRevealed));
+  }
+
+  function saveDocFromDom() {
+    const clone = $("#docBody").cloneNode(true);
+    clone.querySelectorAll(".dblank").forEach(b => b.replaceWith(document.createTextNode(`{{c1::${b.dataset.a}}}`)));
+    clone.querySelectorAll(".dword").forEach(w => w.replaceWith(document.createTextNode(w.textContent)));
+    Store.updateDoc(curDocId, { html: renumberDoc(sanitizeDocHTML(clone.innerHTML)) });
+  }
+
+  $("#docBody").addEventListener("click", (e) => {
+    const blank = e.target.closest(".dblank");
+    if (docEditing) {
+      const word = e.target.closest(".dword");
+      if (blank) { const s = document.createElement("span"); s.className = "dword"; s.textContent = blank.dataset.a; blank.replaceWith(s); saveDocFromDom(); }
+      else if (word) { const s = document.createElement("span"); s.className = "dblank"; s.dataset.a = word.textContent; s.textContent = word.textContent; word.replaceWith(s); saveDocFromDom(); }
+    } else if (blank) {
+      blank.classList.toggle("shown");
+    }
+  });
+
+  function syncDocButtons() {
+    $("#btnDocReveal").textContent = docRevealed ? t("docs.hideAll") : t("docs.revealAll");
+    $("#btnDocEdit").textContent = docEditing ? t("docs.editDone") : t("docs.edit");
+    $("#btnDocEdit").classList.toggle("on", docEditing);
+    $("#docEditHint").classList.toggle("hidden", !docEditing);
+  }
+
+  $("#btnDocReveal").addEventListener("click", () => { docRevealed = !docRevealed; applyReveal(); syncDocButtons(); });
+  $("#btnDocEdit").addEventListener("click", () => {
+    docEditing = !docEditing;
+    if (!docEditing) docRevealed = false;
+    renderDocBody();
+    syncDocButtons();
+  });
+  $("#btnDocDelete").addEventListener("click", () => {
+    const doc = Store.getDoc(curDocId);
+    if (!doc) return;
+    confirmDialog(t("confirm.deleteDoc"), t("confirm.deleteDocText"), () => {
+      Store.deleteDoc(curDocId);
+      toast(t("toast.docDeleted"));
+      show("docs");
+    });
+  });
+
+  /* ── 문서 만들기/원문 편집 모달 ── */
+  const docModal = $("#docModal");
+  function openDocModal(id) {
+    docModalMode = id ? "edit" : "new";
+    docModalId = id || null;
+    const doc = id ? Store.getDoc(id) : null;
+    $("#docModalTitle").textContent = t(id ? "docModal.edit" : "docModal.new");
+    $("#docSave").textContent = t(id ? "docs.save" : "docs.create");
+    $("#docNameInput").value = doc ? doc.name : "";
+    $("#docTextInput").value = doc ? doc.html : "";
+    $("#docModal").showModal();
+  }
+  $("#btnNewDoc").addEventListener("click", () => openDocModal());
+  $("#btnDocRename").addEventListener("click", () => openDocModal(curDocId));
+  $("#docPickFile").addEventListener("click", () => $("#docFileInput").click());
+  $("#docFileInput").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      $("#docTextInput").value = await file.text();
+      if (!$("#docNameInput").value.trim()) $("#docNameInput").value = file.name.replace(/\.(html?|txt)$/i, "");
+    } catch { toast(t("imp.fail")); }
+  });
+  $("#docSave").addEventListener("click", () => {
+    const name = $("#docNameInput").value.trim() || t("docs.untitled");
+    const raw = $("#docTextInput").value;
+    if (!raw.trim()) return;
+    if (docModalMode === "edit" && docModalId) {
+      // 원문 편집: 사용자가 넣은 토큰을 존중(자동 강조 변환 없음)
+      Store.updateDoc(docModalId, { name, html: buildDocHtml(raw, false) });
+      docModal.close();
+      if (curDocId === docModalId) { $("#docReaderTitle").textContent = name; renderDocBody(); }
+      toast(t("toast.docSaved"));
+    } else {
+      const doc = Store.addDoc(name, buildDocHtml(raw, true));
+      docModal.close();
+      toast(t("toast.docSaved"));
+      openDocReader(doc.id);
+    }
+  });
 
   /* ══════════ 폴더 ══════════ */
   const FOLDER_ICONS = ["i-flower", "i-flame", "i-layers", "i-sparkle", "i-target",
