@@ -306,29 +306,32 @@
   $$("[data-back]").forEach(b => b.addEventListener("click", () => show(b.dataset.back)));
 
   /* ══════════ 문서 (빈칸 리더) ══════════ */
-  const DOC_TAGS = new Set(["H1","H2","H3","H4","H5","H6","P","UL","OL","LI","BLOCKQUOTE","B","STRONG","I","EM","U","MARK","BR","HR","SPAN","DIV"]);
   const DOC_TOKEN = /\{\{c\d+::([\s\S]*?)\}\}/g;
+  // 문서 렌더링에서 통째로 제거할 위험·불필요 태그
+  const DOC_DROP = "script,noscript,iframe,object,embed,link,meta,base,form,input,button,select,textarea,style,title,svg";
   let curDocId = null, docRevealed = false, docEditing = false, docModalMode = "new", docModalId = null;
 
-  // 붙여넣은 문서를 허용 태그만 남기고 정리(속성·스크립트 제거). {{cN::}} 텍스트는 보존.
+  // 문서 정리: 위험한 것만 제거하고 서식(스타일·클래스·표 등)은 최대한 보존. {{cN::}} 텍스트 보존.
   function sanitizeDocHTML(html) {
     const doc = new DOMParser().parseFromString(String(html || ""), "text/html");
-    doc.querySelectorAll("script,style,noscript,iframe,template,link,meta,head").forEach(n => n.remove());
-    const walk = (node) => {
-      [...node.childNodes].forEach(ch => {
-        if (ch.nodeType !== 1) return;
-        walk(ch);
-        if (!DOC_TAGS.has(ch.tagName)) {
-          const parent = ch.parentNode;
-          while (ch.firstChild) parent.insertBefore(ch.firstChild, ch);
-          parent.removeChild(ch);
-        } else {
-          [...ch.attributes].forEach(a => ch.removeAttribute(a.name));
-        }
+    doc.querySelectorAll(DOC_DROP).forEach(n => n.remove());
+    doc.querySelectorAll("*").forEach(el => {
+      [...el.attributes].forEach(a => {
+        const n = a.name.toLowerCase();
+        if (n.startsWith("on")) el.removeAttribute(a.name);                       // 이벤트 핸들러 제거
+        else if ((n === "href" || n === "src" || n === "xlink:href") && /^\s*javascript:/i.test(a.value)) el.removeAttribute(a.name);
       });
-    };
-    walk(doc.body);
+    });
     return doc.body.innerHTML;
+  }
+
+  // 문서의 <style> 블록을 #docBody 안으로 한정(scope)해서 앱 전체에 새지 않게 한다
+  function scopeDocCss(css) {
+    return String(css || "").replace(/([^{}]+)\{([^{}]*)\}/g, (m, sel, body) => {
+      if (/^\s*@/.test(sel)) return m; // @media/@font-face 등은 그대로(간이 처리)
+      const scoped = sel.split(",").map(s => `#docBody ${s.trim()}`).join(", ");
+      return `${scoped}{${body}}`;
+    });
   }
 
   function renumberDoc(html) {
@@ -353,11 +356,17 @@
     return raw.split(/\n{2,}/).map(p => `<p>${esc(p).replace(/\n/g, "<br>")}</p>`).join("");
   }
 
+  // 문서 본문(html) + 스코프된 스타일(css)로 분리해 원본 서식을 최대한 보존
   function buildDocHtml(raw, auto) {
     const hasTags = /<[a-z!/][\s\S]*?>/i.test(raw);
-    let html = sanitizeDocHTML(hasTags ? raw : plainToHtml(raw));
+    const src = hasTags ? raw : plainToHtml(raw);
+    const doc = new DOMParser().parseFromString(src, "text/html");
+    let css = "";
+    doc.querySelectorAll("style").forEach(s => { css += "\n" + s.textContent; }); // <style> 블록 수집
+    css = scopeDocCss(css);
+    let html = sanitizeDocHTML(doc.body.innerHTML);
     if (auto) html = docAutoBlank(html);
-    return renumberDoc(html);
+    return { html: renumberDoc(html), css };
   }
 
   function renderDocs() {
@@ -387,6 +396,7 @@
     docEditing = false;
     show("docreader");
     $("#docReaderTitle").textContent = doc.name;
+    $("#docReaderStyle").textContent = doc.css || "";
     renderDocBody();
     syncDocButtons();
   }
@@ -394,6 +404,7 @@
   function renderDocBody() {
     const doc = Store.getDoc(curDocId);
     if (!doc) return;
+    $("#docReaderStyle").textContent = doc.css || "";
     const host = $("#docBody");
     host.innerHTML = sanitizeDocHTML(doc.html);
     tokenizeBlanks(host);
@@ -514,12 +525,14 @@
     if (!raw.trim()) return;
     if (docModalMode === "edit" && docModalId) {
       // 원문 편집: 사용자가 넣은 토큰을 존중(자동 강조 변환 없음)
-      Store.updateDoc(docModalId, { name, html: buildDocHtml(raw, false) });
+      const { html, css } = buildDocHtml(raw, false);
+      Store.updateDoc(docModalId, { name, html, ...(css ? { css } : {}) }); // 새 스타일이 없으면 기존 css 유지
       docModal.close();
       if (curDocId === docModalId) { $("#docReaderTitle").textContent = name; renderDocBody(); }
       toast(t("toast.docSaved"));
     } else {
-      const doc = Store.addDoc(name, buildDocHtml(raw, true));
+      const { html, css } = buildDocHtml(raw, true);
+      const doc = Store.addDoc(name, html, css);
       docModal.close();
       toast(t("toast.docSaved"));
       openDocReader(doc.id);
