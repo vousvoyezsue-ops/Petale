@@ -332,15 +332,26 @@ const Store = (() => {
   function syncOcclusionSiblings(cardId, fields) {
     const base = state.cards.find(c => c.id === cardId);
     if (!base) return;
-    const oldImage = base.imageId;
+    let noteId = base.occNoteId;
+    let siblings;
+    if (noteId) {
+      // 같은 노트에서 나온 카드들
+      siblings = state.cards.filter(c => c.type === "occlusion" && c.occNoteId === noteId);
+    } else {
+      // 레거시(노트 id 없음): 같은 이미지 id 또는 같은 이미지 내용을 형제로 보고 새 노트 id 부여
+      noteId = uid();
+      const baseImg = state.media[base.imageId];
+      siblings = state.cards.filter(c => c.type === "occlusion" &&
+        (c.id === base.id || c.imageId === base.imageId || (baseImg && state.media[c.imageId] === baseImg)));
+    }
     const rectCount = (fields.rects || base.rects || []).length;
-    state.cards.forEach(c => {
-      if (c.type !== "occlusion" || c.imageId !== oldImage) return;
-      if (fields.imageId != null) c.imageId = fields.imageId;
+    siblings.forEach(c => {
+      if (fields.imageId != null) c.imageId = fields.imageId; // 이미지 교체 시 형제도 통일
       if (fields.rects) c.rects = fields.rects.map(r => ({ ...r }));
       if (fields.occMode != null) c.occMode = fields.occMode;
       if (fields.front != null) c.front = fields.front;
       ["cardScale", "fontScale", "imageScale"].forEach(k => { if (fields[k] != null) c[k] = fields[k]; });
+      c.occNoteId = noteId; // 이후 편집부터는 노트 id로 확실히 묶임
       // 인덱스 타깃이면 마스크 수가 줄었을 때 범위를 벗어나지 않게 보정
       if (c.hideGroup == null && typeof c.hideIndex === "number" && rectCount > 0) {
         c.hideIndex = Math.min(c.hideIndex, rectCount - 1);
