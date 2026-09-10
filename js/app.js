@@ -761,6 +761,14 @@
       toast(t("toast.cardsDeleted", { n }));
     });
   });
+  // 선택한 카드만 학습
+  $("#cardBulkStudy").addEventListener("click", () => {
+    if (!selectedCards.size) return;
+    const ids = shuffleIds(Store.cardsOf(currentDeckId).filter(c => selectedCards.has(c.id)));
+    cardSelectMode = false;
+    selectedCards.clear();
+    startSessionWith(ids, { emptyMsg: t("study.nothingDue") });
+  });
   // 선택 카드를 다른 덱으로 이동
   $("#cardBulkMove").addEventListener("click", () => {
     const n = selectedCards.size;
