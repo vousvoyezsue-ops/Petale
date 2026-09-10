@@ -63,6 +63,7 @@ const Store = (() => {
     return {
       decks: [],
       cards: [],
+      docs: [],    // { id, name, html } — 빈칸(cloze) 리더용 문서
       media: {},   // { mediaId: dataURL }
       reviews: {}, // { "YYYY-MM-DD": count }
       newLog: {},  // { "deckId|YYYY-MM-DD": 오늘 시작한 새 카드 수 }
@@ -78,6 +79,7 @@ const Store = (() => {
     const s = {
       decks: Array.isArray(data.decks) ? data.decks : [],
       cards: Array.isArray(data.cards) ? data.cards : [],
+      docs: Array.isArray(data.docs) ? data.docs : [],
       media: data.media || {},
       reviews: data.reviews || {},
       newLog: data.newLog || {},
@@ -302,6 +304,23 @@ const Store = (() => {
     save();
   }
   function cardsOf(deckId) { return state.cards.filter(c => c.deckId === deckId); }
+
+  /* ── 문서(빈칸 리더) ── */
+  function addDoc(name, html) {
+    const doc = { id: uid(), name: name || "문서", html: html || "", created: Date.now() };
+    state.docs.push(doc);
+    save();
+    return doc;
+  }
+  function updateDoc(id, patch) {
+    const d = state.docs.find(x => x.id === id);
+    if (d) { Object.assign(d, patch); save(); }
+  }
+  function deleteDoc(id) {
+    state.docs = state.docs.filter(d => d.id !== id);
+    save();
+  }
+  function getDoc(id) { return state.docs.find(d => d.id === id); }
 
   // 선택한 카드들을 다른 덱으로 이동(학습 일정·내용은 그대로 유지)
   function moveCards(ids, targetDeckId) {
@@ -597,6 +616,7 @@ const Store = (() => {
     addFolder, updateFolder, deleteFolder, getFolder,
     addMedia, getMedia, putMedia, referencedMedia, gcMedia,
     addCard, updateCard, deleteCard, deleteCards, cardsOf, moveCards, bulkAddCards, syncClozeSiblings, syncOcclusionSiblings, replaceDeckCards,
+    addDoc, updateDoc, deleteDoc, getDoc,
     applyReview, undoReview, newIntroducedToday,
     resetDeckSchedule, exportDeckBundle, importDeckBundle,
     deckCounts, streak, forecast, retention, exportDeckCSV,
