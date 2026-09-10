@@ -1339,6 +1339,62 @@
     pickFile("deckfile", file);
   });
 
+  // 문서(HTML/텍스트)에서 빈칸 만들기: 강조된 부분(굵게·형광펜·밑줄·제목)을 {{c}} 로 바꿔
+  // 아래 텍스트 칸에 채워 넣는다. 사용자는 만들기 전에 자유롭게 손볼 수 있다.
+  $("#impDoc").addEventListener("click", () => $("#docFile").click());
+  $("#docFile").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const out = htmlToCloze(text);
+      pendingFile = null;
+      $("#importPicked").classList.add("hidden");
+      $("#importError").textContent = "";
+      $("#bulkText").value = out;
+      $("#bulkText").focus();
+      if (!/\{\{c\d+::/.test(out)) toast(t("imp.docNoEmph"));
+    } catch { $("#importError").textContent = t("imp.fail"); }
+  });
+
+  // HTML/텍스트 → cloze 초안. 블록(문단·목록·제목)은 // 로 구분,
+  // 강조 요소(b/strong/mark/u/em, 굵게·배경색 스타일)는 {{cN::…}} 로 감싼다.
+  function htmlToCloze(html) {
+    const doc = new DOMParser().parseFromString(html || "", "text/html");
+    const blockSel = "p,li,h1,h2,h3,h4,h5,h6,blockquote,td,dd,dt";
+    const isEmph = (el) => el.matches("b,strong,mark,u,em") ||
+      /font-weight\s*:\s*(bold|[6-9]00)/i.test(el.getAttribute("style") || "") ||
+      /background(-color)?\s*:/i.test(el.getAttribute("style") || "");
+    const blocks = [...doc.body.querySelectorAll(blockSel)].filter(n => !n.querySelector(blockSel));
+    const lines = [];
+    const build = (node) => {
+      let n = 0;
+      const parts = [];
+      const walk = (el) => {
+        el.childNodes.forEach(ch => {
+          if (ch.nodeType === 3) parts.push(ch.textContent);
+          else if (ch.nodeType === 1) {
+            const inner = (ch.textContent || "").trim();
+            if (isEmph(ch) && inner) { parts.push(`{{c${++n}::${inner}}}`); }
+            else walk(ch);
+          }
+        });
+      };
+      walk(node);
+      return parts.join("").replace(/\s+/g, " ").trim();
+    };
+    if (blocks.length) {
+      for (const b of blocks) { const line = build(b); if (/\{\{c\d+::/.test(line)) lines.push(line); }
+    }
+    // 강조가 하나도 없으면(또는 블록이 없으면) 평문을 문단별로 넣어 직접 빈칸을 칠 수 있게 한다
+    if (!lines.length) {
+      const raw = (doc.body.textContent || html || "").split(/\n{2,}|\r\n\r\n/).map(s => s.trim()).filter(Boolean);
+      return raw.join("\n//\n");
+    }
+    return lines.join("\n//\n");
+  }
+
   // 텍스트를 입력하면 선택된 파일은 해제 (상호배타)
   $("#bulkText").addEventListener("input", () => {
     if ($("#bulkText").value.trim() && pendingFile) {
