@@ -306,8 +306,8 @@ const Store = (() => {
   function cardsOf(deckId) { return state.cards.filter(c => c.deckId === deckId); }
 
   /* ── 문서(빈칸 리더) ── */
-  function addDoc(name, html) {
-    const doc = { id: uid(), name: name || "문서", html: html || "", created: Date.now() };
+  function addDoc(name, html, css) {
+    const doc = { id: uid(), name: name || "문서", html: html || "", css: css || "", created: Date.now() };
     state.docs.push(doc);
     save();
     return doc;
