@@ -727,6 +727,49 @@ input, textarea, select { font-family: inherit; }
 .card-row .texts { flex: 1; min-width: 0; cursor: pointer; }
 .card-row:not(.select-mode) .texts:hover .front { color: var(--sage-500); }
 
+/* ═══ 문서 빈칸 리더 ═══ */
+.doc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+.doc-card {
+  padding: 18px 18px 14px;
+  border: 1px solid var(--edge);
+  border-radius: var(--r-lg);
+  background: var(--paper);
+  box-shadow: var(--shadow-xs);
+  cursor: pointer;
+  transition: transform .2s var(--ease-spring), border-color .2s, box-shadow .2s;
+}
+.doc-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--sage-400) 55%, transparent); box-shadow: var(--shadow-sm); }
+.doc-card-title { font-size: 15.5px; font-weight: 640; margin-bottom: 6px; }
+.doc-card-preview { font-size: 13px; color: var(--ink-3); line-height: 1.5; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.doc-card-meta { display: inline-block; margin-top: 10px; font-size: 11.5px; color: var(--sage-500); font-weight: 620; }
+
+.docreader-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.docreader-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.btn.on { border-color: var(--sage-400); color: var(--olive-700); }
+.docreader-title { font-family: var(--font-display); font-size: clamp(22px, 3.5vw, 30px); margin-bottom: 6px; }
+.doc-edit-hint { font-size: 12.5px; color: var(--ink-3); margin-bottom: 12px; }
+.doc-body {
+  max-width: 760px;
+  font-size: 16.5px; line-height: 1.8; color: var(--ink);
+  word-break: break-word;
+}
+.doc-body h1, .doc-body h2, .doc-body h3, .doc-body h4 { font-family: var(--font-display); line-height: 1.3; margin: 1.1em 0 .4em; }
+.doc-body p { margin: 0 0 .8em; }
+.doc-body ul, .doc-body ol { margin: 0 0 .8em 1.3em; }
+.doc-body li { margin: .2em 0; }
+.doc-body blockquote { margin: 0 0 .8em; padding-left: 14px; border-left: 3px solid var(--edge); color: var(--ink-2); }
+/* 빈칸: 내용을 가린 막대, 탭하면 공개 */
+.dblank {
+  color: transparent;
+  background: color-mix(in srgb, var(--ink-3) 30%, var(--paper));
+  border-radius: 4px; padding: 0 3px; cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.dblank.shown { color: var(--olive-700); background: var(--lime-100); font-weight: 600; }
+.doc-body.editing .dblank { color: var(--olive-700); background: color-mix(in srgb, var(--sage-400) 24%, var(--paper)); }
+.doc-body.editing .dword { cursor: pointer; border-radius: 3px; padding: 0 1px; }
+.doc-body.editing .dword:hover { background: var(--lime-100); }
+
 /* ═══ 카드 보기 (읽기 전용 뷰어) ═══ */
 .cardview { display: flex; flex-direction: column; gap: 14px; }
 .cardview-face { display: flex; flex-direction: column; gap: 6px; }
