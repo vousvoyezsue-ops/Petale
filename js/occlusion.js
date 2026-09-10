@@ -273,6 +273,7 @@ const Occlusion = (() => {
     const imageId = Store.addMedia(imageData);
     const mode = $("#occModeAll").checked ? "all" : "one";
     const label = $("#occLabel").value.trim();
+    const noteId = "occ" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
     // 묶음(g)마다 카드 1장(hideGroup), 묶이지 않은 마스크는 각각 카드 1장(hideIndex)
     const cards = [];
     const seen = new Set();
@@ -284,6 +285,7 @@ const Occlusion = (() => {
       cards.push({
         type: "occlusion",
         imageId,
+        occNoteId: noteId,
         rects: rects.map(x => ({ ...x })),
         ...target,
         occMode: mode,
