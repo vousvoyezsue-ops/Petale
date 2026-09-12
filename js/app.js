@@ -359,20 +359,80 @@
     return { html: renumberDoc(html), css };
   }
 
-  function renderDocs() {
-    const grid = $("#docGrid");
-    const docs = Store.state.docs.slice().sort((a, b) => b.created - a.created);
-    if (!docs.length) { grid.innerHTML = `<p class="list-empty">${t("docs.empty")}</p>`; return; }
-    grid.innerHTML = docs.map(d => {
-      const blanks = (d.html.match(DOC_TOKEN) || []).length;
-      const preview = escapeHTML(sanitizeDocHTML(d.html).replace(/<[^>]+>/g, " ").replace(DOC_TOKEN, "___").replace(/\s+/g, " ").trim().slice(0, 80));
-      return `<article class="doc-card" data-id="${d.id}" tabindex="0" role="button">
+  const NO_SUBJECT = "__nosub__"; // 과목 미지정 필터 센티넬
+  let curDocSubject = null;       // null = 전체, NO_SUBJECT = 과목 없음, 그 외 = 과목명
+
+  // 문서들에 실제로 쓰인 과목 목록(가나다/알파벳 순)
+  function docSubjects() {
+    const set = new Set();
+    Store.state.docs.forEach(d => { const s = (d.subject || "").trim(); if (s) set.add(s); });
+    return [...set].sort((a, b) => a.localeCompare(b, "ko"));
+  }
+
+  function renderDocSubjectBar() {
+    const bar = $("#docSubjectBar");
+    const subs = docSubjects();
+    const hasUnsorted = Store.state.docs.some(d => !(d.subject || "").trim());
+    // 과목이 하나도 없으면 바 자체를 숨겨 화면을 깔끔하게
+    if (!subs.length) { bar.innerHTML = ""; bar.hidden = true; curDocSubject = null; return; }
+    bar.hidden = false;
+    // 선택된 과목이 사라졌으면 전체로
+    if (curDocSubject && curDocSubject !== NO_SUBJECT && !subs.includes(curDocSubject)) curDocSubject = null;
+    if (curDocSubject === NO_SUBJECT && !hasUnsorted) curDocSubject = null;
+    const chip = (key, label) =>
+      `<button class="fchip${curDocSubject === key ? " active" : ""}" data-sub="${key === null ? "" : escapeHTML(key)}">${escapeHTML(label)}</button>`;
+    let html = chip(null, t("docs.allSubjects"));
+    subs.forEach(s => { html += chip(s, s); });
+    if (hasUnsorted) html += chip(NO_SUBJECT, t("docs.noSubject"));
+    bar.innerHTML = html;
+    bar.querySelectorAll(".fchip").forEach(el => {
+      el.addEventListener("click", () => {
+        const v = el.dataset.sub;
+        curDocSubject = v === "" ? null : v;
+        renderDocs();
+      });
+    });
+  }
+
+  function docCardHTML(d) {
+    const blanks = (d.html.match(DOC_TOKEN) || []).length;
+    const preview = escapeHTML(sanitizeDocHTML(d.html).replace(/<[^>]+>/g, " ").replace(DOC_TOKEN, "___").replace(/\s+/g, " ").trim().slice(0, 80));
+    return `<article class="doc-card" data-id="${d.id}" tabindex="0" role="button">
         <h3 class="doc-card-title">${escapeHTML(d.name)}</h3>
         <p class="doc-card-preview">${preview}</p>
         <span class="doc-card-meta">${t("docs.blanks", { n: blanks })}</span>
       </article>`;
-    }).join("");
-    grid.querySelectorAll(".doc-card").forEach(el => {
+  }
+
+  function renderDocs() {
+    renderDocSubjectBar();
+    const wrap = $("#docGroups");
+    const docs = Store.state.docs.slice().sort((a, b) => b.created - a.created);
+    if (!docs.length) { wrap.innerHTML = `<p class="list-empty">${t("docs.empty")}</p>`; return; }
+
+    const subOf = d => (d.subject || "").trim();
+    const gridOf = arr => `<div class="doc-grid">${arr.map(docCardHTML).join("")}</div>`;
+
+    if (curDocSubject === null) {
+      // 전체 보기: 과목별로 묶어 소제목과 함께 (과목 없는 문서는 맨 아래)
+      const subs = docSubjects();
+      const parts = [];
+      subs.forEach(s => {
+        const arr = docs.filter(d => subOf(d) === s);
+        if (arr.length) parts.push(`<div class="doc-group"><h2 class="doc-group-title">${escapeHTML(s)}<span class="doc-group-count">${arr.length}</span></h2>${gridOf(arr)}</div>`);
+      });
+      const unsorted = docs.filter(d => !subOf(d));
+      if (unsorted.length) {
+        const title = subs.length ? t("docs.noSubject") : "";
+        parts.push(`<div class="doc-group">${title ? `<h2 class="doc-group-title">${escapeHTML(title)}<span class="doc-group-count">${unsorted.length}</span></h2>` : ""}${gridOf(unsorted)}</div>`);
+      }
+      wrap.innerHTML = parts.join("");
+    } else {
+      const arr = curDocSubject === NO_SUBJECT ? docs.filter(d => !subOf(d)) : docs.filter(d => subOf(d) === curDocSubject);
+      wrap.innerHTML = arr.length ? gridOf(arr) : `<p class="list-empty">${t("docs.empty")}</p>`;
+    }
+
+    wrap.querySelectorAll(".doc-card").forEach(el => {
       el.addEventListener("click", () => openDocReader(el.dataset.id));
       el.addEventListener("keydown", e => { if (e.code === "Enter" || e.code === "Space") { e.preventDefault(); openDocReader(el.dataset.id); } });
     });
@@ -530,6 +590,10 @@
     $("#docSave").textContent = t(id ? "docs.save" : "docs.create");
     $("#docNameInput").value = doc ? doc.name : "";
     $("#docTextInput").value = doc ? doc.html : "";
+    // 과목: 기존 과목들을 datalist로 제안, 새 문서면 현재 필터 중인 과목을 기본값으로
+    $("#docSubjectList").innerHTML = docSubjects().map(s => `<option value="${escapeHTML(s)}"></option>`).join("");
+    const preset = curDocSubject && curDocSubject !== NO_SUBJECT ? curDocSubject : "";
+    $("#docSubjectInput").value = doc ? (doc.subject || "") : preset;
     $("#docModal").showModal();
   }
   $("#btnNewDoc").addEventListener("click", () => openDocModal());
@@ -546,18 +610,19 @@
   });
   $("#docSave").addEventListener("click", () => {
     const name = $("#docNameInput").value.trim() || t("docs.untitled");
+    const subject = $("#docSubjectInput").value.trim();
     const raw = $("#docTextInput").value;
     if (!raw.trim()) return;
     if (docModalMode === "edit" && docModalId) {
       // 원문 편집: 사용자가 넣은 토큰을 존중(자동 강조 변환 없음)
       const { html, css } = buildDocHtml(raw, false);
-      Store.updateDoc(docModalId, { name, html, ...(css ? { css } : {}) }); // 새 스타일이 없으면 기존 css 유지
+      Store.updateDoc(docModalId, { name, subject, html, ...(css ? { css } : {}) }); // 새 스타일이 없으면 기존 css 유지
       docModal.close();
       if (curDocId === docModalId) { docRevealed = false; docEditing = false; $("#docReaderTitle").textContent = name; renderDocFrame(); syncDocButtons(); }
       toast(t("toast.docSaved"));
     } else {
       const { html, css } = buildDocHtml(raw, true);
-      const doc = Store.addDoc(name, html, css);
+      const doc = Store.addDoc(name, html, css, subject);
       docModal.close();
       toast(t("toast.docSaved"));
       openDocReader(doc.id);
