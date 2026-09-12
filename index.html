@@ -218,7 +218,8 @@
       <h1 class="hero-title" data-i18n="docs.title"></h1>
       <p class="hero-sub" data-i18n="docs.sub"></p>
     </div>
-    <div class="doc-grid" id="docGrid"></div>
+    <div class="folder-bar" id="docSubjectBar"></div>
+    <div id="docGroups"></div>
     <button class="fab" id="btnNewDoc" data-i18n-title="docs.new" aria-label="new doc">
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
     </button>
@@ -1050,6 +1051,11 @@
     <label class="field">
       <span data-i18n="docs.name"></span>
       <input type="text" id="docNameInput" maxlength="80" data-i18n-placeholder="docs.namePh">
+    </label>
+    <label class="field">
+      <span data-i18n="docs.subject"></span>
+      <input type="text" id="docSubjectInput" maxlength="40" list="docSubjectList" data-i18n-placeholder="docs.subjectPh">
+      <datalist id="docSubjectList"></datalist>
     </label>
     <label class="field">
       <span data-i18n="docs.content"></span>

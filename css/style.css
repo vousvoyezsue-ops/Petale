@@ -728,6 +728,17 @@ input, textarea, select { font-family: inherit; }
 .card-row:not(.select-mode) .texts:hover .front { color: var(--sage-500); }
 
 /* ═══ 문서 빈칸 리더 ═══ */
+.folder-bar[hidden] { display: none; }
+/* 과목별 묶음 */
+.doc-group { margin-bottom: 30px; }
+.doc-group:last-child { margin-bottom: 0; }
+.doc-group-title {
+  display: flex; align-items: baseline; gap: 9px;
+  font-family: var(--font-display); font-size: 17px; font-weight: 640;
+  color: var(--ink); margin: 0 0 13px; padding-bottom: 9px;
+  border-bottom: 1px solid var(--edge-2, var(--edge));
+}
+.doc-group-count { font-size: 12px; font-weight: 600; color: var(--ink-3); }
 .doc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
 .doc-card {
   padding: 18px 18px 14px;
