@@ -325,15 +325,6 @@
     return doc.body.innerHTML;
   }
 
-  // 문서의 <style> 블록을 #docBody 안으로 한정(scope)해서 앱 전체에 새지 않게 한다
-  function scopeDocCss(css) {
-    return String(css || "").replace(/([^{}]+)\{([^{}]*)\}/g, (m, sel, body) => {
-      if (/^\s*@/.test(sel)) return m; // @media/@font-face 등은 그대로(간이 처리)
-      const scoped = sel.split(",").map(s => `#docBody ${s.trim()}`).join(", ");
-      return `${scoped}{${body}}`;
-    });
-  }
-
   function renumberDoc(html) {
     let n = 0;
     return String(html).replace(DOC_TOKEN, (_, a) => `{{c${++n}::${a}}}`);
@@ -356,14 +347,13 @@
     return raw.split(/\n{2,}/).map(p => `<p>${esc(p).replace(/\n/g, "<br>")}</p>`).join("");
   }
 
-  // 문서 본문(html) + 스코프된 스타일(css)로 분리해 원본 서식을 최대한 보존
+  // 문서 본문(html) + 원본 스타일(css)로 분리 — 격리된 iframe에서 렌더링하므로 css는 원본 그대로 보존
   function buildDocHtml(raw, auto) {
     const hasTags = /<[a-z!/][\s\S]*?>/i.test(raw);
     const src = hasTags ? raw : plainToHtml(raw);
     const doc = new DOMParser().parseFromString(src, "text/html");
     let css = "";
-    doc.querySelectorAll("style").forEach(s => { css += "\n" + s.textContent; }); // <style> 블록 수집
-    css = scopeDocCss(css);
+    doc.querySelectorAll("style").forEach(s => { css += "\n" + s.textContent; }); // <style> 블록 수집(그대로)
     let html = sanitizeDocHTML(doc.body.innerHTML);
     if (auto) html = docAutoBlank(html);
     return { html: renumberDoc(html), css };
@@ -396,79 +386,110 @@
     docEditing = false;
     show("docreader");
     $("#docReaderTitle").textContent = doc.name;
-    $("#docReaderStyle").textContent = doc.css || "";
-    renderDocBody();
+    renderDocFrame();
     syncDocButtons();
   }
 
-  function renderDocBody() {
+  // 문서를 격리된 iframe 안에서 원본 CSS·구조 그대로 렌더링하고, 그 위에 빈칸을 얹는다.
+  function renderDocFrame() {
     const doc = Store.getDoc(curDocId);
     if (!doc) return;
-    $("#docReaderStyle").textContent = doc.css || "";
-    const host = $("#docBody");
-    host.innerHTML = sanitizeDocHTML(doc.html);
-    tokenizeBlanks(host);
-    if (docEditing) wrapWords(host);
-    host.classList.toggle("editing", docEditing);
-    applyReveal();
+    $("#docFrame").srcdoc = docSrcdoc(sanitizeDocHTML(doc.html), doc.css || "");
   }
 
-  function tokenizeBlanks(root) {
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
-    const targets = [];
-    let node;
-    while ((node = walker.nextNode())) { DOC_TOKEN.lastIndex = 0; if (DOC_TOKEN.test(node.nodeValue)) targets.push(node); }
-    targets.forEach(tn => {
-      const s = tn.nodeValue, frag = document.createDocumentFragment();
-      let last = 0, m; DOC_TOKEN.lastIndex = 0;
-      while ((m = DOC_TOKEN.exec(s))) {
-        if (m.index > last) frag.appendChild(document.createTextNode(s.slice(last, m.index)));
-        const span = document.createElement("span");
-        span.className = "dblank"; span.dataset.a = m[1]; span.textContent = m[1];
-        frag.appendChild(span);
-        last = m.index + m[0].length;
-      }
-      if (last < s.length) frag.appendChild(document.createTextNode(s.slice(last)));
-      tn.parentNode.replaceChild(frag, tn);
-    });
-  }
-
-  function wrapWords(root) {
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
-    const nodes = [];
-    let n;
-    while ((n = walker.nextNode())) { if (!n.parentElement.closest(".dblank") && n.nodeValue.trim()) nodes.push(n); }
-    nodes.forEach(tn => {
-      const frag = document.createDocumentFragment();
-      tn.nodeValue.split(/(\s+)/).forEach(part => {
-        if (!part) return;
-        if (/^\s+$/.test(part)) frag.appendChild(document.createTextNode(part));
-        else { const s = document.createElement("span"); s.className = "dword"; s.textContent = part; frag.appendChild(s); }
+  // iframe 내부에서 실행될 스크립트(부모 스코프 참조 금지). 토큰→빈칸 변환·탭 공개·편집·높이 보고.
+  function docFrameScript() {
+    var C = document.getElementById("__c");
+    var TOKEN = /\{\{c\d+::([\s\S]*?)\}\}/g;
+    var editing = false, revealed = false;
+    function tokenize() {
+      var w = document.createTreeWalker(C, NodeFilter.SHOW_TEXT, null), t, arr = [];
+      while ((t = w.nextNode())) { TOKEN.lastIndex = 0; if (TOKEN.test(t.nodeValue)) arr.push(t); }
+      arr.forEach(function (tn) {
+        var s = tn.nodeValue, f = document.createDocumentFragment(), last = 0, m; TOKEN.lastIndex = 0;
+        while ((m = TOKEN.exec(s))) {
+          if (m.index > last) f.appendChild(document.createTextNode(s.slice(last, m.index)));
+          var sp = document.createElement("span"); sp.className = "dblank"; sp.setAttribute("data-a", m[1]); sp.textContent = m[1];
+          f.appendChild(sp); last = m.index + m[0].length;
+        }
+        if (last < s.length) f.appendChild(document.createTextNode(s.slice(last)));
+        tn.parentNode.replaceChild(f, tn);
       });
-      tn.parentNode.replaceChild(frag, tn);
-    });
-  }
-
-  function applyReveal() {
-    $$("#docBody .dblank").forEach(b => b.classList.toggle("shown", docRevealed));
-  }
-
-  function saveDocFromDom() {
-    const clone = $("#docBody").cloneNode(true);
-    clone.querySelectorAll(".dblank").forEach(b => b.replaceWith(document.createTextNode(`{{c1::${b.dataset.a}}}`)));
-    clone.querySelectorAll(".dword").forEach(w => w.replaceWith(document.createTextNode(w.textContent)));
-    Store.updateDoc(curDocId, { html: renumberDoc(sanitizeDocHTML(clone.innerHTML)) });
-  }
-
-  $("#docBody").addEventListener("click", (e) => {
-    const blank = e.target.closest(".dblank");
-    if (docEditing) {
-      const word = e.target.closest(".dword");
-      if (blank) { const s = document.createElement("span"); s.className = "dword"; s.textContent = blank.dataset.a; blank.replaceWith(s); saveDocFromDom(); }
-      else if (word) { const s = document.createElement("span"); s.className = "dblank"; s.dataset.a = word.textContent; s.textContent = word.textContent; word.replaceWith(s); saveDocFromDom(); }
-    } else if (blank) {
-      blank.classList.toggle("shown");
     }
+    function wrapWords() {
+      var w = document.createTreeWalker(C, NodeFilter.SHOW_TEXT, null), t, arr = [];
+      while ((t = w.nextNode())) { if (t.parentElement && t.parentElement.closest(".dblank")) continue; if (t.nodeValue.trim()) arr.push(t); }
+      arr.forEach(function (tn) {
+        var f = document.createDocumentFragment();
+        tn.nodeValue.split(/(\s+)/).forEach(function (p) {
+          if (!p) return;
+          if (/^\s+$/.test(p)) f.appendChild(document.createTextNode(p));
+          else { var s = document.createElement("span"); s.className = "dword"; s.textContent = p; f.appendChild(s); }
+        });
+        tn.parentNode.replaceChild(f, tn);
+      });
+    }
+    function unwrapWords() {
+      C.querySelectorAll(".dword").forEach(function (x) { x.replaceWith(document.createTextNode(x.textContent)); });
+      C.normalize();
+    }
+    function applyReveal() { C.querySelectorAll(".dblank").forEach(function (b) { b.classList.toggle("shown", revealed); }); }
+    function serialize() {
+      var clone = C.cloneNode(true);
+      clone.querySelectorAll(".dblank").forEach(function (b) { b.replaceWith(document.createTextNode("{{c1::" + b.getAttribute("data-a") + "}}")); });
+      clone.querySelectorAll(".dword").forEach(function (w) { w.replaceWith(document.createTextNode(w.textContent)); });
+      return clone.innerHTML;
+    }
+    function save() { parent.postMessage({ __pdoc: 1, t: "save", html: serialize() }, "*"); }
+    function height() { parent.postMessage({ __pdoc: 1, t: "h", h: document.documentElement.scrollHeight }, "*"); }
+    C.addEventListener("click", function (e) {
+      var blank = e.target.closest(".dblank");
+      if (editing) {
+        var word = e.target.closest(".dword");
+        if (blank) { var s = document.createElement("span"); s.className = "dword"; s.textContent = blank.getAttribute("data-a"); blank.replaceWith(s); save(); }
+        else if (word) { var s2 = document.createElement("span"); s2.className = "dblank"; s2.setAttribute("data-a", word.textContent); s2.textContent = word.textContent; word.replaceWith(s2); save(); }
+      } else if (blank) { blank.classList.toggle("shown"); }
+    });
+    window.addEventListener("message", function (e) {
+      var d = e.data || {};
+      if (d.t === "reveal") { revealed = !!d.on; applyReveal(); }
+      else if (d.t === "edit") {
+        editing = !!d.on; C.classList.toggle("editing", editing);
+        if (editing) wrapWords(); else { unwrapWords(); revealed = false; applyReveal(); }
+        setTimeout(height, 0);
+      }
+    });
+    tokenize();
+    window.addEventListener("load", height);
+    setTimeout(height, 60); setTimeout(height, 400);
+    if (window.ResizeObserver) new ResizeObserver(height).observe(document.documentElement);
+  }
+
+  const DOC_BLANK_CSS =
+    "#__c .dblank{color:transparent!important;background:#cfccc6;border-radius:4px;padding:0 3px;cursor:pointer}" +
+    "#__c .dblank.shown{color:#5b6b33!important;background:#e7f0cf;font-weight:600}" +
+    "#__c.editing .dblank{color:#5b6b33!important;background:#dfe9c8}" +
+    "#__c.editing .dword{cursor:pointer;border-radius:3px}" +
+    "#__c.editing .dword:hover{background:#eef3dd}";
+
+  function docSrcdoc(bodyHtml, css) {
+    return "<!doctype html><html><head><meta charset='utf-8'>" +
+      "<meta name='viewport' content='width=device-width,initial-scale=1'>" +
+      "<style>html,body{margin:0}body{padding:16px;font:15px/1.7 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#2b2b26;word-break:break-word}img{max-width:100%}</style>" +
+      "<style>" + String(css || "") + "</style>" +
+      "<style>" + DOC_BLANK_CSS + "</style>" +
+      "</head><body><div id='__c'>" + bodyHtml + "</div>" +
+      "<script>(" + docFrameScript.toString() + ")()<\/script></body></html>";
+  }
+
+  // iframe → 부모 메시지: 높이 조정 / 편집 저장 (샌드박스 iframe은 opaque origin이라 source 비교 대신 마커로 식별)
+  window.addEventListener("message", (e) => {
+    const d = e.data;
+    if (!d || d.__pdoc !== 1) return;
+    const frame = $("#docFrame");
+    if (!frame) return;
+    if (d.t === "h" && d.h) frame.style.height = (d.h + 6) + "px";
+    else if (d.t === "save" && curDocId) Store.updateDoc(curDocId, { html: renumberDoc(String(d.html || "")) });
   });
 
   function syncDocButtons() {
@@ -478,11 +499,15 @@
     $("#docEditHint").classList.toggle("hidden", !docEditing);
   }
 
-  $("#btnDocReveal").addEventListener("click", () => { docRevealed = !docRevealed; applyReveal(); syncDocButtons(); });
+  function postToFrame(msg) {
+    const w = $("#docFrame").contentWindow;
+    if (w) w.postMessage(msg, "*");
+  }
+  $("#btnDocReveal").addEventListener("click", () => { docRevealed = !docRevealed; postToFrame({ t: "reveal", on: docRevealed }); syncDocButtons(); });
   $("#btnDocEdit").addEventListener("click", () => {
     docEditing = !docEditing;
     if (!docEditing) docRevealed = false;
-    renderDocBody();
+    postToFrame({ t: "edit", on: docEditing });
     syncDocButtons();
   });
   $("#btnDocDelete").addEventListener("click", () => {
@@ -528,7 +553,7 @@
       const { html, css } = buildDocHtml(raw, false);
       Store.updateDoc(docModalId, { name, html, ...(css ? { css } : {}) }); // 새 스타일이 없으면 기존 css 유지
       docModal.close();
-      if (curDocId === docModalId) { $("#docReaderTitle").textContent = name; renderDocBody(); }
+      if (curDocId === docModalId) { docRevealed = false; docEditing = false; $("#docReaderTitle").textContent = name; renderDocFrame(); syncDocButtons(); }
       toast(t("toast.docSaved"));
     } else {
       const { html, css } = buildDocHtml(raw, true);
