@@ -308,7 +308,8 @@
   /* ══════════ 문서 (빈칸 리더) ══════════ */
   const DOC_TOKEN = /\{\{c\d+::([\s\S]*?)\}\}/g;
   // 문서 렌더링에서 통째로 제거할 위험·불필요 태그
-  const DOC_DROP = "script,noscript,iframe,object,embed,link,meta,base,form,input,button,select,textarea,style,title,svg";
+  // 격리 iframe이라 <button>은 안전하고 탭 내비게이션에 필요하므로 보존한다.
+  const DOC_DROP = "script,noscript,iframe,object,embed,link,meta,base,form,input,select,textarea,style,title";
   let curDocId = null, docRevealed = false, docEditing = false, docModalMode = "new", docModalId = null;
 
   // 문서 정리: 위험한 것만 제거하고 서식(스타일·클래스·표 등)은 최대한 보존. {{cN::}} 텍스트 보존.
@@ -502,6 +503,42 @@
     }
     function save() { parent.postMessage({ __pdoc: 1, t: "save", html: serialize() }, "*"); }
     function height() { parent.postMessage({ __pdoc: 1, t: "h", h: document.documentElement.scrollHeight }, "*"); }
+    // 문서 자체 스크립트는 보안상 제거되므로, 흔한 탭↔섹션 전환 패턴을 리더가 대신 처리한다.
+    // (data-t / data-tab / data-target / data-section / data-view / href="#id" → 같은 id의 요소를 .active 토글)
+    function tabTarget(el) {
+      var v = el.getAttribute("data-t") || el.getAttribute("data-tab") || el.getAttribute("data-target") ||
+              el.getAttribute("data-section") || el.getAttribute("data-view");
+      if (!v && el.getAttribute("href") && el.getAttribute("href").charAt(0) === "#") v = el.getAttribute("href").slice(1);
+      if (!v) return null;
+      return document.getElementById(v.replace(/^#/, ""));
+    }
+    function wireTabs() {
+      var trigs = [].slice.call(C.querySelectorAll("[data-t],[data-tab],[data-target],[data-section],[data-view],a[href^='#']"));
+      var groups = []; // {nav, trigs:[], targets:[]}
+      trigs.forEach(function (tr) {
+        var tgt = tabTarget(tr); if (!tgt) return;
+        var nav = tr.closest("nav") || tr.parentElement;
+        var g = null;
+        for (var i = 0; i < groups.length; i++) { if (groups[i].nav === nav) { g = groups[i]; break; } }
+        if (!g) { g = { nav: nav, trigs: [], targets: [] }; groups.push(g); }
+        g.trigs.push(tr); g.targets.push(tgt);
+      });
+      groups.forEach(function (g) {
+        if (g.trigs.length < 2) return; // 탭 그룹으로 볼 만한 최소 조건
+        g.trigs.forEach(function (tr) {
+          tr.addEventListener("click", function (e) {
+            if (editing) return; // 편집 모드에선 단어 토글이 우선
+            e.preventDefault();
+            g.trigs.forEach(function (x) { x.classList.remove("active"); });
+            g.targets.forEach(function (x) { x.classList.remove("active"); });
+            tr.classList.add("active");
+            var tgt = tabTarget(tr); if (tgt) tgt.classList.add("active");
+            revealed = false; applyReveal();
+            setTimeout(height, 0); setTimeout(height, 220);
+          });
+        });
+      });
+    }
     C.addEventListener("click", function (e) {
       var blank = e.target.closest(".dblank");
       if (editing) {
@@ -520,6 +557,7 @@
       }
     });
     tokenize();
+    wireTabs();
     window.addEventListener("load", height);
     setTimeout(height, 60); setTimeout(height, 400);
     if (window.ResizeObserver) new ResizeObserver(height).observe(document.documentElement);
