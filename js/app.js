@@ -539,12 +539,47 @@
         });
       });
     }
+    // 공백만 있는 텍스트 노드는 건너뛰고, 지정한 방향의 바로 이웃 빈칸을 찾는다.
+    function neighborBlank(node, dir) {
+      var n = node[dir];
+      while (n && n.nodeType === 3 && !n.nodeValue.trim()) n = n[dir];
+      return (n && n.nodeType === 1 && n.classList.contains("dblank")) ? n : null;
+    }
+    function makeBlank(text) {
+      var s = document.createElement("span"); s.className = "dblank";
+      s.setAttribute("data-a", text); s.textContent = text; return s;
+    }
+    // 단어를 빈칸으로. 양옆에 이미 빈칸이 있으면 한 덩어리로 이어 묶는다(띄어쓰기로 연결된 단어들).
+    function blankWord(word) {
+      var prevB = neighborBlank(word, "previousSibling");
+      var nextB = neighborBlank(word, "nextSibling");
+      var left = prevB || word, right = nextB || word;
+      // 같은 부모(같은 줄 흐름) 안에서만 병합 — 블록 경계를 넘지 않게
+      if (left.parentNode !== right.parentNode) { left = word; right = word; }
+      var range = document.createRange();
+      range.setStartBefore(left); range.setEndAfter(right);
+      var text = range.toString().replace(/\s+/g, " ").trim();
+      range.deleteContents();
+      range.insertNode(makeBlank(text));
+      save();
+    }
+    // 빈칸을 다시 단어들로 풀기(덩어리면 공백 기준으로 여러 단어로 되돌림).
+    function unblank(blank) {
+      var parts = (blank.getAttribute("data-a") || "").split(/(\s+)/);
+      var f = document.createDocumentFragment();
+      parts.forEach(function (p) {
+        if (!p) return;
+        if (/^\s+$/.test(p)) f.appendChild(document.createTextNode(p));
+        else { var s = document.createElement("span"); s.className = "dword"; s.textContent = p; f.appendChild(s); }
+      });
+      blank.replaceWith(f); save();
+    }
     C.addEventListener("click", function (e) {
       var blank = e.target.closest(".dblank");
       if (editing) {
         var word = e.target.closest(".dword");
-        if (blank) { var s = document.createElement("span"); s.className = "dword"; s.textContent = blank.getAttribute("data-a"); blank.replaceWith(s); save(); }
-        else if (word) { var s2 = document.createElement("span"); s2.className = "dblank"; s2.setAttribute("data-a", word.textContent); s2.textContent = word.textContent; word.replaceWith(s2); save(); }
+        if (blank) unblank(blank);
+        else if (word) blankWord(word);
       } else if (blank) { blank.classList.toggle("shown"); }
     });
     window.addEventListener("message", function (e) {
@@ -571,9 +606,13 @@
     "#__c.editing .dword:hover{background:#eef3dd}";
 
   function docSrcdoc(bodyHtml, css) {
+    const hasCss = !!String(css || "").trim();
+    // 자체 스타일이 있는 문서는 원본 레이아웃(중앙정렬·폭)에 맡기고,
+    // 자체 스타일이 없는 일반 문서만 가독성을 위해 본문 폭을 제한한다.
+    const baseWrap = hasCss ? "" : "#__c{max-width:760px;margin:0 auto}";
     return "<!doctype html><html><head><meta charset='utf-8'>" +
       "<meta name='viewport' content='width=device-width,initial-scale=1'>" +
-      "<style>html,body{margin:0}body{padding:16px;font:15px/1.7 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#2b2b26;word-break:break-word}img{max-width:100%}</style>" +
+      "<style>html,body{margin:0}body{padding:16px;font:15px/1.7 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#2b2b26;word-break:break-word}img{max-width:100%}" + baseWrap + "</style>" +
       "<style>" + String(css || "") + "</style>" +
       "<style>" + DOC_BLANK_CSS + "</style>" +
       "</head><body><div id='__c'>" + bodyHtml + "</div>" +
