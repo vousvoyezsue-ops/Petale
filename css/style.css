@@ -761,6 +761,9 @@ input, textarea, select { font-family: inherit; }
 .doc-edit-hint { font-size: 12.5px; color: var(--ink-3); margin-bottom: 12px; }
 /* 문서 본문은 원본 서식을 그대로 보존하기 위해 격리된 iframe에서 렌더링한다 (리더 폭을 꽉 채움) */
 .doc-frame { display: block; width: 100%; border: 0; background: transparent; }
+/* 문서 리더는 원본 파일을 브라우저 창에서 열 때와 같은 폭으로 보이도록,
+   앱 본문의 max-width 제한을 풀어 화면을 꽉 채운다(문서 자체 반응형 레이아웃이 그대로 동작). */
+body[data-view="docreader"] #app { max-width: none; }
 
 /* ═══ 카드 보기 (읽기 전용 뷰어) ═══ */
 .cardview { display: flex; flex-direction: column; gap: 14px; }
