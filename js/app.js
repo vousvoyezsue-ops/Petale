@@ -889,7 +889,6 @@
     $("#heroSummary").innerHTML = waiting ? t("hero.waiting", { n: waiting }) : t("hero.done");
     $("#btnStudyAll").classList.toggle("hidden", !waiting || selectMode);
     $("#btnNewDeck").classList.toggle("hidden", selectMode);
-    renderTodayPlan();
 
     // 선택 모드 토글 버튼: 덱이 하나도 없으면 숨긴다
     $("#btnSelectMode").classList.toggle("hidden", !decks.length && !selectMode);
@@ -900,47 +899,6 @@
   function toggleDeckPick(id) {
     if (selectedDecks.has(id)) selectedDecks.delete(id); else selectedDecks.add(id);
     renderHome();
-  }
-
-  // 오늘의 복습 계획: 복습·새 카드가 기다리는 덱을 홈 상단에 모아 보여준다.
-  // 선택 모드일 땐 방해되지 않게 숨긴다.
-  function renderTodayPlan() {
-    const panel = $("#todayPlan");
-    if (!panel) return;
-    if (selectMode) { panel.classList.add("hidden"); return; }
-
-    const plan = Store.state.decks
-      .map(d => ({ deck: d, c: Store.deckCounts(d.id) }))
-      .filter(x => x.c.due + x.c.neu > 0)
-      .sort((a, b) => (b.c.due + b.c.neu) - (a.c.due + a.c.neu));
-
-    const totalDue = plan.reduce((s, x) => s + x.c.due, 0);
-    const totalNew = plan.reduce((s, x) => s + x.c.neu, 0);
-
-    panel.classList.remove("hidden");
-    const sub = $("#todayPlanSub");
-    const list = $("#todayPlanList");
-
-    if (!plan.length) {
-      sub.textContent = "";
-      list.innerHTML = `<p class="today-plan-empty">${t("today.allDone")}</p>`;
-      return;
-    }
-
-    sub.textContent = t("today.summary", { due: totalDue, neu: totalNew });
-    list.innerHTML = plan.map(({ deck, c }) => `
-      <button type="button" class="today-row" data-deck="${deck.id}">
-        <span class="today-row-name">${escapeHTML(deck.name)}</span>
-        <span class="today-row-counts">
-          ${c.due ? `<span class="pill due">${t("pill.due", { n: c.due })}</span>` : ""}
-          ${c.neu ? `<span class="pill new">${t("pill.new", { n: c.neu })}</span>` : ""}
-        </span>
-        <svg class="today-row-go" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5.5v13a1 1 0 0 0 1.54.84l10-6.5a1 1 0 0 0 0-1.68l-10-6.5A1 1 0 0 0 8 5.5Z" fill="currentColor" stroke="none"/></svg>
-      </button>`).join("");
-
-    list.querySelectorAll(".today-row").forEach(row => {
-      row.addEventListener("click", () => startSession(row.dataset.deck));
-    });
   }
 
   function renderBulkBar() {
@@ -1039,6 +997,12 @@
 
   function renderCardList() {
     const q = $("#cardSearch").value.trim().toLowerCase();
+    // 정렬 키: 앞면 텍스트(태그 제거). 알파벳·가나다 순, 숫자는 자연 순서(2 < 10).
+    const sortKey = new Map();
+    const keyOf = c => {
+      if (!sortKey.has(c.id)) sortKey.set(c.id, cardPreview(c).front.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+      return sortKey.get(c.id);
+    };
     const cards = Store.cardsOf(currentDeckId)
       .filter(c => {
         if (listFilter === "starred" && !c.starred) return false;
@@ -1047,7 +1011,7 @@
         const p = cardPreview(c);
         return p.front.toLowerCase().includes(q) || p.back.toLowerCase().includes(q);
       })
-      .sort((a, b) => b.created - a.created);
+      .sort((a, b) => keyOf(a).localeCompare(keyOf(b), undefined, { numeric: true, sensitivity: "base" }));
 
     $("#cardCount").textContent = cards.length;
     // 화면에 보이는 카드만 선택 대상으로 유지 (검색·필터 변경 시 정리)
