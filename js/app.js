@@ -1865,25 +1865,47 @@
     pickFile("csv", file);
   });
 
+  // CSV 헤더에서 앞면/뒷면/장(섹션) 열 위치를 찾는다. 장 열이 있으면 헤더 기반 매핑을 쓴다.
+  const CSV_FRONT = ["front", "question", "term", "word", "앞면", "질문", "단어"];
+  const CSV_BACK = ["back", "answer", "definition", "meaning", "뒷면", "답", "뜻", "정의"];
+  const CSV_SECTION = ["section", "chapter", "장", "챕터", "단원", "섹션"];
   async function runCsvImport(file) {
     $("#importError").textContent = "";
     try {
       let text = await file.text();
       if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1); // BOM 제거
       const parsed = parseCSV(text, detectDelim(text));
+      const header = (parsed[0] || []).map(c => c.trim().toLowerCase());
+      const find = names => header.findIndex(h => names.includes(h));
+      const si = find(CSV_SECTION);
+
       const rows = [];
-      for (const cols of parsed) {
-        const front = (cols[0] || "").trim();
-        const back = cols.slice(1).map(c => c.trim()).filter(Boolean).join(" — ");
-        if (front && back) rows.push({ type: "basic", front, back });
+      if (si >= 0) {
+        // 장(chapter/장) 열이 있는 헤더 CSV → 열 이름으로 매핑
+        let fi = find(CSV_FRONT), bi = find(CSV_BACK);
+        if (fi < 0) fi = si === 0 ? 1 : 0;
+        if (bi < 0) bi = [si, fi].includes(0) ? ([si, fi].includes(1) ? 2 : 1) : 0;
+        for (const cols of parsed.slice(1)) {
+          const front = (cols[fi] || "").trim();
+          const back = (cols[bi] || "").trim();
+          const section = (cols[si] || "").trim();
+          if (front && back) rows.push({ type: "basic", front, back, section });
+        }
+      } else {
+        // 기존 방식: 앞면 = 첫 열, 뒷면 = 나머지 열들
+        for (const cols of parsed) {
+          const front = (cols[0] || "").trim();
+          const back = cols.slice(1).map(c => c.trim()).filter(Boolean).join(" — ");
+          if (front && back) rows.push({ type: "basic", front, back });
+        }
+        if (rows.length && new RegExp(`^(${CSV_FRONT.join("|")})$`, "i").test(rows[0].front)) rows.shift();
       }
-      // 헤더 행(front,back / 앞면,뒷면 등) 제거
-      if (rows.length && /^(front|question|term|word|앞면|질문|단어)$/i.test(rows[0].front)) rows.shift();
       if (!rows.length) { $("#importError").textContent = t("imp.empty"); return; }
       const ok = Store.bulkAddCards(currentDeckId, rows);
+      const sections = new Set(rows.map(r => r.section).filter(Boolean)).size;
       $("#importModal").close();
       renderDeck();
-      toast(ok ? t("imp.done", { n: rows.length }) : t("toast.storageFull"));
+      toast(ok ? (sections ? t("imp.doneSections", { n: rows.length, s: sections }) : t("imp.done", { n: rows.length })) : t("toast.storageFull"));
     } catch {
       $("#importError").textContent = t("imp.fail");
     }
@@ -1908,12 +1930,19 @@
     // 카드는 "//" 로 구분 — 한 카드 안에서는 자유롭게 줄바꿈할 수 있다
     const blocks = $("#bulkText").value.split("//").map(b => b.trim()).filter(Boolean);
     const rows = [];
+    let section = ""; // "# 챕터명" 제목 블록을 만나면 이후 카드들의 장이 된다
     for (const block of blocks) {
+      // 장 제목: "#"으로 시작하고 구분자(콤마/탭)가 없는 단독 줄 → 이후 카드의 장 설정
+      const headerMatch = /^#+\s*(.+)$/.exec(block);
+      if (headerMatch && !block.includes("\t") && !block.includes(",") && !/\{\{c\d+::/.test(block)) {
+        section = headerMatch[1].trim();
+        continue;
+      }
       // 빈칸(cloze) 문법이 있으면 cloze 카드로 처리 — c1, c2…마다 카드가 하나씩 생성된다
       if (/\{\{c\d+::/.test(block)) {
         const front = block.replace(/\n/g, "<br>"); // 카드 안 줄바꿈 유지
         const indices = clozeIndices(block);
-        for (const idx of indices) rows.push({ type: "cloze", front, back: "", clozeIndex: idx });
+        for (const idx of indices) rows.push({ type: "cloze", front, back: "", clozeIndex: idx, section });
         continue;
       }
       let front, back;
@@ -1928,13 +1957,14 @@
       }
       front = front.trim().replace(/\n/g, "<br>");
       back = (back || "").replace(/\n/g, "<br>");
-      if (front && back) rows.push({ type: "basic", front, back });
+      if (front && back) rows.push({ type: "basic", front, back, section });
     }
     if (!rows.length) { $("#importError").textContent = t("imp.empty"); return; }
     const ok = Store.bulkAddCards(currentDeckId, rows);
+    const sections = new Set(rows.map(r => r.section).filter(Boolean)).size;
     $("#importModal").close();
     renderDeck();
-    toast(ok ? t("imp.done", { n: rows.length }) : t("toast.storageFull"));
+    toast(ok ? (sections ? t("imp.doneSections", { n: rows.length, s: sections }) : t("imp.done", { n: rows.length })) : t("toast.storageFull"));
   }
 
   // '가져오기' 버튼: 선택된 파일(apkg/csv) 또는 입력한 텍스트를 처리
