@@ -2413,3 +2413,116 @@ body:not(.pre-auth) .auth-gate { display: none; }
 }
 .rt-select:focus { outline: 2px solid var(--rose-500); outline-offset: 1px; }
 #editOccMasks { margin-bottom: 12px; }
+
+/* ═══════════ 섹션(장) · 개요(흐름 보기) · 학습 리본 ═══════════ */
+
+/* 개요 강조: 첫 모드 카드에 로즈 톤 아이콘 */
+.mode-overview .mode-ic { background: var(--blush-100); color: var(--rose-600); }
+
+/* 덱 카드 목록의 장 구분 헤더 */
+.card-list .section-head {
+  list-style: none;
+  display: flex; align-items: baseline; gap: 9px;
+  margin: 16px 2px 4px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed var(--edge);
+}
+.card-list .section-head:first-child { margin-top: 2px; }
+.card-list .section-head .section-name {
+  font-family: var(--font-display);
+  font-size: 15px; font-weight: 640; color: var(--ink);
+}
+.card-list .section-head .section-count {
+  font-size: 11.5px; color: var(--ink-3);
+  background: var(--ivory-deep);
+  border-radius: 999px; padding: 1px 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 개요(흐름 보기) 뷰 ── */
+.overview-head { margin: 6px 2px 4px; }
+.overview-sub { color: var(--ink-3); font-size: 13px; margin-top: 2px; }
+.overview-body { max-width: 720px; margin: 14px auto 40px; }
+
+.ov-thread { position: relative; padding-left: 26px; }
+.ov-thread::before {
+  content: ""; position: absolute; left: 8px; top: 8px; bottom: 8px;
+  width: 2px; border-radius: 2px;
+  background: linear-gradient(var(--blush-200), var(--lime-200));
+}
+.ov-thread.no-sec { padding-left: 0; }
+.ov-thread.no-sec::before { display: none; }
+
+.ov-sec-head {
+  position: relative; display: flex; align-items: center; gap: 10px;
+  margin: 24px 0 12px;
+}
+.ov-sec-head:first-child { margin-top: 4px; }
+.ov-sec-head h3 { font-family: var(--font-display); font-size: 17px; font-weight: 640; margin: 0; }
+.ov-sec-head .ov-sec-count {
+  font-size: 11.5px; color: var(--ink-3);
+  background: var(--ivory-deep); border-radius: 999px; padding: 1px 8px;
+}
+.ov-sec-head .ov-dot {
+  position: absolute; left: -26px; width: 18px; height: 18px; border-radius: 50%;
+  background: var(--rose-500); border: 3px solid var(--bg);
+  box-shadow: 0 0 0 2px var(--rose-500);
+}
+
+.ov-card {
+  position: relative;
+  background: var(--paper);
+  border: 1px solid var(--edge);
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow-xs);
+  cursor: pointer;
+  transition: border-color .2s ease, box-shadow .2s ease, transform .2s var(--ease-spring);
+}
+.ov-card:hover { border-color: color-mix(in srgb, var(--rose-500) 45%, transparent); box-shadow: var(--shadow-sm); }
+.ov-thread:not(.no-sec) .ov-card::before {
+  content: ""; position: absolute; left: -18px; top: 24px;
+  width: 12px; height: 2px; background: var(--blush-200);
+}
+.ov-face { min-width: 0; }
+.ov-face.ov-front { font-weight: 640; font-size: 15.5px; color: var(--ink); }
+.ov-face.ov-back {
+  font-size: 14px; color: var(--ink-2); margin-top: 8px;
+  padding-top: 8px; border-top: 1px dashed var(--edge);
+}
+.ov-face.ov-single { font-size: 15px; color: var(--ink); }
+.ov-card .face-img,
+.ov-card .occ-view img { max-height: 340px; border-radius: var(--r-sm); }
+.ov-card .occ-view { margin: 2px 0; }
+.ov-notes {
+  margin-top: 9px; padding-top: 8px; border-top: 1px dotted var(--edge);
+  font-size: 12.5px; color: var(--ink-3);
+}
+.ov-notes .note-text { white-space: pre-wrap; }
+.ov-notes .note-img { display: block; max-width: 100%; margin: 8px auto 0; border-radius: var(--r-sm); }
+
+/* ── 학습 화면 장(섹션) 리본 ── */
+.study-ribbon {
+  display: flex; align-items: center; gap: 7px;
+  max-width: var(--study-w, 640px);
+  margin: 10px auto -2px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--blush-100) 70%, transparent);
+  color: var(--rose-700);
+  font-size: 12.5px; font-weight: 600;
+}
+.study-ribbon .rib-ic { flex-shrink: 0; opacity: .85; }
+.study-ribbon .rib-deck { color: var(--ink-3); font-weight: 600; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.study-ribbon .rib-sep { color: var(--rose-500); opacity: .6; }
+.study-ribbon .rib-sec { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (max-width: 600px) {
+  .overview-body { margin-top: 10px; }
+  .ov-thread { padding-left: 22px; }
+  .ov-thread::before { left: 6px; }
+  .ov-sec-head .ov-dot { left: -22px; }
+  .ov-card .face-img, .ov-card .occ-view img { max-height: 46vh; }
+  .study-ribbon { font-size: 12px; padding: 6px 11px; }
+}
