@@ -305,6 +305,35 @@ const Store = (() => {
   }
   function cardsOf(deckId) { return state.cards.filter(c => c.deckId === deckId); }
 
+  /* ── 섹션(덱 안의 장·챕터) ──
+     카드의 section 필드(문자열)로 묶는다. 별도 저장 구조 없이 카드가 처음 등장한
+     순서대로 섹션 목록을 만든다. */
+  function sectionsOf(deckId) {
+    const seen = [];
+    for (const c of state.cards) {
+      if (c.deckId !== deckId) continue;
+      const s = (c.section || "").trim();
+      if (s && !seen.includes(s)) seen.push(s);
+    }
+    return seen;
+  }
+  // cloze/occlusion은 같은 노트에서 나온 형제 카드가 함께 묶이도록 섹션을 형제 전체에 반영
+  function noteSiblings(card) {
+    if (!card) return [];
+    if (card.type === "cloze" && card.clozeNoteId)
+      return state.cards.filter(c => c.type === "cloze" && c.clozeNoteId === card.clozeNoteId);
+    if (card.type === "occlusion" && card.occNoteId)
+      return state.cards.filter(c => c.type === "occlusion" && c.occNoteId === card.occNoteId);
+    return [card];
+  }
+  function setSection(cardId, section) {
+    const base = state.cards.find(c => c.id === cardId);
+    if (!base) return;
+    const val = (section || "").trim();
+    noteSiblings(base).forEach(c => { c.section = val; });
+    save();
+  }
+
   /* ── 문서(빈칸 리더) ── */
   function addDoc(name, html, css, subject) {
     const doc = { id: uid(), name: name || "문서", html: html || "", css: css || "", subject: subject || "", created: Date.now() };
@@ -616,6 +645,7 @@ const Store = (() => {
     addFolder, updateFolder, deleteFolder, getFolder,
     addMedia, getMedia, putMedia, referencedMedia, gcMedia,
     addCard, updateCard, deleteCard, deleteCards, cardsOf, moveCards, bulkAddCards, syncClozeSiblings, syncOcclusionSiblings, replaceDeckCards,
+    sectionsOf, setSection,
     addDoc, updateDoc, deleteDoc, getDoc,
     applyReview, undoReview, newIntroducedToday,
     resetDeckSchedule, exportDeckBundle, importDeckBundle,
