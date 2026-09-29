@@ -285,7 +285,7 @@
   }
 
   /* ══════════ 화면 전환 ══════════ */
-  const views = ["home", "deck", "study", "stats", "friends", "quiz", "write", "match", "flash", "explore", "docs", "docreader"];
+  const views = ["home", "deck", "study", "stats", "friends", "quiz", "write", "match", "flash", "explore", "docs", "docreader", "overview"];
 
   function show(view) {
     Practice.stopMatchTimer(); // 매치 중 다른 화면으로 이탈 시 타이머 정리
@@ -298,6 +298,7 @@
     if (view === "friends") renderFriends();
     if (view === "explore") renderExplore();
     if (view === "docs") renderDocs();
+    if (view === "overview") renderOverview();
     window.scrollTo({ top: 0 });
   }
 
@@ -1026,7 +1027,7 @@
       return;
     }
 
-    list.innerHTML = cards.map(c => {
+    const cardRowHTML = (c) => {
       const d = SRS.dueLabel(c);
       const p = cardPreview(c);
       const typeChip = c.type !== "basic"
@@ -1052,7 +1053,31 @@
           ${c.type !== "occlusion" ? `<button class="icon-btn edit" title="${t("cardRow.edit")}">✎</button>` : ""}
           <button class="icon-btn del" title="${t("cardRow.delete")}">✕</button>`}
         </li>`;
-    }).join("");
+    };
+    const secHeadHTML = (name, n) =>
+      `<li class="section-head"><span class="section-name">${escapeHTML(name)}</span><span class="section-count">${n}</span></li>`;
+    const sortIn = arr => arr.sort((a, b) => keyOf(a).localeCompare(keyOf(b), undefined, { numeric: true, sensitivity: "base" }));
+
+    // 섹션(장)이 있는 덱은 목록을 장별로 묶어 보여준다(검색·필터 없을 때만).
+    const sections = (!q && listFilter === "all") ? Store.sectionsOf(currentDeckId) : [];
+    if (sections.length) {
+      const bySec = new Map(sections.map(s => [s, []]));
+      const none = [];
+      cards.forEach(c => {
+        const s = (c.section || "").trim();
+        if (s && bySec.has(s)) bySec.get(s).push(c); else none.push(c);
+      });
+      let html = "";
+      for (const s of sections) {
+        const arr = bySec.get(s);
+        if (!arr.length) continue;
+        html += secHeadHTML(s, arr.length) + sortIn(arr).map(cardRowHTML).join("");
+      }
+      if (none.length) html += secHeadHTML(t("deck.noSection"), none.length) + sortIn(none).map(cardRowHTML).join("");
+      list.innerHTML = html;
+    } else {
+      list.innerHTML = cards.map(cardRowHTML).join("");
+    }
 
     list.querySelectorAll(".card-row").forEach(row => {
       const id = row.dataset.id;
@@ -1369,6 +1394,8 @@
     $("#reversedRow").classList.toggle("hidden", !!card);
     $("#cardReversed").checked = false;
     $("#cardNotesInput").value = card?.notes || "";
+    $("#cardSectionInput").value = card?.section || "";
+    $("#sectionList").innerHTML = Store.sectionsOf(currentDeckId).map(s => `<option value="${escapeHTML(s)}">`).join("");
     noteImageData = card?.noteImageId ? (Store.getMedia(card.noteImageId) || null) : null;
     renderNoteImagePreview();
     $("#occTextFields").classList.toggle("hidden", !isOcc);
@@ -1473,12 +1500,14 @@
 
   $("#cardForm").addEventListener("submit", (e) => {
     const notes = $("#cardNotesInput").value.trim();
+    const section = $("#cardSectionInput").value.trim();
     const editCard = editingCardId ? Store.state.cards.find(c => c.id === editingCardId) : null;
     const noteImageId = commitNoteImage(editCard?.noteImageId);
 
     // 이미지 가리기 편집: 헤더 + 메모만
     if (editCard?.type === "occlusion") {
       Store.updateCard(editingCardId, { front: $("#occHeaderInput").value.trim(), notes, noteImageId, ...scaleValues() });
+      Store.setSection(editingCardId, section); // 같은 노트의 형제 카드에도 섹션 반영
       toast(t("toast.cardUpdated"));
       afterCardSaved();
       return;
@@ -1490,11 +1519,11 @@
       if (!text || !indices.length) { e.preventDefault(); toast(t("toast.clozeNeeded")); return; }
       if (editingCardId) {
         // 같은 노트에서 나온 형제 빈칸 카드들에 본문·메모·배율을 함께 반영(빈칸 추가·삭제 포함)
-        Store.syncClozeSiblings(editingCardId, text, indices, { notes, noteImageId, ...scaleValues() });
+        Store.syncClozeSiblings(editingCardId, text, indices, { notes, noteImageId, section, ...scaleValues() });
         toast(t("toast.cardUpdated"));
       } else {
         const noteId = "n" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-        const rows = indices.map(idx => ({ type: "cloze", front: text, back: "", clozeIndex: idx, clozeNoteId: noteId, notes, noteImageId, ...scaleValues() }));
+        const rows = indices.map(idx => ({ type: "cloze", front: text, back: "", clozeIndex: idx, clozeNoteId: noteId, notes, noteImageId, section, ...scaleValues() }));
         const ok = Store.bulkAddCards(currentDeckId, rows);
         toast(ok ? t("toast.cardsAdded", { n: rows.length }) : t("toast.storageFull"));
       }
@@ -1506,11 +1535,11 @@
     const back = getRich($("#cardBackInput"));
     if (richIsEmpty($("#cardFrontInput")) || richIsEmpty($("#cardBackInput"))) { e.preventDefault(); return; }
     if (editingCardId) {
-      Store.updateCard(editingCardId, { front, back, notes, noteImageId, ...scaleValues() });
+      Store.updateCard(editingCardId, { front, back, notes, noteImageId, section, ...scaleValues() });
       toast(t("toast.cardUpdated"));
     } else {
-      const rows = [{ type: "basic", front, back, notes, noteImageId, ...scaleValues() }];
-      if ($("#cardReversed").checked) rows.push({ type: "basic", front: back, back: front, notes, noteImageId, ...scaleValues() });
+      const rows = [{ type: "basic", front, back, notes, noteImageId, section, ...scaleValues() }];
+      if ($("#cardReversed").checked) rows.push({ type: "basic", front: back, back: front, notes, noteImageId, section, ...scaleValues() });
       const ok = Store.bulkAddCards(currentDeckId, rows);
       toast(ok ? (rows.length > 1 ? t("toast.cardsAdded", { n: rows.length }) : t("toast.cardAdded")) : t("toast.storageFull"));
     }
@@ -2001,6 +2030,80 @@
   $("#btnWrite").addEventListener("click", () => startPractice(Practice.startWrite, "write"));
   $("#btnMatch").addEventListener("click", () => startPractice(Practice.startMatch, "match"));
 
+  /* ── 개요(흐름 보기): 덱 전체를 장(섹션)별로 이어지는 한 편의 글처럼 읽기 ── */
+  $("#btnOverview").addEventListener("click", () => show("overview"));
+
+  function notesBlockHTML(card) {
+    const noteImg = card.noteImageId ? Store.getMedia(card.noteImageId) : null;
+    const hasText = card.notes && card.notes.trim();
+    if (!hasText && !noteImg) return "";
+    let html = hasText ? `<div class="note-text">${escapeHTML(card.notes).replace(/\n/g, "<br>")}</div>` : "";
+    if (noteImg) html += `<img class="note-img" src="${noteImg}" alt="">`;
+    return `<div class="ov-notes">${html}</div>`;
+  }
+
+  function renderOverview() {
+    const deck = Store.getDeck(currentDeckId);
+    if (!deck) { show("deck"); return; }
+    $("#overviewTitle").textContent = deck.name;
+    const body = $("#overviewBody");
+    const cards = Store.cardsOf(currentDeckId).filter(c => !c.suspended);
+    if (!cards.length) {
+      $("#overviewSub").textContent = "";
+      body.innerHTML = `<p class="list-empty">${t("overview.empty")}</p>`;
+      return;
+    }
+    const sections = Store.sectionsOf(currentDeckId);
+    $("#overviewSub").textContent = sections.length
+      ? t("overview.subSections", { c: cards.length, s: sections.length })
+      : t("overview.subFlat", { c: cards.length });
+
+    // 장별로 묶는다 (섹션 없는 카드는 마지막 '기타'로)
+    const groups = [];
+    if (sections.length) {
+      const bySec = new Map(sections.map(s => [s, []]));
+      const none = [];
+      cards.forEach(c => { const s = (c.section || "").trim(); if (s && bySec.has(s)) bySec.get(s).push(c); else none.push(c); });
+      sections.forEach(s => { if (bySec.get(s).length) groups.push({ name: s, cards: bySec.get(s) }); });
+      if (none.length) groups.push({ name: t("deck.noSection"), cards: none });
+    } else {
+      groups.push({ name: "", cards });
+    }
+
+    const thread = document.createElement("div");
+    thread.className = "ov-thread" + (sections.length ? "" : " no-sec");
+    groups.forEach(g => {
+      if (g.name) {
+        const h = document.createElement("div");
+        h.className = "ov-sec-head";
+        h.innerHTML = `<span class="ov-dot" aria-hidden="true"></span><h3>${escapeHTML(g.name)}</h3><span class="ov-sec-count">${t("overview.cardCount", { n: g.cards.length })}</span>`;
+        thread.appendChild(h);
+      }
+      g.cards.forEach(c => {
+        const item = document.createElement("div");
+        item.className = "ov-card" + (isMediaCard(c) || c.type === "occlusion" ? " media" : "");
+        if (c.type === "basic") {
+          const front = document.createElement("div"); front.className = "ov-face ov-front";
+          const back = document.createElement("div"); back.className = "ov-face ov-back";
+          renderFace(front, c, false);
+          renderFace(back, c, true);
+          item.append(front, back);
+        } else {
+          // cloze·occlusion: 정답이 드러난 한 면만 보여준다(빈칸 채워진 본문 / 라벨 공개 이미지)
+          const face = document.createElement("div"); face.className = "ov-face ov-single";
+          renderFace(face, c, true);
+          item.appendChild(face);
+        }
+        const notes = notesBlockHTML(c);
+        if (notes) item.insertAdjacentHTML("beforeend", notes);
+        // 카드 클릭 → 편집(이미지 가리기는 뷰어)
+        item.addEventListener("click", () => openCardView(c.id));
+        thread.appendChild(item);
+      });
+    });
+    body.replaceChildren(thread);
+  }
+
   /* ── 플래시카드 모드 (뒤집기 카드로 훑어보기) ── */
   let flash = null; // { items: [card], i, flipped }
 
@@ -2079,6 +2182,21 @@
     renderFace($("#acQuestion"), card, false);
     showNotes(card, false);
     updateStudyStar();
+    updateStudyRibbon();
+  }
+
+  // 학습 중 현재 카드가 속한 장(섹션)을 상단 리본으로 보여줘 흐름의 위치를 알려준다
+  function updateStudyRibbon() {
+    const el = $("#studyRibbon");
+    const card = session && session.current ? currentCard() : null;
+    const sec = card ? (card.section || "").trim() : "";
+    if (!card || !sec) { el.classList.add("hidden"); el.innerHTML = ""; return; }
+    const deck = Store.getDeck(card.deckId);
+    el.innerHTML =
+      `<svg class="rib-ic" width="13" height="13"><use href="#i-book"/></svg>` +
+      (deck ? `<span class="rib-deck">${escapeHTML(deck.name)}</span><span class="rib-sep">›</span>` : "") +
+      `<span class="rib-sec">${escapeHTML(sec)}</span>`;
+    el.classList.remove("hidden");
   }
 
   // 답 공개 시 카드의 추가 설명(메모)을 보여준다
@@ -2343,6 +2461,7 @@
 
   function finishSession() {
     $(".study-stage").classList.add("hidden");
+    $("#studyRibbon").classList.add("hidden");
     ratingRow.classList.add("hidden");
     $("#keyHint").textContent = "";
     $("#sessionChips").innerHTML = "";
