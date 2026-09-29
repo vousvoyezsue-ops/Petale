@@ -388,45 +388,35 @@ const Apkg = (() => {
     return distributeIntoDecks(rows, deckId, file);
   }
 
-  // rows를 Anki 덱(_deck) 기준으로 분류해 저장한다.
-  // 서브덱이 하나뿐이면 선택한 덱에, 여럿이면 폴더+덱으로 재현한다.
+  // Anki 서브덱을 Petale의 '장(섹션)'으로 매핑한다.
+  // 모든 카드를 한 덱에 넣고, 각 카드의 서브덱 경로(A::B::C)를 section 으로 준다.
+  // 공통 최상위가 있으면 그 최상위는 덱으로 보고 벗겨낸다(→ 장 이름이 깔끔해짐).
   function distributeIntoDecks(rows, targetDeckId, file) {
-    const groups = new Map(); // deckName|null → rows[]
-    for (const r of rows) {
-      const key = r._deck || "";
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(r);
-      delete r._deck;
-    }
-
-    const distinct = [...groups.keys()].filter(Boolean);
-    if (distinct.length <= 1) {
-      const ok = Store.bulkAddCards(targetDeckId, rows);
-      if (!ok) throw new Error("storage_full");
-      return { added: rows.length, decks: 1 };
-    }
-
-    // 여러 서브덱: 공통 최상위 이름을 폴더로, 각 Anki 덱을 Petale 덱으로
+    const distinct = [...new Set(rows.map(r => r._deck).filter(Boolean))];
     const paths = distinct.map(n => n.split("::"));
-    const topLevel = paths[0][0];
-    const sameTop = paths.every(p => p[0] === topLevel);
-    const folderName = (sameTop ? topLevel : (file?.name || "").replace(/\.apkg$/i, "")) || "Imported";
-    const folder = Store.addFolder(folderName, "i-layers", "#8d9663");
+    const sameTop = paths.length > 0 && paths.every(p => p[0] === paths[0][0]);
+    const multi = distinct.length > 1; // 서브덱이 하나뿐이면 장 구분 없이 평면
 
-    let added = 0, deckCount = 0;
-    for (const [name, grp] of groups) {
-      let label;
-      if (!name) label = "Default";
-      else if (sameTop) label = name.split("::").slice(1).join(" · ") || topLevel;
-      else label = name.split("::").join(" · ");
-      const d = Store.addDeck(label, "");
-      Store.patchDeck(d.id, { folderId: folder.id });
-      const ok = Store.bulkAddCards(d.id, grp);
-      if (!ok) throw new Error("storage_full");
-      added += grp.length;
-      deckCount++;
+    const sectionFor = (deckName) => {
+      if (!deckName || !multi) return "";
+      const path = deckName.split("::");
+      const rel = sameTop ? path.slice(1) : path; // 공통 최상위 제거
+      return rel.join(" · ");
+    };
+    for (const r of rows) { r.section = sectionFor(r._deck); delete r._deck; }
+
+    // 대상 덱: 지정 덱이 있으면 거기에, 없으면 공통 최상위(또는 파일명)로 새 덱을 만든다.
+    let deck = targetDeckId ? Store.getDeck(targetDeckId) : null;
+    let createdNew = false;
+    if (!deck) {
+      const base = (sameTop && paths.length ? paths[0][0] : (file?.name || "").replace(/\.apkg$/i, "")) || "Imported";
+      deck = Store.addDeck(base.slice(0, 60), "");
+      createdNew = true;
     }
-    return { added, decks: deckCount, folder: folderName };
+    const ok = Store.bulkAddCards(deck.id, rows);
+    if (!ok) throw new Error("storage_full");
+    const sections = new Set(rows.map(r => r.section).filter(Boolean)).size;
+    return { added: rows.length, decks: 1, deckId: deck.id, sections, createdNew };
   }
 
   return { importFile };
