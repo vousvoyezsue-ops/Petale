@@ -1801,16 +1801,14 @@
   async function runApkgImport(file) {
     setImportBusy(true);
     try {
-      const { added, decks } = await Apkg.importFile(file, currentDeckId,
+      const { added, sections, deckId, createdNew } = await Apkg.importFile(file, currentDeckId,
         msg => { $("#importPicked").textContent = msg; });
       $("#importModal").close();
-      if (decks > 1) {
-        show("home"); // 폴더로 나뉘어 들어왔으니 홈에서 보여준다
-        toast(added ? t("imp.doneDecks", { n: added, d: decks }) : t("imp.empty"));
-      } else {
-        renderDeck();
-        toast(added ? t("imp.done", { n: added }) : t("imp.empty"));
-      }
+      if (createdNew && deckId) currentDeckId = deckId; // 대상 덱이 없어 새로 만든 경우 그 덱을 연다
+      renderDeck();
+      toast(added
+        ? (sections ? t("imp.doneSections", { n: added, s: sections }) : t("imp.done", { n: added }))
+        : t("imp.empty"));
     } catch (err) {
       console.error("[Petale apkg] import failed:", err);
       let msg;
