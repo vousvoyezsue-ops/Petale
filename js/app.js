@@ -1930,13 +1930,19 @@
     // 카드는 "//" 로 구분 — 한 카드 안에서는 자유롭게 줄바꿈할 수 있다
     const blocks = $("#bulkText").value.split("//").map(b => b.trim()).filter(Boolean);
     const rows = [];
-    let section = ""; // "# 챕터명" 제목 블록을 만나면 이후 카드들의 장이 된다
-    for (const block of blocks) {
-      // 장 제목: "#"으로 시작하고 구분자(콤마/탭)가 없는 단독 줄 → 이후 카드의 장 설정
-      const headerMatch = /^#+\s*(.+)$/.exec(block);
-      if (headerMatch && !block.includes("\t") && !block.includes(",") && !/\{\{c\d+::/.test(block)) {
-        section = headerMatch[1].trim();
-        continue;
+    let section = ""; // "# 챕터명" 제목을 만나면 이후 카드들의 장이 된다 (띄어쓰기 가능)
+    for (let block of blocks) {
+      // 장 제목: 블록 첫 줄이 "#"으로 시작하고 콤마/탭·빈칸문법이 없으면 제목으로 떼어낸다.
+      // 제목 뒤에 "//" 없이 바로 카드를 이어 써도 인식되도록, 첫 줄만 제목으로 처리한다.
+      if (block.startsWith("#")) {
+        const nl = block.indexOf("\n");
+        const headLine = (nl === -1 ? block : block.slice(0, nl)).trim();
+        if (!headLine.includes(",") && !headLine.includes("\t") && !/\{\{c\d+::/.test(headLine)) {
+          const hm = /^#+\s*(.*)$/.exec(headLine);
+          if (hm && hm[1].trim()) section = hm[1].trim();
+          block = (nl === -1 ? "" : block.slice(nl + 1)).trim();
+          if (!block) continue; // 제목만 있는 블록
+        }
       }
       // 빈칸(cloze) 문법이 있으면 cloze 카드로 처리 — c1, c2…마다 카드가 하나씩 생성된다
       if (/\{\{c\d+::/.test(block)) {
