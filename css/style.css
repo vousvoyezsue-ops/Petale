@@ -51,8 +51,8 @@
   --font-display: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --font-accent: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --font-body: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-  /* 로고(Petale 워드마크) 전용 — 우아한 세리프 */
-  --font-brand: "Cormorant Garamond", "Gowun Batang", Georgia, serif;
+  /* 로고(petale 워드마크) 전용 — Fraunces 세리프 */
+  --font-brand: "Fraunces", "Gowun Batang", Georgia, serif;
   --ease-spring: cubic-bezier(.22, 1, .36, 1);
 
   color-scheme: light;
@@ -283,7 +283,8 @@ input, textarea, select { font-family: inherit; }
 .brand-name {
   font-family: var(--font-brand);
   font-size: 25px; font-weight: 600;
-  letter-spacing: .03em;
+  text-transform: lowercase;
+  letter-spacing: 0;
   color: var(--olive-700);
 }
 .topnav {
@@ -2190,7 +2191,8 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
   padding: 26px 20px 34px;
   font-family: var(--font-brand);
   font-size: 16px;
-  letter-spacing: .05em;
+  text-transform: lowercase;
+  letter-spacing: .01em;
   color: var(--ink-3);
 }
 .footer-mark { color: var(--blush-300); margin-right: 7px; vertical-align: -2px; }
@@ -2316,7 +2318,8 @@ body:not(.pre-auth) .auth-gate { display: none; }
 .gate-title {
   font-family: var(--font-brand);
   font-weight: 600;
-  font-size: 34px; letter-spacing: .03em;
+  font-size: 36px; letter-spacing: 0;
+  text-transform: lowercase;
   color: var(--olive-700);
   line-height: 1.1;
 }
