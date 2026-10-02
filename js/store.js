@@ -306,8 +306,9 @@ const Store = (() => {
   function cardsOf(deckId) { return state.cards.filter(c => c.deckId === deckId); }
 
   /* ── 섹션(덱 안의 장·챕터) ──
-     카드의 section 필드(문자열)로 묶는다. 별도 저장 구조 없이 카드가 처음 등장한
-     순서대로 섹션 목록을 만든다. */
+     카드의 section 필드(문자열)로 묶는다. 별도 저장 구조 없이 카드에서 모은 뒤
+     자연 정렬(숫자 인식)로 돌려준다 → "1" < "1-1" < "1-2" < "1-10" < "2" 처럼
+     번호 매긴 장이 올바른 순서로 보인다. */
   function sectionsOf(deckId) {
     const seen = [];
     for (const c of state.cards) {
@@ -315,7 +316,7 @@ const Store = (() => {
       const s = (c.section || "").trim();
       if (s && !seen.includes(s)) seen.push(s);
     }
-    return seen;
+    return seen.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
   }
   // cloze/occlusion은 같은 노트에서 나온 형제 카드가 함께 묶이도록 섹션을 형제 전체에 반영
   function noteSiblings(card) {
