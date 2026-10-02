@@ -412,9 +412,9 @@ input, textarea, select { font-family: inherit; }
   position: relative;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 15px;
   text-align: left;
-  padding: 16px 20px;
+  padding: 14px 18px;
   border-radius: var(--r-md);
   border: 1px solid transparent;
   background:
@@ -426,6 +426,16 @@ input, textarea, select { font-family: inherit; }
   animation: card-in .5s var(--ease-spring) both;
   animation-delay: calc(var(--i) * 40ms);
 }
+/* 리딩 커버 타일 — 각 덱에 색/아이콘 앵커를 줘 목록이 또렷해진다 (폴더 색 반영) */
+.deck-cover {
+  flex-shrink: 0;
+  width: 46px; height: 46px;
+  display: grid; place-items: center;
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--cv, var(--rose-500)) 14%, var(--paper));
+  color: color-mix(in srgb, var(--cv, var(--rose-600)) 78%, var(--ink));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cv, var(--rose-500)) 20%, transparent);
+}
 @keyframes card-in {
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -435,7 +445,7 @@ input, textarea, select { font-family: inherit; }
 .deck-star {
   flex-shrink: 0;
   display: grid; place-items: center;
-  width: 36px; height: 36px;
+  width: 34px; height: 34px;
   border: none; border-radius: 50%;
   background: transparent;
   color: var(--ink-3);
@@ -461,7 +471,7 @@ input, textarea, select { font-family: inherit; }
 }
 .deck-main .deck-progress {
   display: flex; align-items: center; gap: 10px;
-  margin-top: 8px; max-width: 340px;
+  margin-top: 9px; max-width: 460px;
 }
 .deck-chevron { flex-shrink: 0; color: var(--ink-3); }
 .deck-card:hover .deck-chevron { color: var(--rose-500); }
@@ -2240,10 +2250,12 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
   .quiz-options { grid-template-columns: 1fr; }
 
   /* 덱 목록: 좁은 화면에선 셰브런 숨기고 진행바 폭 자동 */
-  .deck-card { gap: 10px; padding: 14px 14px; }
+  .deck-card { gap: 12px; padding: 13px 14px; }
+  .deck-cover { width: 40px; height: 40px; border-radius: 11px; }
   .deck-star { width: 32px; height: 32px; }
   .deck-chevron { display: none; }
   .deck-main .deck-progress { max-width: none; }
+  .deck-card-meta { flex-direction: column; align-items: flex-end; gap: 4px; }
   /* 모바일: 평가 버튼을 한 줄로 줄였으니 이미지를 크게 */
   .answer-card.media-card .occ-view img,
   .answer-card.media-card .face-img { max-height: min(76dvh, calc(100dvh - 270px)); }
