@@ -47,10 +47,12 @@
   --grain-opacity: .04;
   --r-xl: 30px; --r-lg: 22px; --r-md: 16px; --r-sm: 11px;
 
-  /* 전체를 Pretendard(고딕)로 통일 — 제목·덱명·장 헤더·히어로·로고 포함 */
+  /* UI는 Pretendard(고딕)로 통일 */
   --font-display: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --font-accent: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --font-body: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  /* 로고(Petale 워드마크) 전용 — 우아한 세리프 */
+  --font-brand: "Cormorant Garamond", "Gowun Batang", Georgia, serif;
   --ease-spring: cubic-bezier(.22, 1, .36, 1);
 
   color-scheme: light;
@@ -279,9 +281,9 @@ input, textarea, select { font-family: inherit; }
   box-shadow: 0 2px 8px color-mix(in srgb, var(--rose-500) 35%, transparent), inset 0 1px 1px rgba(255,255,255,.5);
 }
 .brand-name {
-  font-family: var(--font-accent);
-  font-size: 21px; font-weight: 640;
-  letter-spacing: -.01em;
+  font-family: var(--font-brand);
+  font-size: 25px; font-weight: 600;
+  letter-spacing: .03em;
   color: var(--olive-700);
 }
 .topnav {
@@ -2186,9 +2188,9 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
   pointer-events: none;
   text-align: center;
   padding: 26px 20px 34px;
-  font-family: var(--font-accent);
-  font-size: 13px;
-  letter-spacing: .04em;
+  font-family: var(--font-brand);
+  font-size: 16px;
+  letter-spacing: .05em;
   color: var(--ink-3);
 }
 .footer-mark { color: var(--blush-300); margin-right: 7px; vertical-align: -2px; }
@@ -2312,9 +2314,9 @@ body:not(.pre-auth) .auth-gate { display: none; }
 .gate-brand { text-align: center; margin-bottom: 22px; }
 .brand-mark.xl { width: 58px; height: 58px; margin: 0 auto 14px; }
 .gate-title {
-  font-family: var(--font-accent);
-  font-weight: 640;
-  font-size: 27px; letter-spacing: -.015em;
+  font-family: var(--font-brand);
+  font-weight: 600;
+  font-size: 34px; letter-spacing: .03em;
   color: var(--olive-700);
   line-height: 1.1;
 }
@@ -2391,7 +2393,7 @@ body:not(.pre-auth) .auth-gate { display: none; }
 
 @media (max-width: 600px) {
   .gate-panel { padding: 32px 22px 24px; border-radius: var(--r-lg); }
-  .gate-title { font-size: 24px; }
+  .gate-title { font-size: 30px; }
 }
 
 /* ═══ 카드별 크기 조절 슬라이더 ═══ */
