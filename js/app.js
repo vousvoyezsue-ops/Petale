@@ -2041,7 +2041,8 @@
       neu.push(...cards.filter(SRS.isNew).slice(0, allowed));
     }
     const shuffle = arr => arr.map(v => [Math.random(), v]).sort((a, b) => a[0] - b[0]).map(p => p[1]);
-    return [...shuffle(due), ...shuffle(neu)].map(c => c.id);
+    // 복습 카드는 섞고, 새 카드(처음 학습)는 등록한 순서 그대로 (cardsOf가 생성 순서로 반환)
+    return [...shuffle(due), ...neu].map(c => c.id);
   }
 
   function startSessionWith(queue, { global = false, emptyMsg } = {}) {
