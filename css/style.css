@@ -47,9 +47,10 @@
   --grain-opacity: .04;
   --r-xl: 30px; --r-lg: 22px; --r-md: 16px; --r-sm: 11px;
 
-  --font-display: "Gowun Batang", "Cormorant Garamond", serif;
-  --font-accent: "Cormorant Garamond", serif;
-  --font-body: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", sans-serif;
+  /* 전체를 Pretendard(고딕)로 통일 — 제목·덱명·장 헤더·히어로·로고 포함 */
+  --font-display: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-accent: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-body: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --ease-spring: cubic-bezier(.22, 1, .36, 1);
 
   color-scheme: light;
