@@ -2227,9 +2227,11 @@
     if (!card || !sec) { el.classList.add("hidden"); el.innerHTML = ""; return; }
     const deck = Store.getDeck(card.deckId);
     el.innerHTML =
-      `<svg class="rib-ic" width="13" height="13"><use href="#i-book"/></svg>` +
-      (deck ? `<span class="rib-deck">${escapeHTML(deck.name)}</span><span class="rib-sep">›</span>` : "") +
-      `<span class="rib-sec">${escapeHTML(sec)}</span>`;
+      `<svg class="rib-ic" width="16" height="16"><use href="#i-book"/></svg>` +
+      `<span class="rib-text">` +
+        (deck ? `<span class="rib-deck">${escapeHTML(deck.name)}</span>` : "") +
+        `<span class="rib-sec">${escapeHTML(sec)}</span>` +
+      `</span>`;
     el.classList.remove("hidden");
   }
 

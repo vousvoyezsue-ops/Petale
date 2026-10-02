@@ -2419,23 +2419,27 @@ body:not(.pre-auth) .auth-gate { display: none; }
 /* 개요 강조: 첫 모드 카드에 로즈 톤 아이콘 */
 .mode-overview .mode-ic { background: var(--blush-100); color: var(--rose-600); }
 
-/* 덱 카드 목록의 장 구분 헤더 */
+/* 덱 카드 목록의 장 구분 헤더 — 눈에 띄는 로즈 밴드 */
 .card-list .section-head {
   list-style: none;
-  display: flex; align-items: baseline; gap: 9px;
-  margin: 16px 2px 4px;
-  padding-bottom: 6px;
-  border-bottom: 1px dashed var(--edge);
+  display: flex; align-items: center; gap: 10px;
+  margin: 20px 0 9px;
+  padding: 8px 13px;
+  background: color-mix(in srgb, var(--blush-100) 62%, transparent);
+  border-left: 3px solid var(--rose-500);
+  border-radius: 9px;
 }
-.card-list .section-head:first-child { margin-top: 2px; }
+.card-list .section-head:first-child { margin-top: 4px; }
 .card-list .section-head .section-name {
   font-family: var(--font-display);
-  font-size: 15px; font-weight: 640; color: var(--ink);
+  font-size: 16.5px; font-weight: 700; color: var(--rose-700);
+  letter-spacing: -.01em;
 }
 .card-list .section-head .section-count {
-  font-size: 11.5px; color: var(--ink-3);
-  background: var(--ivory-deep);
-  border-radius: 999px; padding: 1px 8px;
+  margin-left: auto;
+  font-size: 11.5px; font-weight: 700; color: var(--rose-700);
+  background: color-mix(in srgb, var(--blush-200) 70%, transparent);
+  border-radius: 999px; padding: 2px 9px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2455,16 +2459,24 @@ body:not(.pre-auth) .auth-gate { display: none; }
 
 .ov-sec-head {
   position: relative; display: flex; align-items: center; gap: 10px;
-  margin: 24px 0 12px;
+  margin: 28px 0 14px; padding: 10px 15px;
+  background: color-mix(in srgb, var(--blush-100) 62%, transparent);
+  border-left: 3px solid var(--rose-500);
+  border-radius: 11px;
 }
-.ov-sec-head:first-child { margin-top: 4px; }
-.ov-sec-head h3 { font-family: var(--font-display); font-size: 17px; font-weight: 640; margin: 0; }
+.ov-sec-head:first-child { margin-top: 6px; }
+.ov-sec-head h3 {
+  font-family: var(--font-display); font-size: 19px; font-weight: 700;
+  color: var(--rose-700); margin: 0; letter-spacing: -.01em;
+}
 .ov-sec-head .ov-sec-count {
-  font-size: 11.5px; color: var(--ink-3);
-  background: var(--ivory-deep); border-radius: 999px; padding: 1px 8px;
+  margin-left: auto;
+  font-size: 11.5px; font-weight: 700; color: var(--rose-700);
+  background: color-mix(in srgb, var(--blush-200) 70%, transparent);
+  border-radius: 999px; padding: 2px 9px;
 }
 .ov-sec-head .ov-dot {
-  position: absolute; left: -26px; width: 18px; height: 18px; border-radius: 50%;
+  position: absolute; left: -26px; width: 20px; height: 20px; border-radius: 50%;
   background: var(--rose-500); border: 3px solid var(--bg);
   box-shadow: 0 0 0 2px var(--rose-500);
 }
@@ -2502,21 +2514,29 @@ body:not(.pre-auth) .auth-gate { display: none; }
 .ov-notes .note-text { white-space: pre-wrap; }
 .ov-notes .note-img { display: block; max-width: 100%; margin: 8px auto 0; border-radius: var(--r-sm); }
 
-/* ── 학습 화면 장(섹션) 리본 ── */
+/* ── 학습 화면 장(섹션) 리본 — 지금 어느 챕터인지 한눈에 ── */
 .study-ribbon {
-  display: flex; align-items: center; gap: 7px;
+  display: flex; align-items: center; gap: 10px;
   max-width: var(--study-w, 640px);
-  margin: 10px auto -2px;
-  padding: 7px 13px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--blush-100) 70%, transparent);
+  margin: 12px auto 0;
+  padding: 10px 16px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--blush-100) 72%, transparent);
+  border-left: 3px solid var(--rose-500);
   color: var(--rose-700);
-  font-size: 12.5px; font-weight: 600;
 }
-.study-ribbon .rib-ic { flex-shrink: 0; opacity: .85; }
-.study-ribbon .rib-deck { color: var(--ink-3); font-weight: 600; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.study-ribbon .rib-sep { color: var(--rose-500); opacity: .6; }
-.study-ribbon .rib-sec { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.study-ribbon .rib-ic { flex-shrink: 0; color: var(--rose-600); }
+.study-ribbon .rib-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.study-ribbon .rib-deck {
+  font-size: 11px; font-weight: 600; color: var(--ink-3);
+  text-transform: none; letter-spacing: .01em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.study-ribbon .rib-sec {
+  font-family: var(--font-display);
+  font-size: 17px; font-weight: 700; color: var(--rose-700);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 @media (max-width: 600px) {
   .overview-body { margin-top: 10px; }
@@ -2524,5 +2544,8 @@ body:not(.pre-auth) .auth-gate { display: none; }
   .ov-thread::before { left: 6px; }
   .ov-sec-head .ov-dot { left: -22px; }
   .ov-card .face-img, .ov-card .occ-view img { max-height: 46vh; }
-  .study-ribbon { font-size: 12px; padding: 6px 11px; }
+  .ov-sec-head { padding: 9px 12px; }
+  .ov-sec-head h3 { font-size: 17px; }
+  .study-ribbon { padding: 9px 13px; }
+  .study-ribbon .rib-sec { font-size: 15.5px; }
 }
