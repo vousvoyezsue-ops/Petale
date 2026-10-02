@@ -802,6 +802,14 @@
   });
 
   /* ══════════ 홈 ══════════ */
+  // 덱 커버 타일 색: 폴더 없는 덱에 id 기반으로 안정적인 파스텔 톤을 배정 (앱 팔레트 계열)
+  const COVER_TINTS = ["#c97f97", "#8d9663", "#b9975a", "#6d7548", "#a98cc0", "#5a9bb9", "#b06a82"];
+  function coverTint(id) {
+    let h = 0;
+    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+    return COVER_TINTS[h % COVER_TINTS.length];
+  }
+
   function renderHome() {
     renderFolderBar();
     const grid = $("#deckGrid");
@@ -810,7 +818,10 @@
         ? d.starred
         : (!currentFolder || d.folderId === currentFolder))
       .slice()
-      .sort((a, b) => (b.starred ? 1 : 0) - (a.starred ? 1 : 0)); // 별표 덱 먼저 (그 외 순서 유지)
+      // 별표 덱 먼저, 그다음 이름 자연 정렬(숫자 인식) → "1 · 2 · 3 · 10 · 13" 순서
+      .sort((a, b) =>
+        (b.starred ? 1 : 0) - (a.starred ? 1 : 0) ||
+        a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
 
     let totalDue = 0, totalNew = 0;
     const cardsHTML = decks.map((deck, i) => {
@@ -819,16 +830,17 @@
       const learned = c.total ? Math.round(((c.total - c.neu) / c.total) * 100) : 0;
       const folder = deck.folderId ? Store.getFolder(deck.folderId) : null;
       const picked = selectedDecks.has(deck.id);
+      const coverIcon = folder ? folder.icon : "i-layers";
+      // 폴더가 없는 덱도 각자 안정적인 파스텔 색을 갖게 해 목록에 리듬을 준다
+      const cv = folder ? folder.color : coverTint(deck.id);
+      const coverStyle = ` style="--cv:${cv}"`;
       return `
         <article class="deck-card ${selectMode ? "select-mode" : ""} ${picked ? "picked" : ""}" data-deck="${deck.id}" tabindex="0" role="button" style="--i:${i}">
           ${selectMode ? `
           <span class="deck-check ${picked ? "on" : ""}" data-pick="${deck.id}">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-          </span>` : `
-          <button class="deck-star ${deck.starred ? "on" : ""}" data-star="${deck.id}"
-            title="${t("deck.star")}" aria-label="${t("deck.star")}">
-            <svg width="17" height="17"><use href="#i-star"/></svg>
-          </button>`}
+          </span>` : ""}
+          <span class="deck-cover"${coverStyle}><svg width="19" height="19"><use href="#${coverIcon}"/></svg></span>
           <div class="deck-main">
             <div class="deck-row-head">
               <h3>${escapeHTML(deck.name)}</h3>
@@ -848,7 +860,12 @@
             ${!c.due && !c.neu && c.total ? `<span class="pill calm">${t("pill.rest")}</span>` : ""}
             <span class="pill total">${t("pill.total", { n: c.total })}</span>
           </div>
-          <svg class="deck-chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+          ${selectMode ? "" : `
+          <button class="deck-star ${deck.starred ? "on" : ""}" data-star="${deck.id}"
+            title="${t("deck.star")}" aria-label="${t("deck.star")}">
+            <svg width="17" height="17"><use href="#i-star"/></svg>
+          </button>
+          <svg class="deck-chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>`}
         </article>`;
     }).join("");
 
