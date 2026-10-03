@@ -3028,6 +3028,8 @@
     loadEl.querySelector("[data-i18n]").textContent = t("gate.syncing");
 
     Store.setOnSave(() => Social.schedulePush());
+    // 다른 기기의 변경을 받아 반영하면(앱 복귀 시) 현재 화면을 다시 그린다
+    Social.setOnRemoteUpdate(() => { applySettingsToUI(); refreshCurrentView(); });
     try {
       const r = await Social.syncOnLogin();
       if (r && r.pulled) applySettingsToUI(); // 서버본 채택 시 언어·테마 반영
