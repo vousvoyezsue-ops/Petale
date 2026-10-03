@@ -124,6 +124,13 @@ const Social = (() => {
 
   /* ── 컬렉션(덱·카드 전체) 클라우드 동기화 ── */
   const OWNER_KEY = "petale.owner"; // 이 브라우저의 로컬 데이터가 속한 계정
+  const DIRTY_KEY = "petale.dirty"; // 서버로 아직 못 올린 로컬 변경이 있는지 (reload·앱종료에도 유지)
+  function markDirty() { try { localStorage.setItem(DIRTY_KEY, "1"); } catch { /* 무시 */ } }
+  function clearDirty() { try { localStorage.removeItem(DIRTY_KEY); } catch { /* 무시 */ } }
+  function isDirty() { try { return localStorage.getItem(DIRTY_KEY) === "1"; } catch { return false; } }
+
+  let onRemoteUpdate = null; // 다른 기기의 변경을 받아 반영한 뒤 UI 새로고침 콜백
+  function setOnRemoteUpdate(fn) { onRemoteUpdate = fn; }
 
   async function pullCollection() {
     if (!profile) return null;
@@ -146,17 +153,41 @@ const Social = (() => {
       { onConflict: "user_id" },
     );
     if (error) throw error;
+    clearDirty(); // 서버 반영 완료 → 더 이상 '안 올린 변경' 아님
   }
 
   // 변경 후 디바운스 푸시 — 저장 훅에서 호출. 실패해도 앱 흐름을 막지 않는다.
   let pushTimer = null;
   function schedulePush() {
     if (!profile) return;
+    markDirty(); // 변경 발생 즉시 기록 — 디바운스 전에 앱이 닫혀도 유실 인지
     clearTimeout(pushTimer);
     pushTimer = setTimeout(() => {
       pushCollection().catch(() => {});
       syncMediaUp().catch(() => {}); // 새 이미지도 서버로
     }, 1500);
+  }
+
+  // 대기 중인 변경을 지금 즉시 서버로 (앱이 가려지거나 닫힐 때 호출 — 모바일 유실 방지)
+  function flushPush() {
+    if (!profile || !isDirty()) return Promise.resolve();
+    clearTimeout(pushTimer);
+    return pushCollection().catch(() => {});
+  }
+
+  // 앱이 다시 보일 때: 로컬 변경이 있으면 먼저 올리고, 없으면 다른 기기의 최신본을 받아 반영
+  async function syncOnVisible() {
+    if (!profile) return;
+    if (isDirty()) { await flushPush(); return; }
+    let remote = null;
+    try { remote = await pullCollection(); } catch { return; }
+    if (!remote || !remote.data || !Object.keys(remote.data).length) return;
+    const remoteAt = remote.data.updatedAt || new Date(remote.updated_at).getTime();
+    if (remoteAt > (Store.state.updatedAt || 0)) {
+      Store.replaceState(remote.data);
+      clearDirty();
+      if (onRemoteUpdate) { try { onRemoteUpdate(); } catch { /* 무시 */ } }
+    }
   }
 
   /* ── 이미지(미디어) 스토리지 동기화 ──
@@ -244,7 +275,6 @@ const Social = (() => {
   async function syncOnLogin() {
     if (!profile) return { pulled: false };
     const localOwner = localStorage.getItem(OWNER_KEY);
-    const sameOwner = localOwner === profile.id;
     // 이전에 '다른 계정'으로 로그인한 흔적이 있을 때만 남의 데이터로 취급.
     // 로그인 이력이 없으면(null) 로컬은 이 사용자의 게스트 데이터 → 보존/업로드.
     const foreignOwner = !!localOwner && localOwner !== profile.id;
@@ -253,16 +283,23 @@ const Social = (() => {
 
     let pulled = false;
     if (remote && remote.data && Object.keys(remote.data).length) {
-      const remoteAt = new Date(remote.updated_at).getTime();
-      if (sameOwner && Store.state.updatedAt > remoteAt) {
-        await pushCollection().catch(() => {}); // 같은 사용자의 오프라인 변경이 더 최신
-      } else {
-        Store.replaceState(remote.data); // 서버본 채택
+      if (foreignOwner || !isDirty()) {
+        // 다른 계정이거나, 로컬에 안 올린 변경이 없으면 → 서버가 최신(다른 기기 변경 포함) → 채택
+        Store.replaceState(remote.data);
+        clearDirty();
         pulled = true;
+      } else {
+        // 로컬에 안 올린 변경이 있음 → 충돌: 더 최신(state.updatedAt) 쪽 우선
+        const remoteAt = remote.data.updatedAt || new Date(remote.updated_at).getTime();
+        if ((Store.state.updatedAt || 0) > remoteAt) {
+          await pushCollection().catch(() => {}); // 로컬이 더 최신 → 올림
+        } else {
+          Store.replaceState(remote.data); clearDirty(); pulled = true;
+        }
       }
     } else {
       // 서버에 데이터 없음(신규 계정). 다른 계정 데이터가 남아있으면 리셋 후 업로드.
-      if (foreignOwner) { Store.reset(); pulled = true; }
+      if (foreignOwner) { Store.reset(); clearDirty(); pulled = true; }
       await pushCollection().catch(() => {}); // 첫 로그인이면 게스트 데이터를 그대로 업로드
     }
     localStorage.setItem(OWNER_KEY, profile.id);
@@ -636,18 +673,20 @@ const Social = (() => {
     }
   }
 
-  // 앱이 다시 보일 때 세션 갱신 — 오래 방치 후에도 로그인 유지
+  // 가려질 땐 대기 중인 변경을 즉시 서버로(모바일 유실 방지), 다시 보일 땐 세션 갱신 + 다른 기기 변경 반영
   if (typeof document !== "undefined") {
     document.addEventListener("visibilitychange", () => {
-      if (!document.hidden && client) { client.auth.getSession().catch(() => {}); }
+      if (document.hidden) { flushPush(); }
+      else if (client) { client.auth.getSession().catch(() => {}); syncOnVisible(); }
     });
+    window.addEventListener("pagehide", () => { flushPush(); });
   }
 
   return {
     init, signUp, signIn, signInWithGoogle, signOut, consumeAuthError,
     sendRequest, respondRequest, fetchOverview,
     pushStats, pushStatsQuiet,
-    syncOnLogin, schedulePush, pushCollection, syncMedia,
+    syncOnLogin, schedulePush, pushCollection, syncMedia, flushPush, syncOnVisible, setOnRemoteUpdate,
     publishDeck, unpublishDeck, searchDecks, downloadDeck, checkDeckUpdate, pullDeckUpdate,
     get profile() { return profile; },
   };
