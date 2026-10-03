@@ -129,8 +129,36 @@ const Social = (() => {
   function clearDirty() { try { localStorage.removeItem(DIRTY_KEY); } catch { /* 무시 */ } }
   function isDirty() { try { return localStorage.getItem(DIRTY_KEY) === "1"; } catch { return false; } }
 
+  // 마지막으로 서버와 맞춘 시점(서버 row의 updated_at 문자열). 기기 시계 비교 대신
+  // '서버가 그때 이후로 바뀌었는지'만 본다 → 시계 오차에 안 흔들림.
+  const SYNCED_KEY = "petale.syncedAt";
+  function setSynced(ts) { try { if (ts) localStorage.setItem(SYNCED_KEY, ts); } catch { /* 무시 */ } }
+  function getSynced() { try { return localStorage.getItem(SYNCED_KEY); } catch { return null; } }
+  function sameTs(a, b) { return !!a && !!b && new Date(a).getTime() === new Date(b).getTime(); }
+
   let onRemoteUpdate = null; // 다른 기기의 변경을 받아 반영한 뒤 UI 새로고침 콜백
   function setOnRemoteUpdate(fn) { onRemoteUpdate = fn; }
+
+  // 충돌(양쪽 모두 바뀜) 시 병합 — 덱·카드·폴더·문서를 id 기준 합집합으로 모아
+  // 어느 기기의 덱도 사라지지 않게 한다. 최신(updatedAt)인 쪽을 기준으로 공유 항목을 채운다.
+  function mergeCollections(a, b) {
+    const base = (a.updatedAt || 0) >= (b.updatedAt || 0) ? a : b;
+    const other = base === a ? b : a;
+    const unionById = (key) => {
+      const map = new Map();
+      (base[key] || []).forEach(x => { if (x && x.id) map.set(x.id, x); });
+      (other[key] || []).forEach(x => { if (x && x.id && !map.has(x.id)) map.set(x.id, x); });
+      return [...map.values()];
+    };
+    return {
+      ...base,
+      decks: unionById("decks"),
+      cards: unionById("cards"),
+      folders: unionById("folders"),
+      docs: unionById("docs"),
+      updatedAt: Math.max(a.updatedAt || 0, b.updatedAt || 0),
+    };
+  }
 
   async function pullCollection() {
     if (!profile) return null;
@@ -148,12 +176,14 @@ const Social = (() => {
     // 이미지(media)는 서버에 올리지 않는다 — 용량이 크고 기기에만 보관(Anki 방식).
     // 덱·카드·설정 등 텍스트/구조만 동기화한다.
     const { media, ...noMedia } = Store.state;
+    const ts = new Date().toISOString();
     const { error } = await sb().from("petale_collections").upsert(
-      { user_id: profile.id, data: noMedia, updated_at: new Date().toISOString() },
+      { user_id: profile.id, data: noMedia, updated_at: ts },
       { onConflict: "user_id" },
     );
     if (error) throw error;
-    clearDirty(); // 서버 반영 완료 → 더 이상 '안 올린 변경' 아님
+    clearDirty();   // 서버 반영 완료 → 더 이상 '안 올린 변경' 아님
+    setSynced(ts);  // 방금 올린 시점이 곧 서버 버전
   }
 
   // 변경 후 디바운스 푸시 — 저장 훅에서 호출. 실패해도 앱 흐름을 막지 않는다.
@@ -175,19 +205,26 @@ const Social = (() => {
     return pushCollection().catch(() => {});
   }
 
-  // 앱이 다시 보일 때: 로컬 변경이 있으면 먼저 올리고, 없으면 다른 기기의 최신본을 받아 반영
+  // 앱이 다시 보일 때: 서버가 마지막 동기화 이후 바뀌었으면 받아서 반영한다.
   async function syncOnVisible() {
     if (!profile) return;
-    if (isDirty()) { await flushPush(); return; }
     let remote = null;
     try { remote = await pullCollection(); } catch { return; }
-    if (!remote || !remote.data || !Object.keys(remote.data).length) return;
-    const remoteAt = remote.data.updatedAt || new Date(remote.updated_at).getTime();
-    if (remoteAt > (Store.state.updatedAt || 0)) {
-      Store.replaceState(remote.data);
-      clearDirty();
-      if (onRemoteUpdate) { try { onRemoteUpdate(); } catch { /* 무시 */ } }
+    if (!remote || !remote.data || !Object.keys(remote.data).length) {
+      if (isDirty()) await flushPush();
+      return;
     }
+    const serverChanged = !sameTs(remote.updated_at, getSynced());
+    if (!serverChanged) { if (isDirty()) await flushPush(); return; }
+    // 서버가 바뀜(다른 기기 변경)
+    if (!isDirty()) {
+      Store.replaceState(remote.data);
+      setSynced(remote.updated_at);
+    } else {
+      Store.replaceState(mergeCollections(Store.state, remote.data)); // 양쪽 변경 → 병합
+      await pushCollection().catch(() => {});
+    }
+    if (onRemoteUpdate) { try { onRemoteUpdate(); } catch { /* 무시 */ } }
   }
 
   /* ── 이미지(미디어) 스토리지 동기화 ──
@@ -283,24 +320,25 @@ const Social = (() => {
 
     let pulled = false;
     if (remote && remote.data && Object.keys(remote.data).length) {
-      if (foreignOwner || !isDirty()) {
-        // 다른 계정이거나, 로컬에 안 올린 변경이 없으면 → 서버가 최신(다른 기기 변경 포함) → 채택
-        Store.replaceState(remote.data);
-        clearDirty();
-        pulled = true;
+      if (foreignOwner) {
+        // 다른 계정 → 서버본을 그대로 채택
+        Store.replaceState(remote.data); clearDirty(); setSynced(remote.updated_at); pulled = true;
+      } else if (!isDirty()) {
+        // 로컬에 안 올린 변경 없음 → 서버가 곧 최신(다른 기기 변경 포함) → 항상 채택
+        Store.replaceState(remote.data); setSynced(remote.updated_at); pulled = true;
+      } else if (sameTs(remote.updated_at, getSynced())) {
+        // 로컬만 바뀌고 서버는 그대로 → 로컬을 올림
+        await pushCollection().catch(() => {});
       } else {
-        // 로컬에 안 올린 변경이 있음 → 충돌: 더 최신(state.updatedAt) 쪽 우선
-        const remoteAt = remote.data.updatedAt || new Date(remote.updated_at).getTime();
-        if ((Store.state.updatedAt || 0) > remoteAt) {
-          await pushCollection().catch(() => {}); // 로컬이 더 최신 → 올림
-        } else {
-          Store.replaceState(remote.data); clearDirty(); pulled = true;
-        }
+        // 양쪽 모두 바뀜(충돌) → 병합: 어느 기기의 덱도 잃지 않게
+        Store.replaceState(mergeCollections(Store.state, remote.data));
+        await pushCollection().catch(() => {});
+        pulled = true;
       }
     } else {
       // 서버에 데이터 없음(신규 계정). 다른 계정 데이터가 남아있으면 리셋 후 업로드.
       if (foreignOwner) { Store.reset(); clearDirty(); pulled = true; }
-      await pushCollection().catch(() => {}); // 첫 로그인이면 게스트 데이터를 그대로 업로드
+      await pushCollection().catch(() => {}); // 첫 로그인이면 게스트/로컬 데이터를 그대로 업로드
     }
     localStorage.setItem(OWNER_KEY, profile.id);
     return { pulled };
