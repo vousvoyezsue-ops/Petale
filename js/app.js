@@ -285,7 +285,9 @@
       return { front: card.front || `🖼 ${t("type.occlusion")} #${card.hideIndex + 1}`, back: "" };
     }
     if (card.type === "cloze") {
-      return { front: clozeStrip(card.front), back: `${t("type.cloze")} c${card.clozeIndex}` };
+      // 미리보기는 서식·표 태그를 걷어낸 읽기 텍스트로 (목록에서 깔끔하게)
+      const plain = clozeStrip(card.front).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      return { front: plain, back: `${t("type.cloze")} c${card.clozeIndex}` };
     }
     return { front: card.front, back: card.back };
   }
@@ -1579,11 +1581,11 @@
       try { document.execCommand("defaultParagraphSeparator", false, "br"); } catch {}
     });
     el.addEventListener("focus", () => { activeRichField = el; });
-    // 붙여넣기: 스프레드시트/웹의 '표'는 표로 보존(cloze 제외), 그 외엔 일반 텍스트만
+    // 붙여넣기: 스프레드시트/웹의 '표'는 표로 보존, 그 외엔 일반 텍스트만
     el.addEventListener("paste", (e) => {
       const cd = e.clipboardData || window.clipboardData;
       const html = cd && cd.getData("text/html");
-      if (el.id !== "clozeInput" && html && /<table[\s>]/i.test(html)) {
+      if (html && /<table[\s>]/i.test(html)) {
         e.preventDefault();
         document.execCommand("insertHTML", false, sanitizeRichHTML(html));
         return;
@@ -1665,7 +1667,7 @@
   if (btnTable) {
     btnTable.addEventListener("mousedown", (e) => e.preventDefault());
     btnTable.addEventListener("click", () => {
-      const field = activeRichField && activeRichField.id !== "clozeInput" ? activeRichField : $("#cardFrontInput");
+      const field = activeRichField || $("#cardFrontInput");
       field.focus();
       const html =
         '<table class="ctbl"><thead><tr><th>제목</th><th>제목</th><th>제목</th></tr></thead>' +
@@ -2013,6 +2015,24 @@
     }
   }
 
+  // 마크다운 표 → HTML(.ctbl). 셀 안의 **굵게**·==형광==·{{cN::}}는 그대로 살린다.
+  const mdCellInline = (s) => escapeHTML(s)
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/==([^=]+)==/g, '<mark style="background-color:#fdf1a8">$1</mark>');
+  function mdTableToHtml(lines) {
+    const rows = lines.map(l => l.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map(c => c.trim()));
+    const isSep = cells => cells.length && cells.every(c => /^:?-{2,}:?$/.test(c.replace(/\s/g, "")));
+    const sep = rows.findIndex(isSep);
+    const head = sep >= 0 ? rows.slice(0, sep) : rows.slice(0, 1);
+    const body = sep >= 0 ? rows.slice(sep + 1) : rows.slice(1);
+    const tr = (cells, tag) => `<tr>${cells.map(c => `<${tag}>${mdCellInline(c)}</${tag}>`).join("")}</tr>`;
+    let html = '<table class="ctbl">';
+    if (head.length) html += "<thead>" + head.map(r => tr(r, "th")).join("") + "</thead>";
+    if (body.length) html += "<tbody>" + body.map(r => tr(r, "td")).join("") + "</tbody>";
+    return html + "</table>";
+  }
+  const isMdTableLine = (l) => /^\s*\|.*\|\s*$/.test(l);
+
   function runTextImport() {
     // 카드는 "//" 로 구분 — 한 카드 안에서는 자유롭게 줄바꿈할 수 있다
     const blocks = $("#bulkText").value.split("//").map(b => b.trim()).filter(Boolean);
@@ -2030,6 +2050,23 @@
           block = (nl === -1 ? "" : block.slice(nl + 1)).trim();
           if (!block) continue; // 제목만 있는 블록
         }
+      }
+      // 마크다운 표: "|...|" 줄이 2줄 이상이면 표 카드로 변환
+      const blkLines = block.split("\n");
+      const tLines = blkLines.filter(isMdTableLine);
+      if (tLines.length >= 2) {
+        const tableHtml = mdTableToHtml(tLines);
+        const frontText = blkLines.filter(l => !isMdTableLine(l)).join("\n").trim();
+        const frontHtml = frontText ? escapeHTML(frontText).replace(/\n/g, "<br>") : "";
+        if (/\{\{c\d+::/.test(block)) {
+          // 표 안에 빈칸이 있으면 cloze 카드 (표 + 위쪽 설명)
+          const front = (frontHtml ? frontHtml + "<br>" : "") + tableHtml;
+          for (const idx of clozeIndices(front)) rows.push({ type: "cloze", front, back: "", clozeIndex: idx, section });
+        } else {
+          // 기본 카드: 설명이 있으면 앞=설명·뒤=표, 없으면 앞=표
+          rows.push({ type: "basic", front: frontHtml || tableHtml, back: frontHtml ? tableHtml : "", section });
+        }
+        continue;
       }
       // 빈칸(cloze) 문법이 있으면 cloze 카드로 처리 — c1, c2…마다 카드가 하나씩 생성된다
       if (/\{\{c\d+::/.test(block)) {
