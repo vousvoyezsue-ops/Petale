@@ -2593,3 +2593,43 @@ body:not(.pre-auth) .auth-gate { display: none; }
   .study-ribbon { padding: 9px 13px; }
   .study-ribbon .rib-sec { font-size: 15px; }
 }
+
+/* ═══════════ 카드 속 표(.ctbl) — 붙여넣기/삽입 공통 ═══════════ */
+.ctbl {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  margin: 10px 0;
+  font-size: .95em;
+  text-align: left;
+  background: var(--paper);
+  border: 1px solid var(--edge);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.ctbl th, .ctbl td {
+  padding: 9px 13px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--edge);
+  line-height: 1.45;
+}
+.ctbl thead th {
+  background: color-mix(in srgb, var(--ink-3) 8%, transparent);
+  font-weight: 600;
+  color: var(--ink-2);
+  font-size: .92em;
+  letter-spacing: .01em;
+}
+.ctbl tbody tr:last-child td { border-bottom: none; }
+.ctbl tbody tr:hover td { background: color-mix(in srgb, var(--rose-500) 4%, transparent); }
+/* 편집 중 빈 셀이 눌리게 최소 높이 + 플레이스홀더 느낌 */
+.rich-field .ctbl td:empty::after,
+.rich-field .ctbl th:empty::after { content: "\00a0"; color: var(--ink-3); }
+.rich-field .ctbl { cursor: text; }
+
+/* 좁은 화면에선 표가 넘치면 가로 스크롤(카드 밖으로 안 삐져나가게) */
+@media (max-width: 600px) {
+  .ctbl { font-size: .9em; }
+  .ctbl th, .ctbl td { padding: 8px 10px; }
+}

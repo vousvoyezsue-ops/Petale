@@ -155,16 +155,19 @@
 
   // 카드 앞/뒷면 서식(굵게·밑줄·색상·하이라이트) 허용 목록 새니타이저.
   // 내가 만든 에디터가 아니라, 공유 덱으로 받아온(신뢰할 수 없는) HTML에도 항상 이 함수를 거쳐서 렌더링한다.
-  const RICH_ALLOWED_TAGS = new Set(["B", "STRONG", "U", "EM", "I", "MARK", "SPAN", "BR"]);
+  const RICH_ALLOWED_TAGS = new Set(["B", "STRONG", "U", "EM", "I", "MARK", "SPAN", "BR",
+    "TABLE", "THEAD", "TBODY", "TFOOT", "TR", "TH", "TD", "CAPTION"]);
   // 앱에 실제로 로드된 글꼴만 허용 — 없는 글꼴은 이상한 시스템 폴백으로 렌더되므로 제외한다
   const RICH_FONT_OK = /^(pretendard variable|gowun batang|cormorant garamond|serif|sans-serif|monospace)$/i;
   function sanitizeStyleDecl(style) {
     const out = [];
     for (const part of String(style || "").split(";")) {
-      const m = /^\s*(color|background-color|font-family|font-size)\s*:\s*([^;]+?)\s*$/.exec(part);
+      const m = /^\s*(color|background-color|font-family|font-size|text-align)\s*:\s*([^;]+?)\s*$/.exec(part);
       if (!m) continue;
       const prop = m[1], val = m[2];
       if ((prop === "color" || prop === "background-color") && /^(#[0-9a-fA-F]{3,8}|rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\))$/.test(val)) {
+        out.push(`${prop}: ${val}`);
+      } else if (prop === "text-align" && /^(left|center|right)$/.test(val)) {
         out.push(`${prop}: ${val}`);
       } else if (prop === "font-size" && /^(x-small|small|medium|large|x-large|xx-large|xxx-large|\d{1,3}(?:\.\d+)?(?:px|em|rem|pt))$/.test(val)) {
         out.push(`${prop}: ${val}`);
@@ -205,10 +208,13 @@
           if (attr.name === "style") {
             const safe = sanitizeStyleDecl(attr.value);
             if (safe) child.setAttribute("style", safe); else child.removeAttribute("style");
+          } else if ((attr.name === "colspan" || attr.name === "rowspan") && /^[1-9]\d?$/.test(attr.value)) {
+            // 표 셀 병합은 유지(숫자만)
           } else {
             child.removeAttribute(attr.name);
           }
         });
+        if (tag === "TABLE") child.setAttribute("class", "ctbl"); // 모든 표에 일관된 스타일 클래스
         clean(child);
       });
     })(root);
@@ -1573,11 +1579,32 @@
       try { document.execCommand("defaultParagraphSeparator", false, "br"); } catch {}
     });
     el.addEventListener("focus", () => { activeRichField = el; });
-    // 붙여넣기는 일반 텍스트로만 허용 — 외부 문서의 스타일이 그대로 딸려오는 걸 방지
+    // 붙여넣기: 스프레드시트/웹의 '표'는 표로 보존(cloze 제외), 그 외엔 일반 텍스트만
     el.addEventListener("paste", (e) => {
+      const cd = e.clipboardData || window.clipboardData;
+      const html = cd && cd.getData("text/html");
+      if (el.id !== "clozeInput" && html && /<table[\s>]/i.test(html)) {
+        e.preventDefault();
+        document.execCommand("insertHTML", false, sanitizeRichHTML(html));
+        return;
+      }
       e.preventDefault();
-      const text = (e.clipboardData || window.clipboardData).getData("text/plain");
-      document.execCommand("insertText", false, text);
+      document.execCommand("insertText", false, cd.getData("text/plain"));
+    });
+    // 표 안에서 Tab: 다음 셀로 이동(마지막 셀이면 행 추가), Shift+Tab: 이전 셀
+    el.addEventListener("keydown", (e) => {
+      if (e.key !== "Tab") return;
+      const sel = window.getSelection();
+      if (!sel || !sel.rangeCount) return;
+      let n = sel.getRangeAt(0).startContainer;
+      const cell = (n.nodeType === 1 ? n : n.parentElement)?.closest("td,th");
+      if (!cell || !el.contains(cell)) return; // 표 밖이면 기본 동작
+      e.preventDefault();
+      const cells = [...el.querySelectorAll("td,th")];
+      const i = cells.indexOf(cell);
+      if (e.shiftKey) { if (i > 0) focusCell(cells[i - 1]); }
+      else if (i < cells.length - 1) focusCell(cells[i + 1]);
+      else focusCell(addTableRow(cell));
     });
   });
   document.addEventListener("selectionchange", () => {
@@ -1608,6 +1635,47 @@
       sel.addRange(nr);
       return true;
     } catch { return false; }
+  }
+
+  // 표 편집 헬퍼 — 셀로 커서 이동(내용 선택) / 마지막 행 뒤에 빈 행 추가
+  function focusCell(cell) {
+    if (!cell) return;
+    const r = document.createRange();
+    r.selectNodeContents(cell);
+    const s = window.getSelection();
+    s.removeAllRanges();
+    s.addRange(r);
+    return cell;
+  }
+  function addTableRow(cell) {
+    const row = cell.closest("tr");
+    const section = row.parentElement; // tbody/thead
+    const nr = document.createElement("tr");
+    for (let k = 0; k < row.children.length; k++) {
+      const td = document.createElement("td");
+      td.innerHTML = "<br>";
+      nr.appendChild(td);
+    }
+    section.appendChild(nr);
+    return nr.firstChild;
+  }
+
+  // 표 삽입 버튼 — 현재 리치 필드에 머리글 1행 + 본문 2행(3열) 표를 넣는다
+  const btnTable = $("#richInsertTable");
+  if (btnTable) {
+    btnTable.addEventListener("mousedown", (e) => e.preventDefault());
+    btnTable.addEventListener("click", () => {
+      const field = activeRichField && activeRichField.id !== "clozeInput" ? activeRichField : $("#cardFrontInput");
+      field.focus();
+      const html =
+        '<table class="ctbl"><thead><tr><th>제목</th><th>제목</th><th>제목</th></tr></thead>' +
+        '<tbody><tr><td>내용</td><td>내용</td><td>내용</td></tr>' +
+        '<tr><td>내용</td><td>내용</td><td>내용</td></tr></tbody></table><br>';
+      document.execCommand("insertHTML", false, html);
+      const tbls = field.querySelectorAll("table.ctbl");
+      const tbl = tbls[tbls.length - 1];
+      if (tbl) focusCell(tbl.querySelector("th"));
+    });
   }
 
   $$("#richToolbar .rt-btn, #richToolbar .rt-swatch").forEach(btn => {
