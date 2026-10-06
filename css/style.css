@@ -2118,6 +2118,73 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
 .fchip-edit { font-style: normal; font-size: 11px; opacity: .7; margin-left: 2px; }
 .fchip-edit:hover { opacity: 1; }
 
+/* 폴더 안 상단 바: ← 전체 + 현재 폴더 이름 */
+.folder-bar .fchip.back { cursor: pointer; padding-left: 10px; }
+.folder-bar .fchip.back:hover { color: var(--olive-700); border-color: color-mix(in srgb, var(--sage-400) 45%, transparent); }
+.folder-bar .fchip.current {
+  background: var(--lime-100);
+  border-color: color-mix(in srgb, var(--sage-400) 45%, transparent);
+  color: var(--olive-700);
+  cursor: default;
+}
+.folder-bar .fchip.current.folder {
+  background: color-mix(in srgb, var(--fc) 12%, var(--paper));
+  border-color: color-mix(in srgb, var(--fc) 45%, transparent);
+  color: color-mix(in srgb, var(--fc) 75%, var(--ink));
+}
+.folder-bar .fchip.current.folder svg { color: var(--fc); }
+.folder-bar .fchip.current.star { background: color-mix(in srgb, var(--amber) 16%, var(--paper)); border-color: color-mix(in srgb, var(--amber) 45%, transparent); color: var(--ink); }
+.folder-bar .fchip.current.star svg { fill: var(--amber); color: var(--amber); }
+.folder-bar .fchip.current .fchip-edit { cursor: pointer; }
+
+/* 폴더 카드 — 덱 카드와 같은 평면 A+C 룩 */
+.folder-card {
+  --i: 0; --accent: var(--rose-500);
+  position: relative;
+  display: flex; align-items: center; gap: 15px;
+  width: 100%; text-align: left;
+  padding: 15px 18px;
+  border-radius: 16px;
+  border: 1px solid var(--edge);
+  background: var(--paper);
+  box-shadow: 0 1px 2px rgba(70,64,48,.035);
+  cursor: pointer;
+  transition: border-color .2s ease, box-shadow .22s ease, transform .22s var(--ease-spring);
+  animation: card-in .45s var(--ease-spring) both;
+  animation-delay: calc(var(--i) * 35ms);
+  font: inherit; color: inherit;
+}
+.folder-card:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--edge));
+  box-shadow: 0 8px 22px -14px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.folder-card h3 {
+  font-family: var(--font-display);
+  font-size: 16px; font-weight: 600; letter-spacing: -.01em; color: var(--ink);
+}
+.folder-card .deck-chevron { flex-shrink: 0; color: color-mix(in srgb, var(--ink-3) 70%, transparent); }
+.folder-card:hover .deck-chevron { color: var(--accent); }
+.deck-cover.folder { color: color-mix(in srgb, var(--accent) 85%, #2a241c); }
+/* 폴더 추가 카드 — 점선, 은은하게 */
+.folder-card.add { border-style: dashed; background: transparent; box-shadow: none; }
+.folder-card.add:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.folder-card.add h3 { color: var(--ink-2); font-weight: 500; }
+.deck-cover.add {
+  background: color-mix(in srgb, var(--ink-3) 10%, var(--paper));
+  color: var(--ink-3);
+  box-shadow: inset 0 0 0 1px var(--edge);
+}
+.folder-card.add:hover .deck-cover.add { color: var(--accent); }
+/* 개요 구분선 — "폴더 없는 덱" */
+.home-divider {
+  margin: 22px 2px 4px;
+  font-family: var(--font-display);
+  font-size: 11.5px; font-weight: 600;
+  letter-spacing: .06em; text-transform: uppercase;
+  color: var(--ink-3);
+}
+
 .deck-card-tags {
   display: flex; gap: 6px; flex-wrap: wrap;
   min-height: 0;
@@ -2281,7 +2348,7 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
   .quiz-options { grid-template-columns: 1fr; }
 
   /* 덱 목록: 좁은 화면에선 셰브런 숨기고 진행바 폭 자동 */
-  .deck-card { gap: 12px; padding: 13px 14px; }
+  .deck-card, .folder-card { gap: 12px; padding: 13px 14px; }
   .deck-cover { width: 40px; height: 40px; border-radius: 11px; }
   .deck-star { width: 32px; height: 32px; }
   .deck-chevron { display: none; }
