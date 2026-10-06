@@ -2018,7 +2018,7 @@
   // 가져오기 공통 인라인 서식: **굵게** → <strong>, ==형광== → <mark>
   const inlineMd = (s) => String(s || "")
     .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/==([^=\n]+)==/g, '<mark style="background-color:#fdf1a8">$1</mark>');
+    .replace(/==([^=\n]+)==/g, '<mark style="background-color:#d6e3b8">$1</mark>');
   // 표 셀: HTML 이스케이프 후 인라인 서식 적용 ({{cN::}}는 그대로 남음)
   const mdCellInline = (s) => inlineMd(escapeHTML(s));
   function mdTableToHtml(lines) {
