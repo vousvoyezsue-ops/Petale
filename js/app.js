@@ -159,9 +159,13 @@
     "TABLE", "THEAD", "TBODY", "TFOOT", "TR", "TH", "TD", "CAPTION"]);
   // 앱에 실제로 로드된 글꼴만 허용 — 없는 글꼴은 이상한 시스템 폴백으로 렌더되므로 제외한다
   const RICH_FONT_OK = /^(pretendard variable|gowun batang|cormorant garamond|serif|sans-serif|monospace)$/i;
+  const COLOR_RE = /^(#[0-9a-fA-F]{3,8}|rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\))$/;
   function sanitizeStyleDecl(style) {
     const out = [];
     for (const part of String(style || "").split(";")) {
+      // 형광펜 색은 --hl 커스텀 속성에 담아 보존(렌더는 CSS가 '글자 아래 밴드'로 처리)
+      const hv = /^\s*--hl\s*:\s*([^;]+?)\s*$/.exec(part);
+      if (hv) { if (COLOR_RE.test(hv[1])) out.push(`--hl: ${hv[1]}`); continue; }
       const m = /^\s*(color|background-color|font-family|font-size|text-align)\s*:\s*([^;]+?)\s*$/.exec(part);
       if (!m) continue;
       const prop = m[1], val = m[2];
@@ -215,6 +219,21 @@
           }
         });
         if (tag === "TABLE") child.setAttribute("class", "ctbl"); // 모든 표에 일관된 스타일 클래스
+        // 형광펜: mark/span의 배경색(또는 기존 --hl)을 '글자 아래 밴드' 형태로 정규화
+        if (tag === "MARK" || tag === "SPAN") {
+          const st = child.getAttribute("style") || "";
+          const bg = /(?:^|;)\s*background-color:\s*([^;]+)/i.exec(st);
+          const hl = /(?:^|;)\s*--hl:\s*([^;]+)/i.exec(st);
+          let color = ((hl && hl[1]) || (bg && bg[1]) || "").trim();
+          if (/^#b2dbba$/i.test(color)) color = "#d6e3b8"; // 이전에 쓰던 초록을 원래 색상코드로 되돌림
+          if (color) {
+            const keep = st.split(";").map(s => s.trim())
+              .filter(s => s && !/^background-color\s*:/i.test(s) && !/^--hl\s*:/i.test(s));
+            keep.push(`--hl: ${color}`);
+            child.setAttribute("style", keep.join("; "));
+            child.setAttribute("class", "hl");
+          }
+        }
         clean(child);
       });
     })(root);
@@ -1774,13 +1793,17 @@
   // execCommand의 색/형광펜은 브라우저마다 줄 전체에 적용되거나 글자 크기를
   // 건드리는 문제가 있어, 색·형광펜은 이 방식으로 "선택한 부분만" 정확히 칠한다.
   const INLINE_TAG = { bold: "strong", underline: "u", italic: "em" };
-  function wrapSelection(field, tag, style) {
+  function wrapSelection(field, tag, style, className) {
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || !sel.rangeCount) return false;
     const range = sel.getRangeAt(0);
     if (!field.contains(range.commonAncestorContainer)) return false;
     const wrap = document.createElement(tag);
-    if (style) Object.assign(wrap.style, style);
+    if (style) for (const [k, v] of Object.entries(style)) {
+      if (k.startsWith("--")) wrap.style.setProperty(k, v); // 커스텀 속성(--hl)은 setProperty로
+      else wrap.style[k] = v;
+    }
+    if (className) wrap.className = className;
     try {
       wrap.appendChild(range.extractContents());
       range.insertNode(wrap);
@@ -1844,7 +1867,7 @@
       field.focus();
       // 글자색·형광펜: 선택 영역만 정확히 span으로 감싼다 (줄 전체 적용·글자 축소 방지)
       if (cmd === "foreColor") { wrapSelection(field, "span", { color: btn.dataset.val }); return; }
-      if (cmd === "hiliteColor" || cmd === "backColor") { wrapSelection(field, "span", { backgroundColor: btn.dataset.val }); return; }
+      if (cmd === "hiliteColor" || cmd === "backColor") { wrapSelection(field, "span", { "--hl": btn.dataset.val }, "hl"); return; }
       // 굵게·밑줄·서식지우기: execCommand 사용 (굵게·밑줄은 <b>/<u> 유지)
       const before = field.innerHTML;
       try { document.execCommand("styleWithCSS", false, false); } catch { /* 무시 */ }
@@ -2169,10 +2192,11 @@
     }
   }
 
-  // 가져오기 공통 인라인 서식: **굵게** → <strong>, ==형광== → <mark>
+  // 가져오기 공통 인라인 서식: **굵게** → <strong>, ==형광== → <mark>(초록, 글자 아래 밴드)
+  const HL_GREEN = "#d6e3b8";
   const inlineMd = (s) => String(s || "")
     .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/==([^=\n]+)==/g, '<mark style="background-color:#b2dbba">$1</mark>');
+    .replace(/==([^=\n]+)==/g, `<mark class="hl" style="--hl:${HL_GREEN}">$1</mark>`);
   // 표 셀: HTML 이스케이프 후 인라인 서식 적용 ({{cN::}}는 그대로 남음)
   const mdCellInline = (s) => inlineMd(escapeHTML(s));
   function mdTableToHtml(lines) {
@@ -2213,7 +2237,7 @@
       if (tLines.length >= 2) {
         const tableHtml = mdTableToHtml(tLines);
         const frontText = blkLines.filter(l => !isMdTableLine(l)).join("\n").trim();
-        const frontHtml = frontText ? escapeHTML(frontText).replace(/\n/g, "<br>") : "";
+        const frontHtml = frontText ? inlineMd(escapeHTML(frontText)).replace(/\n/g, "<br>") : "";
         if (/\{\{c\d+::/.test(block)) {
           // 표 안에 빈칸이 있으면 cloze 카드 (표 + 위쪽 설명)
           const front = (frontHtml ? frontHtml + "<br>" : "") + tableHtml;
