@@ -729,33 +729,28 @@
 
   function renderFolderBar() {
     const bar = $("#folderBar");
-    const folders = Store.state.folders;
     if (currentFolder && currentFolder !== STARRED && !Store.getFolder(currentFolder)) currentFolder = null;
     const anyStarred = Store.state.decks.some(d => d.starred);
     if (currentFolder === STARRED && !anyStarred) currentFolder = null;
 
-    bar.innerHTML = `
-      <button class="fchip ${!currentFolder ? "active" : ""}" data-folder="">${t("folder.all")}</button>
-      ${anyStarred ? `<button class="fchip star ${currentFolder === STARRED ? "active" : ""}" data-folder="${STARRED}">
-        <svg width="13" height="13"><use href="#i-star"/></svg><span>${t("folder.starred")}</span></button>` : ""}
-      ${folders.map(f => `
-        <button class="fchip folder ${currentFolder === f.id ? "active" : ""}" data-folder="${f.id}"
-          style="--fc:${f.color}">
-          <svg width="13" height="13"><use href="#${f.icon}"/></svg>
-          <span>${escapeHTML(f.name)}</span>
-          ${currentFolder === f.id ? `<i class="fchip-edit" title="${t("folder.titleEdit")}">✎</i>` : ""}
-        </button>`).join("")}
-      <button class="fchip add" id="fchipAdd">${t("folder.new")}</button>`;
+    // 개요(폴더 목록)에서는 바를 비운다 — 폴더는 카드로 보여주고 '+폴더'도 카드로.
+    if (!currentFolder) { bar.innerHTML = ""; return; }
 
-    bar.querySelectorAll(".fchip[data-folder]").forEach(chip => {
-      chip.addEventListener("click", (e) => {
-        const id = chip.dataset.folder || null;
-        if (e.target.closest(".fchip-edit")) { openFolderModal(id); return; }
-        currentFolder = id;
-        renderHome();
-      });
-    });
-    $("#fchipAdd")?.addEventListener("click", () => openFolderModal(null));
+    // 폴더 안: 뒤로(← 전체) + 현재 폴더 이름(+편집)
+    const isStar = currentFolder === STARRED;
+    const f = isStar ? null : Store.getFolder(currentFolder);
+    bar.innerHTML = `
+      <button class="fchip back" data-folder="">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+        <span>${t("folder.all")}</span>
+      </button>
+      <span class="fchip current ${isStar ? "star" : "folder"}" ${f ? `style="--fc:${f.color}"` : ""}>
+        ${isStar
+          ? `<svg width="13" height="13"><use href="#i-star"/></svg><span>${t("folder.starred")}</span>`
+          : `<svg width="13" height="13"><use href="#${f.icon}"/></svg><span>${escapeHTML(f.name)}</span><i class="fchip-edit" title="${t("folder.titleEdit")}">✎</i>`}
+      </span>`;
+    bar.querySelector(".fchip.back")?.addEventListener("click", () => { currentFolder = null; renderHome(); });
+    bar.querySelector(".fchip-edit")?.addEventListener("click", () => openFolderModal(currentFolder));
   }
 
   function openFolderModal(folderId) {
@@ -818,70 +813,107 @@
     return COVER_TINTS[h % COVER_TINTS.length];
   }
 
-  function renderHome() {
-    renderFolderBar();
-    const grid = $("#deckGrid");
-    const decks = Store.state.decks
-      .filter(d => currentFolder === STARRED
-        ? d.starred
-        : (!currentFolder || d.folderId === currentFolder))
-      .slice()
-      // 별표 덱 먼저, 그다음 이름 자연 정렬(숫자 인식) → "1 · 2 · 3 · 10 · 13" 순서
-      .sort((a, b) =>
-        (b.starred ? 1 : 0) - (a.starred ? 1 : 0) ||
-        a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
+  // 덱 정렬: 별표 먼저, 그다음 이름 자연 정렬(숫자 인식) → "1 · 2 · 3 · 10 · 13"
+  function sortDecks(arr) {
+    return arr.slice().sort((a, b) =>
+      (b.starred ? 1 : 0) - (a.starred ? 1 : 0) ||
+      a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
+  }
+  // 여러 덱의 복습·새 카드·전체 수를 합산
+  function aggCounts(list) {
+    let due = 0, neu = 0, total = 0;
+    for (const d of list) { const c = Store.deckCounts(d.id); due += c.due; neu += c.neu; total += c.total; }
+    return { due, neu, total };
+  }
+  function countPill(due, neu, total) {
+    return due ? `<span class="pill due">${t("pill.due", { n: due })}</span>`
+      : neu ? `<span class="pill new">${t("pill.new", { n: neu })}</span>`
+        : total ? `<span class="pill calm">${t("pill.rest")}</span>` : "";
+  }
 
-    let totalDue = 0, totalNew = 0;
-    const cardsHTML = decks.map((deck, i) => {
-      const c = Store.deckCounts(deck.id);
-      totalDue += c.due; totalNew += c.neu;
-      const learned = c.total ? Math.round(((c.total - c.neu) / c.total) * 100) : 0;
-      const folder = deck.folderId ? Store.getFolder(deck.folderId) : null;
-      const picked = selectedDecks.has(deck.id);
-      const cv = folder ? folder.color : coverTint(deck.id);
-      // 커버 타일 라벨: 이름 앞 숫자(1, 13…)가 있으면 그 번호, 없으면 첫 글자
-      const nm = deck.name.match(/^\s*(\d+)/);
-      const coverLabel = nm ? nm[1] : (deck.name.trim()[0] || "·");
-      const primary = c.due
-        ? `<span class="pill due">${t("pill.due", { n: c.due })}</span>`
-        : c.neu ? `<span class="pill new">${t("pill.new", { n: c.neu })}</span>`
-          : c.total ? `<span class="pill calm">${t("pill.rest")}</span>` : "";
-      const secondary = (c.due && c.neu)
-        ? `${t("pill.new", { n: c.neu })} · ${t("pill.total", { n: c.total })}`
-        : t("pill.total", { n: c.total });
-      return `
-        <article class="deck-card ${selectMode ? "select-mode" : ""} ${picked ? "picked" : ""}" data-deck="${deck.id}" tabindex="0" role="button" style="--i:${i}; --accent:${cv}">
-          ${selectMode ? `
-          <span class="deck-check ${picked ? "on" : ""}" data-pick="${deck.id}">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-          </span>` : ""}
-          <span class="deck-cover">${escapeHTML(coverLabel)}</span>
-          <div class="deck-main">
-            <div class="deck-row-head">
-              <h3>${escapeHTML(deck.name)}</h3>
-              ${folder ? `<span class="folder-tag" style="--fc:${folder.color}">
-                <svg width="11" height="11"><use href="#${folder.icon}"/></svg>${escapeHTML(folder.name)}</span>` : ""}
-              ${deck.sharedId ? `<span class="shared-tag">${deck.visibility === "friends" ? t("share.publishedFriends") : t("share.published")}</span>` : ""}
-            </div>
-            ${deck.desc ? `<p class="deck-card-desc">${escapeHTML(deck.desc)}</p>` : ""}
-            <div class="deck-progress">
-              <div class="deck-progress-bar"><i style="width:${learned}%"></i></div>
-              <span class="deck-total">${secondary}</span>
-            </div>
+  function deckCardHTML(deck, i) {
+    const c = Store.deckCounts(deck.id);
+    const learned = c.total ? Math.round(((c.total - c.neu) / c.total) * 100) : 0;
+    const folder = deck.folderId ? Store.getFolder(deck.folderId) : null;
+    const picked = selectedDecks.has(deck.id);
+    const cv = folder ? folder.color : coverTint(deck.id);
+    // 커버 타일 라벨: 이름 앞 숫자(1, 13…)가 있으면 그 번호, 없으면 첫 글자
+    const nm = deck.name.match(/^\s*(\d+)/);
+    const coverLabel = nm ? nm[1] : (deck.name.trim()[0] || "·");
+    const primary = countPill(c.due, c.neu, c.total);
+    const secondary = (c.due && c.neu)
+      ? `${t("pill.new", { n: c.neu })} · ${t("pill.total", { n: c.total })}`
+      : t("pill.total", { n: c.total });
+    return `
+      <article class="deck-card ${selectMode ? "select-mode" : ""} ${picked ? "picked" : ""}" data-deck="${deck.id}" tabindex="0" role="button" style="--i:${i}; --accent:${cv}">
+        ${selectMode ? `
+        <span class="deck-check ${picked ? "on" : ""}" data-pick="${deck.id}">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        </span>` : ""}
+        <span class="deck-cover">${escapeHTML(coverLabel)}</span>
+        <div class="deck-main">
+          <div class="deck-row-head">
+            <h3>${escapeHTML(deck.name)}</h3>
+            ${deck.sharedId ? `<span class="shared-tag">${deck.visibility === "friends" ? t("share.publishedFriends") : t("share.published")}</span>` : ""}
           </div>
-          <div class="deck-card-meta">${primary}</div>
-          ${selectMode ? "" : `
-          <button class="deck-star ${deck.starred ? "on" : ""}" data-star="${deck.id}"
-            title="${t("deck.star")}" aria-label="${t("deck.star")}">
-            <svg width="16" height="16"><use href="#i-star"/></svg>
-          </button>
-          <svg class="deck-chevron" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>`}
-        </article>`;
-    }).join("");
+          ${deck.desc ? `<p class="deck-card-desc">${escapeHTML(deck.desc)}</p>` : ""}
+          <div class="deck-progress">
+            <div class="deck-progress-bar"><i style="width:${learned}%"></i></div>
+            <span class="deck-total">${secondary}</span>
+          </div>
+        </div>
+        <div class="deck-card-meta">${primary}</div>
+        ${selectMode ? "" : `
+        <button class="deck-star ${deck.starred ? "on" : ""}" data-star="${deck.id}"
+          title="${t("deck.star")}" aria-label="${t("deck.star")}">
+          <svg width="16" height="16"><use href="#i-star"/></svg>
+        </button>
+        <svg class="deck-chevron" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>`}
+      </article>`;
+  }
 
-    grid.innerHTML = decks.length ? cardsHTML : `
-      <div class="deck-empty"><span class="big">❀</span>${t("hero.empty")}</div>`;
+  function folderCardHTML(folder, i) {
+    const decks = Store.state.decks.filter(d => d.folderId === folder.id);
+    const c = aggCounts(decks);
+    return `
+      <article class="folder-card" data-folderopen="${folder.id}" tabindex="0" role="button" style="--i:${i}; --accent:${folder.color}">
+        <span class="deck-cover folder"><svg width="20" height="20"><use href="#${folder.icon}"/></svg></span>
+        <div class="deck-main">
+          <div class="deck-row-head"><h3>${escapeHTML(folder.name)}</h3></div>
+          <p class="deck-card-desc">${t("folder.deckCount", { n: decks.length })}</p>
+        </div>
+        <div class="deck-card-meta">${countPill(c.due, c.neu, c.total)}</div>
+        <svg class="deck-chevron" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+      </article>`;
+  }
 
+  function starredCardHTML(i) {
+    const decks = Store.state.decks.filter(d => d.starred);
+    const c = aggCounts(decks);
+    return `
+      <article class="folder-card starred" data-folderopen="${STARRED}" tabindex="0" role="button" style="--i:${i}; --accent:#e3a92e">
+        <span class="deck-cover folder"><svg width="18" height="18"><use href="#i-star"/></svg></span>
+        <div class="deck-main">
+          <div class="deck-row-head"><h3>${t("folder.starred")}</h3></div>
+          <p class="deck-card-desc">${t("folder.deckCount", { n: decks.length })}</p>
+        </div>
+        <div class="deck-card-meta">${countPill(c.due, c.neu, 0)}</div>
+        <svg class="deck-chevron" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+      </article>`;
+  }
+
+  function addFolderCardHTML() {
+    return `
+      <button class="folder-card add" id="homeAddFolder" type="button">
+        <span class="deck-cover add"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+        <div class="deck-main">
+          <div class="deck-row-head"><h3>${t("folder.addCard")}</h3></div>
+          <p class="deck-card-desc">${t("folder.addHint")}</p>
+        </div>
+      </button>`;
+  }
+
+  function wireDeckCards(grid) {
     grid.querySelectorAll(".deck-star").forEach(btn => {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -892,13 +924,12 @@
         Store.patchDeck(id, { starred: on });
         btn.classList.toggle("on", on); // 별 표시만 즉시 갱신 — 그리드 재렌더/스크롤 없음
         if (currentFolder === STARRED && !on) {
-          renderHome();      // 별표 필터에서 해제 → 목록에서 빠져야 하니 이때만 재렌더
-        } else {
-          renderFolderBar(); // 그 외: 별표 칩만 갱신(그리드·스크롤 그대로)
+          renderHome();      // 별표 보기에서 해제 → 목록에서 빠져야 하니 이때만 재렌더
+        } else if (currentFolder) {
+          renderFolderBar(); // 폴더 안: 상단 칩만 갱신(그리드·스크롤 그대로)
         }
       });
     });
-
     grid.querySelectorAll(".deck-card").forEach(el => {
       const id = el.dataset.deck;
       const open = () => {
@@ -912,14 +943,61 @@
         if (e.code === "Enter" || e.code === "Space") { e.preventDefault(); open(); }
       });
     });
+  }
 
-    const waiting = totalDue + totalNew;
+  function wireFolderCards(grid) {
+    grid.querySelectorAll(".folder-card[data-folderopen]").forEach(el => {
+      const open = () => { currentFolder = el.dataset.folderopen; renderHome(); window.scrollTo({ top: 0 }); };
+      el.addEventListener("click", open);
+      el.addEventListener("keydown", (e) => {
+        if (e.code === "Enter" || e.code === "Space") { e.preventDefault(); open(); }
+      });
+    });
+    grid.querySelector("#homeAddFolder")?.addEventListener("click", () => openFolderModal(null));
+  }
+
+  function renderHome() {
+    renderFolderBar();
+    const grid = $("#deckGrid");
+    const folders = Store.state.folders;
+    // 개요: 폴더가 하나라도 있고, 아직 아무 폴더에도 들어가지 않은 상태
+    const overview = !currentFolder && folders.length > 0;
+
+    if (overview) {
+      const anyStarred = Store.state.decks.some(d => d.starred);
+      const unfiled = sortDecks(Store.state.decks.filter(d => !d.folderId));
+      let i = 0;
+      let html = "";
+      if (anyStarred) html += starredCardHTML(i++);
+      html += folders.map(f => folderCardHTML(f, i++)).join("");
+      html += addFolderCardHTML();
+      if (unfiled.length) {
+        html += `<div class="home-divider">${t("home.unfiled")}</div>`;
+        html += unfiled.map((d, k) => deckCardHTML(d, i + k)).join("");
+      }
+      grid.innerHTML = html;
+      wireFolderCards(grid);
+      wireDeckCards(grid);
+    } else {
+      // 폴더 안(또는 아직 폴더가 없을 때)의 평면 덱 목록
+      const decks = sortDecks(Store.state.decks.filter(d =>
+        currentFolder === STARRED ? d.starred : (!currentFolder || d.folderId === currentFolder)));
+      grid.innerHTML = decks.length
+        ? decks.map((d, k) => deckCardHTML(d, k)).join("")
+        : `<div class="deck-empty"><span class="big">❀</span>${t("hero.empty")}</div>`;
+      wireDeckCards(grid);
+    }
+
+    // 히어로·상단 버튼: 전체 기준(어느 화면이든 "모두 학습"은 전체 대상)
+    const all = aggCounts(Store.state.decks);
+    const waiting = all.due + all.neu;
     $("#heroSummary").innerHTML = waiting ? t("hero.waiting", { n: waiting }) : t("hero.done");
     $("#btnStudyAll").classList.toggle("hidden", !waiting || selectMode);
     $("#btnNewDeck").classList.toggle("hidden", selectMode);
 
-    // 선택 모드 토글 버튼: 덱이 하나도 없으면 숨긴다
-    $("#btnSelectMode").classList.toggle("hidden", !decks.length && !selectMode);
+    // 선택 모드 토글: 개요에서는 숨기고(폴더 안에서만), 덱이 있을 때만
+    const showSelect = !overview && (Store.state.decks.length > 0 || selectMode);
+    $("#btnSelectMode").classList.toggle("hidden", !showSelect);
     $("#btnSelectMode").textContent = selectMode ? t("home.selectCancel") : t("home.select");
     renderBulkBar();
   }
