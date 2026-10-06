@@ -1975,8 +1975,8 @@
         if (fi < 0) fi = si === 0 ? 1 : 0;
         if (bi < 0) bi = [si, fi].includes(0) ? ([si, fi].includes(1) ? 2 : 1) : 0;
         for (const cols of parsed.slice(1)) {
-          const front = (cols[fi] || "").trim();
-          const back = (cols[bi] || "").trim();
+          const front = inlineMd((cols[fi] || "").trim());
+          const back = inlineMd((cols[bi] || "").trim());
           const section = (cols[si] || "").trim();
           if (front && back) rows.push({ type: "basic", front, back, section });
         }
@@ -1985,7 +1985,7 @@
         for (const cols of parsed) {
           const front = (cols[0] || "").trim();
           const back = cols.slice(1).map(c => c.trim()).filter(Boolean).join(" — ");
-          if (front && back) rows.push({ type: "basic", front, back });
+          if (front && back) rows.push({ type: "basic", front: inlineMd(front), back: inlineMd(back) });
         }
         if (rows.length && new RegExp(`^(${CSV_FRONT.join("|")})$`, "i").test(rows[0].front)) rows.shift();
       }
@@ -2015,10 +2015,12 @@
     }
   }
 
-  // 마크다운 표 → HTML(.ctbl). 셀 안의 **굵게**·==형광==·{{cN::}}는 그대로 살린다.
-  const mdCellInline = (s) => escapeHTML(s)
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/==([^=]+)==/g, '<mark style="background-color:#fdf1a8">$1</mark>');
+  // 가져오기 공통 인라인 서식: **굵게** → <strong>, ==형광== → <mark>
+  const inlineMd = (s) => String(s || "")
+    .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/==([^=\n]+)==/g, '<mark style="background-color:#fdf1a8">$1</mark>');
+  // 표 셀: HTML 이스케이프 후 인라인 서식 적용 ({{cN::}}는 그대로 남음)
+  const mdCellInline = (s) => inlineMd(escapeHTML(s));
   function mdTableToHtml(lines) {
     const rows = lines.map(l => l.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map(c => c.trim()));
     const isSep = cells => cells.length && cells.every(c => /^:?-{2,}:?$/.test(c.replace(/\s/g, "")));
@@ -2070,7 +2072,7 @@
       }
       // 빈칸(cloze) 문법이 있으면 cloze 카드로 처리 — c1, c2…마다 카드가 하나씩 생성된다
       if (/\{\{c\d+::/.test(block)) {
-        const front = block.replace(/\n/g, "<br>"); // 카드 안 줄바꿈 유지
+        const front = inlineMd(block).replace(/\n/g, "<br>"); // **굵게**·==형광== 적용 + 줄바꿈 유지
         const indices = clozeIndices(block);
         for (const idx of indices) rows.push({ type: "cloze", front, back: "", clozeIndex: idx, section });
         continue;
@@ -2085,8 +2087,8 @@
         front = block.slice(0, i);
         back = block.slice(i + 1).trim();
       }
-      front = front.trim().replace(/\n/g, "<br>");
-      back = (back || "").replace(/\n/g, "<br>");
+      front = inlineMd(front.trim()).replace(/\n/g, "<br>");
+      back = inlineMd(back || "").replace(/\n/g, "<br>");
       if (front && back) rows.push({ type: "basic", front, back, section });
     }
     if (!rows.length) { $("#importError").textContent = t("imp.empty"); return; }
