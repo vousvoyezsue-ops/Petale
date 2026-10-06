@@ -226,22 +226,47 @@ const Store = (() => {
   }
 
   /* ── folders ── */
-  function addFolder(name, icon, color) {
-    const folder = { id: uid(), name, icon, color };
+  function addFolder(name, icon, color, parentId) {
+    const folder = { id: uid(), name, icon, color, parentId: parentId || null };
     state.folders.push(folder);
     save();
     return folder;
   }
   function updateFolder(id, patch) {
     const f = state.folders.find(x => x.id === id);
-    if (f) { Object.assign(f, patch); save(); }
+    if (!f) return;
+    // 순환 방지: 자기 자신이나 자기 하위 폴더를 상위로 지정할 수 없음
+    if ("parentId" in patch) {
+      const pid = patch.parentId || null;
+      if (pid === id || (pid && isDescendantFolder(pid, id))) delete patch.parentId;
+    }
+    Object.assign(f, patch);
+    save();
   }
   function deleteFolder(id) {
+    const gone = state.folders.find(f => f.id === id);
+    const up = gone ? (gone.parentId || null) : null;
     state.folders = state.folders.filter(f => f.id !== id);
-    state.decks.forEach(d => { if (d.folderId === id) d.folderId = null; });
+    // 하위 폴더·덱은 삭제된 폴더의 상위로 끌어올린다(사라지지 않게)
+    state.folders.forEach(f => { if (f.parentId === id) f.parentId = up; });
+    state.decks.forEach(d => { if (d.folderId === id) d.folderId = up; });
     save();
   }
   function getFolder(id) { return state.folders.find(f => f.id === id); }
+  // maybeId 가 ancestorId 의 하위(자손) 폴더인가?
+  function isDescendantFolder(maybeId, ancestorId) {
+    let cur = state.folders.find(f => f.id === maybeId);
+    const seen = new Set();
+    while (cur && cur.parentId && !seen.has(cur.id)) {
+      if (cur.parentId === ancestorId) return true;
+      seen.add(cur.id);
+      cur = state.folders.find(f => f.id === cur.parentId);
+    }
+    return false;
+  }
+  function childFolders(parentId) {
+    return state.folders.filter(f => (f.parentId || null) === (parentId || null));
+  }
 
   /* ── media ── */
   function addMedia(dataURL) {
@@ -643,7 +668,7 @@ const Store = (() => {
     setOnSave, setQuotaHandler, replaceState, reset,
     setSetting, setSteps,
     addDeck, updateDeck, deleteDeck, deleteDecks, getDeck, patchDeck,
-    addFolder, updateFolder, deleteFolder, getFolder,
+    addFolder, updateFolder, deleteFolder, getFolder, childFolders, isDescendantFolder,
     addMedia, getMedia, putMedia, referencedMedia, gcMedia,
     addCard, updateCard, deleteCard, deleteCards, cardsOf, moveCards, bulkAddCards, syncClozeSiblings, syncOcclusionSiblings, replaceDeckCards,
     sectionsOf, setSection,

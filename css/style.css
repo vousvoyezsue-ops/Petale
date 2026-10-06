@@ -2028,9 +2028,14 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
 .select-toggle { flex-shrink: 0; margin-bottom: 18px; padding: 7px 16px; font-size: 12.5px; }
 
 .folder-bar {
-  display: flex; gap: 7px; flex-wrap: wrap;
+  display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
   margin-bottom: 18px;
 }
+/* 빵부스러기(경로) 칩 */
+.folder-bar .fchip.crumb { cursor: pointer; }
+.folder-bar .fchip.crumb svg { color: var(--fc); }
+.folder-bar .fchip.crumb:hover { color: color-mix(in srgb, var(--fc) 75%, var(--ink)); border-color: color-mix(in srgb, var(--fc) 40%, transparent); }
+.folder-bar .fcrumb-sep { flex-shrink: 0; color: color-mix(in srgb, var(--ink-3) 55%, transparent); margin: 0 -1px; }
 
 /* ═══ deck multi-select ═══ */
 .deck-card.select-mode { cursor: pointer; }
