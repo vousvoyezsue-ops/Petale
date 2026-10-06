@@ -159,9 +159,13 @@
     "TABLE", "THEAD", "TBODY", "TFOOT", "TR", "TH", "TD", "CAPTION"]);
   // 앱에 실제로 로드된 글꼴만 허용 — 없는 글꼴은 이상한 시스템 폴백으로 렌더되므로 제외한다
   const RICH_FONT_OK = /^(pretendard variable|gowun batang|cormorant garamond|serif|sans-serif|monospace)$/i;
+  const COLOR_RE = /^(#[0-9a-fA-F]{3,8}|rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\))$/;
   function sanitizeStyleDecl(style) {
     const out = [];
     for (const part of String(style || "").split(";")) {
+      // 형광펜 색은 --hl 커스텀 속성에 담아 보존(렌더는 CSS가 '글자 아래 밴드'로 처리)
+      const hv = /^\s*--hl\s*:\s*([^;]+?)\s*$/.exec(part);
+      if (hv) { if (COLOR_RE.test(hv[1])) out.push(`--hl: ${hv[1]}`); continue; }
       const m = /^\s*(color|background-color|font-family|font-size|text-align)\s*:\s*([^;]+?)\s*$/.exec(part);
       if (!m) continue;
       const prop = m[1], val = m[2];
@@ -215,6 +219,21 @@
           }
         });
         if (tag === "TABLE") child.setAttribute("class", "ctbl"); // 모든 표에 일관된 스타일 클래스
+        // 형광펜: mark/span의 배경색(또는 기존 --hl)을 '글자 아래 밴드' 형태로 정규화
+        if (tag === "MARK" || tag === "SPAN") {
+          const st = child.getAttribute("style") || "";
+          const bg = /(?:^|;)\s*background-color:\s*([^;]+)/i.exec(st);
+          const hl = /(?:^|;)\s*--hl:\s*([^;]+)/i.exec(st);
+          let color = ((hl && hl[1]) || (bg && bg[1]) || "").trim();
+          if (/^#b2dbba$/i.test(color)) color = "#d6e3b8"; // 이전에 쓰던 초록을 원래 색상코드로 되돌림
+          if (color) {
+            const keep = st.split(";").map(s => s.trim())
+              .filter(s => s && !/^background-color\s*:/i.test(s) && !/^--hl\s*:/i.test(s));
+            keep.push(`--hl: ${color}`);
+            child.setAttribute("style", keep.join("; "));
+            child.setAttribute("class", "hl");
+          }
+        }
         clean(child);
       });
     })(root);
@@ -727,33 +746,63 @@
   let pickedIcon = FOLDER_ICONS[0];
   let pickedColor = FOLDER_COLORS[0];
 
+  // 루트→현재 폴더까지의 조상 경로(빵부스러기)
+  function folderTrail(id) {
+    const trail = [];
+    const seen = new Set();
+    let cur = Store.getFolder(id);
+    while (cur && !seen.has(cur.id)) { trail.unshift(cur); seen.add(cur.id); cur = cur.parentId ? Store.getFolder(cur.parentId) : null; }
+    return trail;
+  }
+  // 해당 폴더 + 모든 하위 폴더에 속한 덱(집계용)
+  function folderDecks(folderId) {
+    const ids = new Set([folderId]);
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const f of Store.state.folders) {
+        if (f.parentId && ids.has(f.parentId) && !ids.has(f.id)) { ids.add(f.id); grew = true; }
+      }
+    }
+    return Store.state.decks.filter(d => d.folderId && ids.has(d.folderId));
+  }
+  const crumbSep = `<svg class="fcrumb-sep" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>`;
+
   function renderFolderBar() {
     const bar = $("#folderBar");
     if (currentFolder && currentFolder !== STARRED && !Store.getFolder(currentFolder)) currentFolder = null;
     const anyStarred = Store.state.decks.some(d => d.starred);
     if (currentFolder === STARRED && !anyStarred) currentFolder = null;
 
-    // 개요(폴더 목록)에서는 바를 비운다 — 폴더는 카드로 보여주고 '+폴더'도 카드로.
+    // 개요(최상위)에서는 바를 비운다 — 폴더는 카드로 보여주고 '+폴더'도 카드로.
     if (!currentFolder) { bar.innerHTML = ""; return; }
 
-    // 폴더 안: 뒤로(← 전체) + 현재 폴더 이름(+편집)
-    const isStar = currentFolder === STARRED;
-    const f = isStar ? null : Store.getFolder(currentFolder);
-    bar.innerHTML = `
-      <button class="fchip back" data-folder="">
+    // '전체'로 돌아가는 루트 칩(화살표)
+    let html = `
+      <button class="fchip back" data-nav="">
         <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
         <span>${t("folder.all")}</span>
-      </button>
-      <span class="fchip current ${isStar ? "star" : "folder"}" ${f ? `style="--fc:${f.color}"` : ""}>
-        ${isStar
-          ? `<svg width="13" height="13"><use href="#i-star"/></svg><span>${t("folder.starred")}</span>`
-          : `<svg width="13" height="13"><use href="#${f.icon}"/></svg><span>${escapeHTML(f.name)}</span><i class="fchip-edit" title="${t("folder.titleEdit")}">✎</i>`}
-      </span>`;
-    bar.querySelector(".fchip.back")?.addEventListener("click", () => { currentFolder = null; renderHome(); });
+      </button>`;
+
+    if (currentFolder === STARRED) {
+      html += crumbSep + `<span class="fchip current star"><svg width="13" height="13"><use href="#i-star"/></svg><span>${t("folder.starred")}</span></span>`;
+    } else {
+      const trail = folderTrail(currentFolder);
+      trail.forEach((f, idx) => {
+        const last = idx === trail.length - 1;
+        html += crumbSep;
+        html += last
+          ? `<span class="fchip current folder" style="--fc:${f.color}"><svg width="13" height="13"><use href="#${f.icon}"/></svg><span>${escapeHTML(f.name)}</span><i class="fchip-edit" title="${t("folder.titleEdit")}">✎</i></span>`
+          : `<button class="fchip crumb" data-nav="${f.id}" style="--fc:${f.color}"><svg width="13" height="13"><use href="#${f.icon}"/></svg><span>${escapeHTML(f.name)}</span></button>`;
+      });
+    }
+    bar.innerHTML = html;
+    bar.querySelectorAll("[data-nav]").forEach(el =>
+      el.addEventListener("click", () => { currentFolder = el.dataset.nav || null; renderHome(); window.scrollTo({ top: 0 }); }));
     bar.querySelector(".fchip-edit")?.addEventListener("click", () => openFolderModal(currentFolder));
   }
 
-  function openFolderModal(folderId) {
+  function openFolderModal(folderId, presetParent) {
     editingFolderId = folderId;
     const folder = folderId ? Store.getFolder(folderId) : null;
     $("#folderModalTitle").textContent = folder ? t("folder.titleEdit") : t("folder.titleNew");
@@ -761,8 +810,21 @@
     pickedIcon = folder?.icon || FOLDER_ICONS[0];
     pickedColor = folder?.color || FOLDER_COLORS[0];
     $("#folderDelete").classList.toggle("hidden", !folder);
+    renderFolderParentSelect(folder, folder ? (folder.parentId || "") : (presetParent || ""));
     renderFolderPickers();
     $("#folderModal").showModal();
+  }
+
+  // 상위 폴더 선택 — 자기 자신과 자기 하위 폴더는 선택 불가(순환 방지)
+  function renderFolderParentSelect(editing, selected) {
+    const sel = $("#folderParentSelect");
+    const opts = [`<option value="">${t("folder.parentNone")}</option>`];
+    foldersInTreeOrder().forEach(({ f, depth }) => {
+      if (editing && (f.id === editing.id || Store.isDescendantFolder(f.id, editing.id))) return;
+      const pad = "　".repeat(depth); // 전각 공백으로 들여쓰기
+      opts.push(`<option value="${f.id}" ${f.id === selected ? "selected" : ""}>${pad}${escapeHTML(f.name)}</option>`);
+    });
+    sel.innerHTML = opts.join("");
   }
 
   function renderFolderPickers() {
@@ -782,10 +844,11 @@
   $("#folderForm").addEventListener("submit", () => {
     const name = $("#folderNameInput").value.trim();
     if (!name) return;
+    const parentId = $("#folderParentSelect").value || null;
     if (editingFolderId) {
-      Store.updateFolder(editingFolderId, { name, icon: pickedIcon, color: pickedColor });
+      Store.updateFolder(editingFolderId, { name, icon: pickedIcon, color: pickedColor, parentId });
     } else {
-      const f = Store.addFolder(name, pickedIcon, pickedColor);
+      const f = Store.addFolder(name, pickedIcon, pickedColor, parentId);
       currentFolder = f.id;
     }
     toast(t("toast.folderSaved"));
@@ -873,14 +936,18 @@
   }
 
   function folderCardHTML(folder, i) {
-    const decks = Store.state.decks.filter(d => d.folderId === folder.id);
+    const decks = folderDecks(folder.id); // 하위 폴더 포함 집계
     const c = aggCounts(decks);
+    const subs = Store.childFolders(folder.id).length;
+    const desc = subs
+      ? `${t("folder.subCount", { n: subs })} · ${t("folder.deckCount", { n: decks.length })}`
+      : t("folder.deckCount", { n: decks.length });
     return `
       <article class="folder-card" data-folderopen="${folder.id}" tabindex="0" role="button" style="--i:${i}; --accent:${folder.color}">
         <span class="deck-cover folder"><svg width="20" height="20"><use href="#${folder.icon}"/></svg></span>
         <div class="deck-main">
           <div class="deck-row-head"><h3>${escapeHTML(folder.name)}</h3></div>
-          <p class="deck-card-desc">${t("folder.deckCount", { n: decks.length })}</p>
+          <p class="deck-card-desc">${desc}</p>
         </div>
         <div class="deck-card-meta">${countPill(c.due, c.neu, c.total)}</div>
         <svg class="deck-chevron" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
@@ -902,13 +969,14 @@
       </article>`;
   }
 
-  function addFolderCardHTML() {
+  function addFolderCardHTML(parentId) {
+    const sub = !!parentId;
     return `
-      <button class="folder-card add" id="homeAddFolder" type="button">
+      <button class="folder-card add" data-addfolder="${parentId || ""}" type="button">
         <span class="deck-cover add"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
         <div class="deck-main">
-          <div class="deck-row-head"><h3>${t("folder.addCard")}</h3></div>
-          <p class="deck-card-desc">${t("folder.addHint")}</p>
+          <div class="deck-row-head"><h3>${sub ? t("folder.addSub") : t("folder.addCard")}</h3></div>
+          <p class="deck-card-desc">${sub ? t("folder.addSubHint") : t("folder.addHint")}</p>
         </div>
       </button>`;
   }
@@ -953,40 +1021,67 @@
         if (e.code === "Enter" || e.code === "Space") { e.preventDefault(); open(); }
       });
     });
-    grid.querySelector("#homeAddFolder")?.addEventListener("click", () => openFolderModal(null));
+    grid.querySelectorAll("[data-addfolder]").forEach(el =>
+      el.addEventListener("click", () => openFolderModal(null, el.dataset.addfolder || null)));
+  }
+
+  // 폴더 이름 자연 정렬
+  function sortFolders(arr) {
+    return arr.slice().sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
+  }
+  // 트리 순서(부모→자식)로 펼친 폴더 목록 [{f, depth}]
+  function foldersInTreeOrder() {
+    const out = [];
+    const walk = (parentId, depth) => {
+      sortFolders(Store.childFolders(parentId)).forEach(f => { out.push({ f, depth }); walk(f.id, depth + 1); });
+    };
+    walk(null, 0);
+    return out;
   }
 
   function renderHome() {
     renderFolderBar();
     const grid = $("#deckGrid");
-    const folders = Store.state.folders;
-    // 개요: 폴더가 하나라도 있고, 아직 아무 폴더에도 들어가지 않은 상태
-    const overview = !currentFolder && folders.length > 0;
+    const hasFolders = Store.state.folders.length > 0;
+    // mode: 'overview'(최상위·폴더 있음) | 'folder'(폴더 안) | 'starred' | 'flat'(폴더 없음 폴백)
+    const mode = currentFolder === STARRED ? "starred"
+      : currentFolder ? "folder"
+        : hasFolders ? "overview" : "flat";
 
-    if (overview) {
+    let i = 0, html = "";
+    if (mode === "overview") {
       const anyStarred = Store.state.decks.some(d => d.starred);
+      const tops = sortFolders(Store.childFolders(null));
       const unfiled = sortDecks(Store.state.decks.filter(d => !d.folderId));
-      let i = 0;
-      let html = "";
       if (anyStarred) html += starredCardHTML(i++);
-      html += folders.map(f => folderCardHTML(f, i++)).join("");
-      html += addFolderCardHTML();
+      html += tops.map(f => folderCardHTML(f, i++)).join("");
+      html += addFolderCardHTML(null);
       if (unfiled.length) {
         html += `<div class="home-divider">${t("home.unfiled")}</div>`;
-        html += unfiled.map((d, k) => deckCardHTML(d, i + k)).join("");
+        html += unfiled.map(d => deckCardHTML(d, i++)).join("");
       }
-      grid.innerHTML = html;
-      wireFolderCards(grid);
-      wireDeckCards(grid);
-    } else {
-      // 폴더 안(또는 아직 폴더가 없을 때)의 평면 덱 목록
-      const decks = sortDecks(Store.state.decks.filter(d =>
-        currentFolder === STARRED ? d.starred : (!currentFolder || d.folderId === currentFolder)));
-      grid.innerHTML = decks.length
+    } else if (mode === "folder") {
+      const subs = sortFolders(Store.childFolders(currentFolder));
+      const decks = sortDecks(Store.state.decks.filter(d => d.folderId === currentFolder));
+      html += subs.map(f => folderCardHTML(f, i++)).join("");
+      html += addFolderCardHTML(currentFolder);
+      if (decks.length) {
+        if (subs.length) html += `<div class="home-divider">${t("folder.decksHere")}</div>`;
+        html += decks.map(d => deckCardHTML(d, i++)).join("");
+      } else if (!subs.length) {
+        html += `<div class="deck-empty"><span class="big">❀</span>${t("folder.empty")}</div>`;
+      }
+    } else { // starred | flat
+      const decks = sortDecks(Store.state.decks.filter(d => mode === "starred" ? d.starred : true));
+      html = decks.length
         ? decks.map((d, k) => deckCardHTML(d, k)).join("")
         : `<div class="deck-empty"><span class="big">❀</span>${t("hero.empty")}</div>`;
-      wireDeckCards(grid);
     }
+
+    grid.innerHTML = html;
+    wireFolderCards(grid);
+    wireDeckCards(grid);
 
     // 히어로·상단 버튼: 전체 기준(어느 화면이든 "모두 학습"은 전체 대상)
     const all = aggCounts(Store.state.decks);
@@ -995,8 +1090,8 @@
     $("#btnStudyAll").classList.toggle("hidden", !waiting || selectMode);
     $("#btnNewDeck").classList.toggle("hidden", selectMode);
 
-    // 선택 모드 토글: 개요에서는 숨기고(폴더 안에서만), 덱이 있을 때만
-    const showSelect = !overview && (Store.state.decks.length > 0 || selectMode);
+    // 선택 모드 토글: 개요에서는 숨김(덱 아닌 폴더 카드뿐), 그 외 덱이 있을 때만
+    const showSelect = mode !== "overview" && (Store.state.decks.length > 0 || selectMode);
     $("#btnSelectMode").classList.toggle("hidden", !showSelect);
     $("#btnSelectMode").textContent = selectMode ? t("home.selectCancel") : t("home.select");
     renderBulkBar();
@@ -1294,8 +1389,8 @@
   function fillFolderSelect(selectedId) {
     $("#deckFolderSel").innerHTML =
       `<option value="">${t("folder.none")}</option>` +
-      Store.state.folders.map(f =>
-        `<option value="${f.id}" ${f.id === selectedId ? "selected" : ""}>${escapeHTML(f.name)}</option>`).join("");
+      foldersInTreeOrder().map(({ f, depth }) =>
+        `<option value="${f.id}" ${f.id === selectedId ? "selected" : ""}>${"　".repeat(depth)}${escapeHTML(f.name)}</option>`).join("");
   }
 
   $("#btnNewDeck").addEventListener("click", () => {
@@ -1698,13 +1793,17 @@
   // execCommand의 색/형광펜은 브라우저마다 줄 전체에 적용되거나 글자 크기를
   // 건드리는 문제가 있어, 색·형광펜은 이 방식으로 "선택한 부분만" 정확히 칠한다.
   const INLINE_TAG = { bold: "strong", underline: "u", italic: "em" };
-  function wrapSelection(field, tag, style) {
+  function wrapSelection(field, tag, style, className) {
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || !sel.rangeCount) return false;
     const range = sel.getRangeAt(0);
     if (!field.contains(range.commonAncestorContainer)) return false;
     const wrap = document.createElement(tag);
-    if (style) Object.assign(wrap.style, style);
+    if (style) for (const [k, v] of Object.entries(style)) {
+      if (k.startsWith("--")) wrap.style.setProperty(k, v); // 커스텀 속성(--hl)은 setProperty로
+      else wrap.style[k] = v;
+    }
+    if (className) wrap.className = className;
     try {
       wrap.appendChild(range.extractContents());
       range.insertNode(wrap);
@@ -1768,7 +1867,7 @@
       field.focus();
       // 글자색·형광펜: 선택 영역만 정확히 span으로 감싼다 (줄 전체 적용·글자 축소 방지)
       if (cmd === "foreColor") { wrapSelection(field, "span", { color: btn.dataset.val }); return; }
-      if (cmd === "hiliteColor" || cmd === "backColor") { wrapSelection(field, "span", { backgroundColor: btn.dataset.val }); return; }
+      if (cmd === "hiliteColor" || cmd === "backColor") { wrapSelection(field, "span", { "--hl": btn.dataset.val }, "hl"); return; }
       // 굵게·밑줄·서식지우기: execCommand 사용 (굵게·밑줄은 <b>/<u> 유지)
       const before = field.innerHTML;
       try { document.execCommand("styleWithCSS", false, false); } catch { /* 무시 */ }
@@ -2093,10 +2192,11 @@
     }
   }
 
-  // 가져오기 공통 인라인 서식: **굵게** → <strong>, ==형광== → <mark>
+  // 가져오기 공통 인라인 서식: **굵게** → <strong>, ==형광== → <mark>(초록, 글자 아래 밴드)
+  const HL_GREEN = "#d6e3b8";
   const inlineMd = (s) => String(s || "")
     .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/==([^=\n]+)==/g, '<mark style="background-color:#b2dbba">$1</mark>');
+    .replace(/==([^=\n]+)==/g, `<mark class="hl" style="--hl:${HL_GREEN}">$1</mark>`);
   // 표 셀: HTML 이스케이프 후 인라인 서식 적용 ({{cN::}}는 그대로 남음)
   const mdCellInline = (s) => inlineMd(escapeHTML(s));
   function mdTableToHtml(lines) {
@@ -2137,7 +2237,7 @@
       if (tLines.length >= 2) {
         const tableHtml = mdTableToHtml(tLines);
         const frontText = blkLines.filter(l => !isMdTableLine(l)).join("\n").trim();
-        const frontHtml = frontText ? escapeHTML(frontText).replace(/\n/g, "<br>") : "";
+        const frontHtml = frontText ? inlineMd(escapeHTML(frontText)).replace(/\n/g, "<br>") : "";
         if (/\{\{c\d+::/.test(block)) {
           // 표 안에 빈칸이 있으면 cloze 카드 (표 + 위쪽 설명)
           const front = (frontHtml ? frontHtml + "<br>" : "") + tableHtml;
