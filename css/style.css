@@ -1022,6 +1022,11 @@ body[data-view="docreader"] #app { max-width: none; }
   font-weight: 640;
 }
 
+/* 카드 노트 서식 — 소제목(가운데·볼드) + 본문(좌측) + 초록 불릿 */
+.card-head { display: block; text-align: center; font-weight: 700; margin-bottom: .5em; }
+.card-body { display: block; text-align: left; }
+.gbull { color: var(--olive-600); font-weight: 700; }
+
 /* occlusion (학습 + 편집 공용 마스크) */
 .occ-view {
   display: block;

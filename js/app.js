@@ -157,6 +157,9 @@
   // 내가 만든 에디터가 아니라, 공유 덱으로 받아온(신뢰할 수 없는) HTML에도 항상 이 함수를 거쳐서 렌더링한다.
   const RICH_ALLOWED_TAGS = new Set(["B", "STRONG", "U", "EM", "I", "MARK", "SPAN", "BR",
     "TABLE", "THEAD", "TBODY", "TFOOT", "TR", "TH", "TD", "CAPTION"]);
+  // 카드 노트 서식용 허용 클래스: 소제목(가운데)·본문(좌측)·초록 불릿
+  const RICH_CLASS_OK = new Set(["card-head", "card-body", "gbull"]);
+  const RICH_BLOCK_CLASS = new Set(["card-head", "card-body"]); // 블록으로 보존할 div 클래스
   // 앱에 실제로 로드된 글꼴만 허용 — 없는 글꼴은 이상한 시스템 폴백으로 렌더되므로 제외한다
   const RICH_FONT_OK = /^(pretendard variable|gowun batang|cormorant garamond|serif|sans-serif|monospace)$/i;
   const COLOR_RE = /^(#[0-9a-fA-F]{3,8}|rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\))$/;
@@ -192,6 +195,14 @@
                 if (child.nodeType !== Node.ELEMENT_NODE) return; // 텍스트 노드는 그대로 둔다
         const tag = child.tagName;
         if (tag === "DIV" || tag === "P") {
+          // 카드 노트 서식 블록(소제목/본문)은 정렬을 위해 블록으로 보존한다
+          const keepCls = tag === "DIV" ? [...child.classList].filter(c => RICH_BLOCK_CLASS.has(c)) : [];
+          if (keepCls.length) {
+            clean(child);
+            [...child.attributes].forEach(a => child.removeAttribute(a.name));
+            child.className = keepCls.join(" ");
+            return;
+          }
           // 브라우저가 Enter 입력마다 만드는 줄바꿈용 블록 — 내부 서식은 유지한 채 <br>로 바꾼다
           clean(child);
           // 빈 줄용 <div><br></div> 는 filler <br> 하나만 들었다 — 앞에 넣는 <br>와 겹쳐 줄바꿈이 배로 늘어나므로 하나만 남긴다
@@ -214,6 +225,10 @@
             if (safe) child.setAttribute("style", safe); else child.removeAttribute("style");
           } else if ((attr.name === "colspan" || attr.name === "rowspan") && /^[1-9]\d?$/.test(attr.value)) {
             // 표 셀 병합은 유지(숫자만)
+          } else if (attr.name === "class") {
+            // 카드 노트 서식 클래스(card-head/card-body/gbull)만 허용
+            const keep = attr.value.split(/\s+/).filter(Boolean).filter(c => RICH_CLASS_OK.has(c));
+            if (keep.length) child.setAttribute("class", keep.join(" ")); else child.removeAttribute("class");
           } else {
             child.removeAttribute(attr.name);
           }
@@ -268,6 +283,26 @@
 
   function clozeIndices(text) {
     return [...new Set([...text.matchAll(/\{\{c(\d+)::/g)].map(m => Number(m[1])))].sort((a, b) => a - b);
+  }
+
+  // 텍스트 노트를 카드 서식으로: 첫 줄(소제목)은 가운데 정렬, 그 아래 본문은 좌측 정렬,
+  // 줄 앞의 - · • 는 초록 불릿으로 바꾼다. 줄 안의 **굵게**·==형광==(inlineMd)도 함께 적용. (import 시 자동)
+  function formatNote(block) {
+    const lines = String(block).split("\n");
+    const isBullet = s => /^\s*[-–—•·*]\s+/.test(s);
+    // 줄 앞 불릿은 초록 •로, 나머지 텍스트는 inlineMd(**굵게**·==형광==) 적용
+    const bulletize = l => {
+      const m = l.match(/^(\s*)[-–—•·*]\s+([\s\S]*)$/);
+      return m ? `${m[1]}<span class="gbull">•</span> ${inlineMd(m[2])}` : inlineMd(l);
+    };
+    let head = "", start = 0;
+    // 첫 줄이 불릿이 아니고 아래에 본문이 있으면 소제목으로 본다
+    if (lines.length >= 2 && lines[0].trim() && !isBullet(lines[0])) {
+      head = `<div class="card-head">${inlineMd(lines[0].trim())}</div>`;
+      start = 1;
+    }
+    const body = lines.slice(start).map(bulletize).join("<br>");
+    return head ? `${head}<div class="card-body">${body}</div>` : body;
   }
 
   function renderCloze(text, targetIdx, revealed) {
@@ -2250,7 +2285,7 @@
       }
       // 빈칸(cloze) 문법이 있으면 cloze 카드로 처리 — c1, c2…마다 카드가 하나씩 생성된다
       if (/\{\{c\d+::/.test(block)) {
-        const front = inlineMd(block).replace(/\n/g, "<br>"); // **굵게**·==형광== 적용 + 줄바꿈 유지
+        const front = formatNote(block); // 소제목 가운데·본문 좌측·초록 불릿 + **굵게**·==형광== 서식
         const indices = clozeIndices(block);
         for (const idx of indices) rows.push({ type: "cloze", front, back: "", clozeIndex: idx, section });
         continue;
