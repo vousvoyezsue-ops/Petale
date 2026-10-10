@@ -1022,10 +1022,20 @@ body[data-view="docreader"] #app { max-width: none; }
   font-weight: 640;
 }
 
-/* 카드 노트 서식 — 소제목(가운데·볼드) + 본문(좌측) + 초록 불릿 */
-.card-head { display: block; text-align: center; font-weight: 700; margin-bottom: .5em; }
-.card-body { display: block; text-align: left; }
-.gbull { color: var(--olive-600); font-weight: 700; }
+/* 카드 노트 서식 — 소제목(가운데·초록 형광펜) + 본문(좌측 정렬 가운데 칼럼) + 초록 불릿 */
+.card-head { display: block; text-align: center; font-weight: 700; margin-bottom: 1em; }
+.card-head .hh {
+  font-weight: 700; letter-spacing: -.01em;
+  background: linear-gradient(transparent 58%, var(--lime-200) 58%);
+  padding: 0 .22em; border-radius: 2px;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+}
+.card-body { display: block; text-align: left; max-width: 32em; margin-inline: auto; }
+.card-body .nb { display: flex; align-items: baseline; gap: .5em; margin: .4em 0; }
+.card-body .nb:first-child { margin-top: 0; }
+.card-body .nb:last-child { margin-bottom: 0; }
+.card-body .nt { flex: 1 1 auto; min-width: 0; } /* 넘친 줄이 텍스트 시작 위치로 행잉 인덴트 */
+.gbull { flex: none; color: var(--olive-600); font-weight: 700; transform: translateY(-.04em); }
 
 /* occlusion (학습 + 편집 공용 마스크) */
 .occ-view {
