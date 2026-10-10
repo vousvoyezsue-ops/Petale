@@ -157,9 +157,9 @@
   // 내가 만든 에디터가 아니라, 공유 덱으로 받아온(신뢰할 수 없는) HTML에도 항상 이 함수를 거쳐서 렌더링한다.
   const RICH_ALLOWED_TAGS = new Set(["B", "STRONG", "U", "EM", "I", "MARK", "SPAN", "BR",
     "TABLE", "THEAD", "TBODY", "TFOOT", "TR", "TH", "TD", "CAPTION"]);
-  // 카드 노트 서식용 허용 클래스: 소제목(가운데)·본문(좌측)·초록 불릿
-  const RICH_CLASS_OK = new Set(["card-head", "card-body", "gbull"]);
-  const RICH_BLOCK_CLASS = new Set(["card-head", "card-body"]); // 블록으로 보존할 div 클래스
+  // 카드 노트 서식용 허용 클래스: 소제목(가운데)·본문(좌측)·노트 줄(.nb/.nt)·초록 불릿
+  const RICH_CLASS_OK = new Set(["card-head", "card-body", "nb", "nt", "gbull", "hh"]);
+  const RICH_BLOCK_CLASS = new Set(["card-head", "card-body", "nb"]); // 블록으로 보존할 div 클래스
   // 앱에 실제로 로드된 글꼴만 허용 — 없는 글꼴은 이상한 시스템 폴백으로 렌더되므로 제외한다
   const RICH_FONT_OK = /^(pretendard variable|gowun batang|cormorant garamond|serif|sans-serif|monospace)$/i;
   const COLOR_RE = /^(#[0-9a-fA-F]{3,8}|rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\))$/;
@@ -285,24 +285,29 @@
     return [...new Set([...text.matchAll(/\{\{c(\d+)::/g)].map(m => Number(m[1])))].sort((a, b) => a - b);
   }
 
-  // 텍스트 노트를 카드 서식으로: 첫 줄(소제목)은 가운데 정렬, 그 아래 본문은 좌측 정렬,
-  // 줄 앞의 - · • 는 초록 불릿으로 바꾼다. 줄 안의 **굵게**·==형광==(inlineMd)도 함께 적용. (import 시 자동)
+  // 텍스트 노트를 카드 서식으로: 첫 줄(소제목)은 가운데, 그 아래 본문은 좌측 정렬된 가운데 칼럼으로.
+  // 각 줄은 .nb(불릿+텍스트) 행으로 감싸 행잉 인덴트·줄 간격을 준다. **굵게**·==형광==(inlineMd)도 함께 적용.
   function formatNote(block) {
     const lines = String(block).split("\n");
     const isBullet = s => /^\s*[-–—•·*]\s+/.test(s);
-    // 줄 앞 불릿은 초록 •로, 나머지 텍스트는 inlineMd(**굵게**·==형광==) 적용
-    const bulletize = l => {
+    const row = l => {
       const m = l.match(/^(\s*)[-–—•·*]\s+([\s\S]*)$/);
-      return m ? `${m[1]}<span class="gbull">•</span> ${inlineMd(m[2])}` : inlineMd(l);
+      return m
+        ? `<div class="nb"><span class="gbull">•</span><span class="nt">${inlineMd(m[2])}</span></div>`
+        : `<div class="nb"><span class="nt">${inlineMd(l)}</span></div>`;
     };
     let head = "", start = 0;
-    // 첫 줄이 불릿이 아니고 아래에 본문이 있으면 소제목으로 본다
+    // 첫 줄이 불릿이 아니고 아래에 본문이 있으면 소제목으로 본다(초록 형광펜 하이라이트)
     if (lines.length >= 2 && lines[0].trim() && !isBullet(lines[0])) {
-      head = `<div class="card-head">${inlineMd(lines[0].trim())}</div>`;
+      head = `<div class="card-head"><span class="hh">${inlineMd(lines[0].trim())}</span></div>`;
       start = 1;
     }
-    const body = lines.slice(start).map(bulletize).join("<br>");
-    return head ? `${head}<div class="card-body">${body}</div>` : body;
+    const rest = lines.slice(start);
+    // 소제목이나 불릿이 있을 때만 노트 서식 적용 — 단순 빈칸 카드(한 줄 등)는 기존 그대로
+    if (head || rest.some(isBullet)) {
+      return `${head}<div class="card-body">${rest.map(row).join("")}</div>`;
+    }
+    return rest.map(l => inlineMd(l)).join("<br>");
   }
 
   function renderCloze(text, targetIdx, revealed) {
