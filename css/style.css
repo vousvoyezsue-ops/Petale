@@ -1023,7 +1023,7 @@ body[data-view="docreader"] #app { max-width: none; }
 }
 
 /* 카드 노트 서식 — 소제목(가운데·초록 형광펜) + 본문(좌측 정렬 가운데 칼럼) + 초록 불릿 */
-.card-head { display: block; text-align: center; font-weight: 700; margin-bottom: 1em; }
+.card-head { display: block; text-align: center; font-weight: 700; margin-bottom: .5em; }
 .card-head .hh {
   font-weight: 700; letter-spacing: -.01em;
   background: linear-gradient(transparent 58%, var(--lime-200) 58%);
@@ -1031,7 +1031,7 @@ body[data-view="docreader"] #app { max-width: none; }
   -webkit-box-decoration-break: clone; box-decoration-break: clone;
 }
 .card-body { display: block; text-align: left; max-width: 32em; margin-inline: auto; }
-.card-body .nb { display: flex; align-items: baseline; gap: .5em; margin: .4em 0; }
+.card-body .nb { display: flex; align-items: baseline; gap: .5em; margin: .1em 0; }
 .card-body .nb:first-child { margin-top: 0; }
 .card-body .nb:last-child { margin-bottom: 0; }
 .card-body .nt { flex: 1 1 auto; min-width: 0; } /* 넘친 줄이 텍스트 시작 위치로 행잉 인덴트 */
@@ -1042,10 +1042,11 @@ body[data-view="docreader"] #app { max-width: none; }
 .cardview-body ul, .cardview-body ol,
 .rich-field ul, .rich-field ol {
   text-align: left;
-  margin: .5em 0;
+  margin: .3em 0;
   padding-left: 1.4em;
 }
-.face-body li, .cardview-body li, .rich-field li { margin: .32em 0; padding-left: .15em; }
+/* 항목 사이는 줄바꿈(엔터) 느낌으로 촘촘하게 — 줄 간격은 line-height가 담당 */
+.face-body li, .cardview-body li, .rich-field li { margin: 0; padding-left: .15em; }
 .face-body li::marker, .cardview-body li::marker, .rich-field li::marker { color: var(--olive-600); }
 .face-body ul, .cardview-body ul, .rich-field ul { list-style: disc; }
 .face-body ol, .cardview-body ol, .rich-field ol { list-style: decimal; }
