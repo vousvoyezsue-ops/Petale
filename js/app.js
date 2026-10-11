@@ -156,6 +156,7 @@
   // 카드 앞/뒷면 서식(굵게·밑줄·색상·하이라이트) 허용 목록 새니타이저.
   // 내가 만든 에디터가 아니라, 공유 덱으로 받아온(신뢰할 수 없는) HTML에도 항상 이 함수를 거쳐서 렌더링한다.
   const RICH_ALLOWED_TAGS = new Set(["B", "STRONG", "U", "EM", "I", "MARK", "SPAN", "BR",
+    "UL", "OL", "LI",
     "TABLE", "THEAD", "TBODY", "TFOOT", "TR", "TH", "TD", "CAPTION"]);
   // 카드 노트 서식용 허용 클래스: 소제목(가운데)·본문(좌측)·노트 줄(.nb/.nt)·초록 불릿
   const RICH_CLASS_OK = new Set(["card-head", "card-body", "nb", "nt", "gbull", "hh"]);
@@ -252,7 +253,38 @@
         clean(child);
       });
     })(root);
+    migrateNoteBullets(root); // 옛 .nb/.gbull 불릿 구조 → 편집 가능한 <ul><li>
     return root.innerHTML;
+  }
+
+  // 예전 가져오기가 만든 .nb(줄)·.gbull(불릿) 블록 구조를 진짜 <ul><li> 목록으로 바꾼다.
+  // contenteditable에서 커스텀 블록은 편집 시 깨지기 쉬워서, 브라우저가 기본 지원하는 목록으로 치환한다.
+  function migrateNoteBullets(root) {
+    const parents = new Set();
+    root.querySelectorAll(".nb").forEach(nb => nb.parentNode && parents.add(nb.parentNode));
+    parents.forEach(parent => {
+      let ul = null;
+      [...parent.childNodes].forEach(node => {
+        const isNb = node.nodeType === 1 && node.classList && node.classList.contains("nb");
+        if (!isNb) { if (!(node.nodeType === 1 && node.tagName === "UL")) ul = null; return; }
+        const nt = node.querySelector(".nt") || node;
+        if (node.querySelector(".gbull")) {
+          // 불릿 줄 → <li>, 연속 불릿은 하나의 <ul>로 묶기
+          const li = document.createElement("li");
+          while (nt.firstChild) li.appendChild(nt.firstChild);
+          if (!ul) { ul = document.createElement("ul"); parent.insertBefore(ul, node); }
+          ul.appendChild(li);
+          node.remove();
+        } else {
+          // 불릿 아닌 줄 → 텍스트 + 줄바꿈
+          ul = null;
+          const frag = document.createDocumentFragment();
+          while (nt.firstChild) frag.appendChild(nt.firstChild);
+          frag.appendChild(document.createElement("br"));
+          parent.replaceChild(frag, node);
+        }
+      });
+    });
   }
 
   // contenteditable 서식 필드 읽기/쓰기 헬퍼
@@ -285,27 +317,44 @@
     return [...new Set([...text.matchAll(/\{\{c(\d+)::/g)].map(m => Number(m[1])))].sort((a, b) => a - b);
   }
 
+  const BULLET_RE = /^\s*[-–—•·*]\s+([\s\S]*)$/;
+  const NUMBER_RE = /^\s*\d+[.)]\s+([\s\S]*)$/;
+  // 여러 줄 텍스트 → HTML: 연속된 불릿(-, •, * …)은 <ul>, 번호(1. 2) …)는 <ol>,
+  // 그 외 줄은 <br>로 이어 붙인다. 각 줄 내용엔 **굵게**·==형광==(inlineMd) 적용.
+  function linesToHtml(lines) {
+    const out = [];
+    let i = 0;
+    while (i < lines.length) {
+      const bm = lines[i].match(BULLET_RE), nm = lines[i].match(NUMBER_RE);
+      if (bm || nm) {
+        const tag = bm ? "ul" : "ol", re = bm ? BULLET_RE : NUMBER_RE;
+        const items = [];
+        while (i < lines.length) { const m = lines[i].match(re); if (!m) break; items.push(`<li>${inlineMd(m[1].trim())}</li>`); i++; }
+        out.push(`<${tag}>${items.join("")}</${tag}>`);
+      } else {
+        const text = [];
+        while (i < lines.length && !BULLET_RE.test(lines[i]) && !NUMBER_RE.test(lines[i])) { text.push(inlineMd(lines[i])); i++; }
+        out.push(text.join("<br>"));
+      }
+    }
+    return out.join("");
+  }
+
   // 텍스트 노트를 카드 서식으로: 첫 줄(소제목)은 가운데, 그 아래 본문은 좌측 정렬된 가운데 칼럼으로.
-  // 각 줄은 .nb(불릿+텍스트) 행으로 감싸 행잉 인덴트·줄 간격을 준다. **굵게**·==형광==(inlineMd)도 함께 적용.
+  // 불릿/번호 줄은 진짜 <ul>/<ol> 목록으로 — contenteditable에서 바로 편집할 수 있다.
   function formatNote(block) {
     const lines = String(block).split("\n");
-    const isBullet = s => /^\s*[-–—•·*]\s+/.test(s);
-    const row = l => {
-      const m = l.match(/^(\s*)[-–—•·*]\s+([\s\S]*)$/);
-      return m
-        ? `<div class="nb"><span class="gbull">•</span><span class="nt">${inlineMd(m[2])}</span></div>`
-        : `<div class="nb"><span class="nt">${inlineMd(l)}</span></div>`;
-    };
+    const isList = s => BULLET_RE.test(s) || NUMBER_RE.test(s);
     let head = "", start = 0;
-    // 첫 줄이 불릿이 아니고 아래에 본문이 있으면 소제목으로 본다(초록 형광펜 하이라이트)
-    if (lines.length >= 2 && lines[0].trim() && !isBullet(lines[0])) {
+    // 첫 줄이 목록이 아니고 아래에 본문이 있으면 소제목으로 본다(초록 형광펜 하이라이트)
+    if (lines.length >= 2 && lines[0].trim() && !isList(lines[0])) {
       head = `<div class="card-head"><span class="hh">${inlineMd(lines[0].trim())}</span></div>`;
       start = 1;
     }
     const rest = lines.slice(start);
-    // 소제목이나 불릿이 있을 때만 노트 서식 적용 — 단순 빈칸 카드(한 줄 등)는 기존 그대로
-    if (head || rest.some(isBullet)) {
-      return `${head}<div class="card-body">${rest.map(row).join("")}</div>`;
+    // 소제목이나 목록이 있을 때만 노트 서식 적용 — 단순 빈칸 카드(한 줄 등)는 기존 그대로
+    if (head || rest.some(isList)) {
+      return `${head}<div class="card-body">${linesToHtml(rest)}</div>`;
     }
     return rest.map(l => inlineMd(l)).join("<br>");
   }
@@ -2305,8 +2354,8 @@
         front = block.slice(0, i);
         back = block.slice(i + 1).trim();
       }
-      front = inlineMd(front.trim()).replace(/\n/g, "<br>");
-      back = inlineMd(back || "").replace(/\n/g, "<br>");
+      front = linesToHtml(front.trim().split("\n")); // 불릿/번호 줄은 <ul>/<ol>로
+      back = linesToHtml(String(back || "").split("\n"));
       if (front && back) rows.push({ type: "basic", front, back, section });
     }
     if (!rows.length) { $("#importError").textContent = t("imp.empty"); return; }
