@@ -1037,6 +1037,21 @@ body[data-view="docreader"] #app { max-width: none; }
 .card-body .nt { flex: 1 1 auto; min-width: 0; } /* 넘친 줄이 텍스트 시작 위치로 행잉 인덴트 */
 .gbull { flex: none; color: var(--olive-600); font-weight: 700; transform: translateY(-.04em); }
 
+/* 카드/편집기 안의 글머리·번호 목록 (import·툴바 공통) */
+.face-body ul, .face-body ol,
+.cardview-body ul, .cardview-body ol,
+.rich-field ul, .rich-field ol {
+  text-align: left;
+  margin: .5em 0;
+  padding-left: 1.4em;
+}
+.face-body li, .cardview-body li, .rich-field li { margin: .32em 0; padding-left: .15em; }
+.face-body li::marker, .cardview-body li::marker, .rich-field li::marker { color: var(--olive-600); }
+.face-body ul, .cardview-body ul, .rich-field ul { list-style: disc; }
+.face-body ol, .cardview-body ol, .rich-field ol { list-style: decimal; }
+/* 본문 칼럼 안의 목록은 가운데 칼럼 폭에 맞춰 좌측 정렬 */
+.card-body ul, .card-body ol { max-width: 32em; margin-inline: auto; }
+
 /* occlusion (학습 + 편집 공용 마스크) */
 .occ-view {
   display: block;
