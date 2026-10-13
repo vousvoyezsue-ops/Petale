@@ -2602,61 +2602,61 @@ body:not(.pre-auth) .auth-gate { display: none; }
 /* ── 개요(흐름 보기) 뷰 ── */
 .overview-head { margin: 6px 2px 4px; }
 .overview-sub { color: var(--ink-3); font-size: 13px; margin-top: 2px; }
-.overview-body { max-width: 720px; margin: 14px auto 40px; }
+.overview-body { max-width: 700px; margin: 16px auto 60px; }
 
-.ov-thread { position: relative; padding-left: 26px; }
-.ov-thread::before {
-  content: ""; position: absolute; left: 8px; top: 10px; bottom: 10px;
-  width: 2px; border-radius: 2px;
-  background: var(--edge);
-}
-.ov-thread.no-sec { padding-left: 0; }
-.ov-thread.no-sec::before { display: none; }
-
-.ov-sec-head {
-  position: relative; display: flex; align-items: baseline; gap: 10px;
-  margin: 30px 0 14px; padding: 0 2px 9px;
-  border-bottom: 1px solid var(--edge);
-}
-.ov-sec-head:first-child { margin-top: 2px; }
-.ov-sec-head h3 {
-  font-family: var(--font-display); font-size: 18px; font-weight: 640;
-  color: var(--ink); margin: 0; letter-spacing: -.015em;
-}
-.ov-sec-head .ov-sec-count {
-  margin-left: auto;
-  font-size: 11.5px; font-weight: 650; color: var(--sage-500);
-}
-.ov-sec-head .ov-dot {
-  position: absolute; left: -22px; top: 4px; width: 11px; height: 11px; border-radius: 50%;
-  background: var(--sage-400); border: 2.5px solid var(--bg);
-  box-shadow: 0 0 0 1.5px var(--sage-400);
-}
-
-.ov-card {
-  position: relative;
+/* 개요 = 한 장의 '요약 노트 시트' (카드 박스·타임라인 없이 흐르는 문서) */
+.ov-sheet {
   background: var(--paper);
   border: 1px solid var(--edge);
-  border-radius: var(--r-md);
-  padding: 16px 18px;
-  margin-bottom: 10px;
-  box-shadow: var(--shadow-xs);
-  cursor: default;
+  border-radius: 20px;
+  padding: 34px 38px 38px;
+  box-shadow: var(--shadow-sm);
 }
-.ov-thread:not(.no-sec) .ov-card::before {
-  content: ""; position: absolute; left: -18px; top: 26px;
-  width: 11px; height: 2px; background: var(--edge);
+
+/* 챕터(장) — 에디토리얼 헤더: 번호 + 이름 + 개수, 굵은 밑줄 */
+.ov-chap { margin-bottom: 40px; }
+.ov-chap:last-child { margin-bottom: 0; }
+.ov-chap-title {
+  display: flex; align-items: baseline; gap: 12px;
+  margin: 0 0 22px; padding-bottom: 9px;
+  border-bottom: 2px solid var(--ink);
 }
-.ov-face { min-width: 0; }
-.ov-face.ov-front { font-weight: 640; font-size: 15.5px; color: var(--ink); }
-.ov-face.ov-back {
-  font-size: 14px; color: var(--ink-2); margin-top: 8px;
-  padding-top: 8px; border-top: 1px dashed var(--edge);
+.ov-chap-no {
+  font-family: var(--font-display);
+  font-size: 13px; font-weight: 700; color: var(--sage-500);
+  font-variant-numeric: tabular-nums; letter-spacing: .06em;
 }
-.ov-face.ov-single { font-size: 15px; color: var(--ink); }
-.ov-card .face-img,
-.ov-card .occ-view img { max-height: 340px; border-radius: var(--r-sm); }
-.ov-card .occ-view { margin: 2px 0; }
+.ov-chap-name {
+  font-family: var(--font-display);
+  font-size: 23px; font-weight: 700; color: var(--ink);
+  letter-spacing: -.02em; line-height: 1.15;
+}
+.ov-chap-count { margin-left: auto; align-self: center; font-size: 12px; font-weight: 600; color: var(--ink-3); }
+
+/* 노트 한 꼭지 — 박스 없이 흐르고, 꼭지 사이는 아주 옅은 선으로만 구분 */
+.ov-note { padding: 0 1px; }
+.ov-note + .ov-note {
+  margin-top: 20px; padding-top: 20px;
+  border-top: 1px solid color-mix(in srgb, var(--edge) 55%, transparent);
+}
+
+/* cloze 노트: 소제목은 왼쪽 정렬 문서 헤딩(초록 형광펜 유지), 본문 목록은 깔끔하게 */
+.ov-body { font-size: 15.5px; line-height: 1.68; color: var(--ink); }
+.ov-body .card-head { text-align: left; font-size: 16.5px; margin-bottom: .45em; }
+.ov-body .card-body { max-width: none; margin: 0; text-align: left; }
+.ov-body ul, .ov-body ol { max-width: none; margin: .2em 0 0; padding-left: 1.3em; text-align: left; }
+.ov-body li { margin: .3em 0; }
+.ov-body li::marker { color: var(--olive-600); }
+
+/* 기본 카드: 용어(굵게) + 정의 */
+.ov-term { font-weight: 680; font-size: 16px; color: var(--ink); line-height: 1.55; }
+.ov-def { font-size: 14.5px; color: var(--ink-2); margin-top: 3px; line-height: 1.6; }
+
+/* 이미지·가리기 카드 */
+.ov-note .face-img,
+.ov-note .occ-view img { max-height: 340px; border-radius: var(--r-sm); }
+.ov-note .occ-view { margin: 4px 0; }
+
 .ov-notes {
   margin-top: 9px; padding-top: 8px; border-top: 1px dotted var(--edge);
   font-size: 12.5px; color: var(--ink-3);
@@ -2690,12 +2690,10 @@ body:not(.pre-auth) .auth-gate { display: none; }
 
 @media (max-width: 600px) {
   .overview-body { margin-top: 10px; }
-  .ov-thread { padding-left: 22px; }
-  .ov-thread::before { left: 6px; }
-  .ov-sec-head .ov-dot { left: -18px; }
-  .ov-card .face-img, .ov-card .occ-view img { max-height: 46vh; }
-  .ov-sec-head { padding: 0 2px 8px; }
-  .ov-sec-head h3 { font-size: 16px; }
+  .ov-sheet { padding: 22px 18px 24px; border-radius: 16px; }
+  .ov-chap { margin-bottom: 30px; }
+  .ov-chap-name { font-size: 20px; }
+  .ov-note .face-img, .ov-note .occ-view img { max-height: 46vh; }
   .study-ribbon { padding: 9px 13px; }
   .study-ribbon .rib-sec { font-size: 15px; }
 }

@@ -2505,41 +2505,48 @@
       groups.push({ name: "", cards });
     }
 
-    const thread = document.createElement("div");
-    thread.className = "ov-thread" + (sections.length ? "" : " no-sec");
+    const sheet = document.createElement("div");
+    sheet.className = "ov-sheet";
+    let chapNo = 0;
     groups.forEach(g => {
+      const chap = document.createElement("section");
+      chap.className = "ov-chap";
       if (g.name) {
-        const h = document.createElement("div");
-        h.className = "ov-sec-head";
-        h.innerHTML = `<span class="ov-dot" aria-hidden="true"></span><h3>${escapeHTML(g.name)}</h3><span class="ov-sec-count">${t("overview.cardCount", { n: g.cards.length })}</span>`;
-        thread.appendChild(h);
+        chapNo++;
+        const h = document.createElement("h2");
+        h.className = "ov-chap-title";
+        h.innerHTML = `<span class="ov-chap-no">${String(chapNo).padStart(2, "0")}</span>`
+          + `<span class="ov-chap-name">${escapeHTML(g.name)}</span>`
+          + `<span class="ov-chap-count">${t("overview.cardCount", { n: g.cards.length })}</span>`;
+        chap.appendChild(h);
       }
       g.cards.forEach(c => {
-        const item = document.createElement("div");
-        item.className = "ov-card" + (isMediaCard(c) || c.type === "occlusion" ? " media" : "");
+        const note = document.createElement("article");
+        note.className = "ov-note" + (isMediaCard(c) || c.type === "occlusion" ? " media" : "");
         if (c.type === "basic") {
-          const front = document.createElement("div"); front.className = "ov-face ov-front";
-          const back = document.createElement("div"); back.className = "ov-face ov-back";
+          const front = document.createElement("div"); front.className = "ov-term";
+          const back = document.createElement("div"); back.className = "ov-def";
           renderFace(front, c, false);
           renderFace(back, c, true);
-          item.append(front, back);
+          note.append(front, back);
         } else if (c.type === "cloze") {
           // 빈칸을 전부 초록 정답으로 드러낸 본문 한 벌
-          const face = document.createElement("div"); face.className = "ov-face ov-single";
+          const face = document.createElement("div"); face.className = "ov-body";
           face.innerHTML = renderClozeAll(c.front);
-          item.appendChild(face);
+          note.appendChild(face);
         } else {
           // occlusion: 라벨 공개 이미지
-          const face = document.createElement("div"); face.className = "ov-face ov-single";
+          const face = document.createElement("div"); face.className = "ov-body";
           renderFace(face, c, true);
-          item.appendChild(face);
+          note.appendChild(face);
         }
         const notes = notesBlockHTML(c);
-        if (notes) item.insertAdjacentHTML("beforeend", notes);
-        thread.appendChild(item); // 개요는 읽기 전용 — 클릭 없음
+        if (notes) note.insertAdjacentHTML("beforeend", notes);
+        chap.appendChild(note); // 개요는 읽기 전용 — 클릭 없음
       });
+      sheet.appendChild(chap);
     });
-    body.replaceChildren(thread);
+    body.replaceChildren(sheet);
   }
 
   /* ── 플래시카드 모드 (뒤집기 카드로 훑어보기) ── */
