@@ -1345,7 +1345,7 @@
     };
     const secHeadHTML = (name, n) =>
       `<li class="section-head"><span class="section-name">${escapeHTML(name)}</span><span class="section-count">${n}</span></li>`;
-    const sortIn = arr => arr.sort((a, b) => keyOf(a).localeCompare(keyOf(b), undefined, { numeric: true, sensitivity: "base" }));
+    const sortIn = arr => arr.sort((a, b) => a.created - b.created); // 추가한 순서(오래된 것부터)
 
     // 섹션(장)이 있는 덱은 목록을 장별로 묶어 보여준다(검색·필터 없을 때만).
     const sections = (!q && listFilter === "all") ? Store.sectionsOf(currentDeckId) : [];
