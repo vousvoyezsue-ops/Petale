@@ -2606,35 +2606,31 @@ body:not(.pre-auth) .auth-gate { display: none; }
 
 .ov-thread { position: relative; padding-left: 26px; }
 .ov-thread::before {
-  content: ""; position: absolute; left: 8px; top: 8px; bottom: 8px;
+  content: ""; position: absolute; left: 8px; top: 10px; bottom: 10px;
   width: 2px; border-radius: 2px;
-  background: linear-gradient(var(--blush-200), var(--lime-200));
+  background: var(--edge);
 }
 .ov-thread.no-sec { padding-left: 0; }
 .ov-thread.no-sec::before { display: none; }
 
 .ov-sec-head {
-  position: relative; display: flex; align-items: center; gap: 10px;
-  margin: 28px 0 14px; padding: 10px 15px;
-  background: color-mix(in srgb, var(--blush-100) 62%, transparent);
-  border-left: 3px solid var(--rose-500);
-  border-radius: 11px;
+  position: relative; display: flex; align-items: baseline; gap: 10px;
+  margin: 30px 0 14px; padding: 0 2px 9px;
+  border-bottom: 1px solid var(--edge);
 }
-.ov-sec-head:first-child { margin-top: 6px; }
+.ov-sec-head:first-child { margin-top: 2px; }
 .ov-sec-head h3 {
-  font-family: var(--font-display); font-size: 17px; font-weight: 640;
-  color: var(--rose-700); margin: 0; letter-spacing: -.015em;
+  font-family: var(--font-display); font-size: 18px; font-weight: 640;
+  color: var(--ink); margin: 0; letter-spacing: -.015em;
 }
 .ov-sec-head .ov-sec-count {
   margin-left: auto;
-  font-size: 11.5px; font-weight: 700; color: var(--rose-700);
-  background: color-mix(in srgb, var(--blush-200) 70%, transparent);
-  border-radius: 999px; padding: 2px 9px;
+  font-size: 11.5px; font-weight: 650; color: var(--sage-500);
 }
 .ov-sec-head .ov-dot {
-  position: absolute; left: -26px; width: 20px; height: 20px; border-radius: 50%;
-  background: var(--rose-500); border: 3px solid var(--bg);
-  box-shadow: 0 0 0 2px var(--rose-500);
+  position: absolute; left: -22px; top: 4px; width: 11px; height: 11px; border-radius: 50%;
+  background: var(--sage-400); border: 2.5px solid var(--bg);
+  box-shadow: 0 0 0 1.5px var(--sage-400);
 }
 
 .ov-card {
@@ -2642,16 +2638,14 @@ body:not(.pre-auth) .auth-gate { display: none; }
   background: var(--paper);
   border: 1px solid var(--edge);
   border-radius: var(--r-md);
-  padding: 14px 16px;
+  padding: 16px 18px;
   margin-bottom: 10px;
   box-shadow: var(--shadow-xs);
-  cursor: pointer;
-  transition: border-color .2s ease, box-shadow .2s ease, transform .2s var(--ease-spring);
+  cursor: default;
 }
-.ov-card:hover { border-color: color-mix(in srgb, var(--rose-500) 45%, transparent); box-shadow: var(--shadow-sm); }
 .ov-thread:not(.no-sec) .ov-card::before {
-  content: ""; position: absolute; left: -18px; top: 24px;
-  width: 12px; height: 2px; background: var(--blush-200);
+  content: ""; position: absolute; left: -18px; top: 26px;
+  width: 11px; height: 2px; background: var(--edge);
 }
 .ov-face { min-width: 0; }
 .ov-face.ov-front { font-weight: 640; font-size: 15.5px; color: var(--ink); }
@@ -2698,9 +2692,9 @@ body:not(.pre-auth) .auth-gate { display: none; }
   .overview-body { margin-top: 10px; }
   .ov-thread { padding-left: 22px; }
   .ov-thread::before { left: 6px; }
-  .ov-sec-head .ov-dot { left: -22px; }
+  .ov-sec-head .ov-dot { left: -18px; }
   .ov-card .face-img, .ov-card .occ-view img { max-height: 46vh; }
-  .ov-sec-head { padding: 9px 12px; }
+  .ov-sec-head { padding: 0 2px 8px; }
   .ov-sec-head h3 { font-size: 16px; }
   .study-ribbon { padding: 9px 13px; }
   .study-ribbon .rib-sec { font-size: 15px; }
