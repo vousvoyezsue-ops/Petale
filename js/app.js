@@ -387,6 +387,12 @@
     return text.replace(CLOZE_RE, (_, i, ans) => ans);
   }
 
+  // 개요(overview)용: 모든 빈칸을 초록 정답 박스로 드러낸 본문. 노트를 한눈에 읽는 용도.
+  function renderClozeAll(text) {
+    const safe = sanitizeRichHTML(text);
+    return safe.replace(CLOZE_RE, (_, i, ans) => `<span class="cloze-answer">${ans}</span>`);
+  }
+
   // 카드 목록/미리보기용 표시 텍스트
   function cardPreview(card) {
     if (card.type === "occlusion") {
@@ -2469,12 +2475,19 @@
     if (!deck) { show("deck"); return; }
     $("#overviewTitle").textContent = deck.name;
     const body = $("#overviewBody");
-    const cards = Store.cardsOf(currentDeckId).filter(c => !c.suspended);
-    if (!cards.length) {
+    const allCards = Store.cardsOf(currentDeckId).filter(c => !c.suspended);
+    if (!allCards.length) {
       $("#overviewSub").textContent = "";
       body.innerHTML = `<p class="list-empty">${t("overview.empty")}</p>`;
       return;
     }
+    // 빈칸(cloze) 형제는 같은 본문을 공유하므로 개요에선 한 번만 — 모든 빈칸을 초록으로 드러낸다
+    const seen = new Set();
+    const cards = allCards.filter(c => {
+      if (c.type !== "cloze") return true;
+      if (seen.has(c.front)) return false;
+      seen.add(c.front); return true;
+    });
     const sections = Store.sectionsOf(currentDeckId);
     $("#overviewSub").textContent = sections.length
       ? t("overview.subSections", { c: cards.length, s: sections.length })
@@ -2510,17 +2523,20 @@
           renderFace(front, c, false);
           renderFace(back, c, true);
           item.append(front, back);
+        } else if (c.type === "cloze") {
+          // 빈칸을 전부 초록 정답으로 드러낸 본문 한 벌
+          const face = document.createElement("div"); face.className = "ov-face ov-single";
+          face.innerHTML = renderClozeAll(c.front);
+          item.appendChild(face);
         } else {
-          // cloze·occlusion: 정답이 드러난 한 면만 보여준다(빈칸 채워진 본문 / 라벨 공개 이미지)
+          // occlusion: 라벨 공개 이미지
           const face = document.createElement("div"); face.className = "ov-face ov-single";
           renderFace(face, c, true);
           item.appendChild(face);
         }
         const notes = notesBlockHTML(c);
         if (notes) item.insertAdjacentHTML("beforeend", notes);
-        // 카드 클릭 → 편집(이미지 가리기는 뷰어)
-        item.addEventListener("click", () => openCardView(c.id));
-        thread.appendChild(item);
+        thread.appendChild(item); // 개요는 읽기 전용 — 클릭 없음
       });
     });
     body.replaceChildren(thread);
