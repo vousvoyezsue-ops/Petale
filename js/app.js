@@ -1287,12 +1287,6 @@
 
   function renderCardList() {
     const q = $("#cardSearch").value.trim().toLowerCase();
-    // 정렬 키: 앞면 텍스트(태그 제거). 알파벳·가나다 순, 숫자는 자연 순서(2 < 10).
-    const sortKey = new Map();
-    const keyOf = c => {
-      if (!sortKey.has(c.id)) sortKey.set(c.id, cardPreview(c).front.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
-      return sortKey.get(c.id);
-    };
     const cards = Store.cardsOf(currentDeckId)
       .filter(c => {
         if (listFilter === "starred" && !c.starred) return false;
@@ -1301,7 +1295,7 @@
         const p = cardPreview(c);
         return p.front.toLowerCase().includes(q) || p.back.toLowerCase().includes(q);
       })
-      .sort((a, b) => keyOf(a).localeCompare(keyOf(b), undefined, { numeric: true, sensitivity: "base" }));
+      .sort((a, b) => a.created - b.created); // 추가한 순서(오래된 것부터)
 
     $("#cardCount").textContent = cards.length;
     // 화면에 보이는 카드만 선택 대상으로 유지 (검색·필터 변경 시 정리)
