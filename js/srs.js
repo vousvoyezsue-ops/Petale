@@ -49,7 +49,7 @@ const SRS = (() => {
   }
 
   // rating을 적용한 다음 상태를 계산한다 (원본은 변경하지 않음)
-  // 새/학습 중 카드(reps 0): 다시·어려움 간격은 설정값(steps) 따름 · 보통 1일 · 쉬움 4일
+  // 새/학습 중 카드(reps 0): 다시·어려움 간격은 설정값(steps) 따름 · 보통(good) 20분 · 쉬움(easy) 1일
   // 복습 카드(reps ≥ 1): SM-2 기반 간격 확장
   // fuzz=true 이면 졸업 간격에 분산을 적용한다(실제 저장 시). 버튼 미리보기는 fuzz 없이 계산.
   function schedule(card, rating, now = Date.now(), fuzz = false) {
@@ -67,14 +67,18 @@ const SRS = (() => {
       return { ef, interval: 0, reps: 0, lapses, due: now + stepMs(steps.hardNew) };
     }
 
+    if (rating === 2 && learning) { // 새 카드 보통(good) → 20분 학습 단계(졸업 전)
+      return { ef, interval: 0, reps: 0, lapses, due: now + 20 * 60 * 1000 };
+    }
+
     if (rating === 1) { // 복습 어려움
       ef = Math.max(MIN_EF, ef - 0.15);
       interval = Math.max(1, Math.round(interval * 1.2));
     } else if (rating === 2) { // 보통
-      interval = learning ? 1 : Math.max(1, Math.round(interval * ef));
+      interval = Math.max(1, Math.round(interval * ef));
     } else { // 쉬움
       ef = Math.min(3.0, ef + 0.15);
-      interval = learning ? 4 : Math.max(1, Math.round(interval * ef * 1.3));
+      interval = learning ? 1 : Math.max(1, Math.round(interval * ef * 1.3)); // 새 카드 쉬움 → 1일 졸업
     }
 
     interval = Math.min(interval, 365 * 4);
