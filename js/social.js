@@ -513,12 +513,21 @@ const Social = (() => {
       };
     });
 
+    // 덱에 지정된 과목이 있으면, 같은 과목의 문서(과목 파일)도 함께 실어 보낸다
+    const subject = (deck.subject || "").trim();
+    const docs = subject
+      ? Store.state.docs
+          .filter(d => (d.subject || "").trim() === subject)
+          .slice(0, 50)
+          .map(d => ({ name: String(d.name || "").slice(0, 80), html: String(d.html || ""), css: String(d.css || ""), subject }))
+      : [];
+
     const { error: finalErr } = await sb().from("petale_shared_decks")
-      .update({ payload: { cards: finalCards }, card_count: finalCards.length, visibility, updated_at: new Date().toISOString() })
+      .update({ payload: { cards: finalCards, docs, subject }, card_count: finalCards.length, visibility, updated_at: new Date().toISOString() })
       .eq("id", sharedId);
     if (finalErr) throw finalErr;
 
-    return { sharedId, count: finalCards.length };
+    return { sharedId, count: finalCards.length, docCount: docs.length };
   }
 
   async function unpublishDeck(sharedId) {
@@ -607,17 +616,27 @@ const Social = (() => {
       }
     }
     if (!cards.length) throw new Error("empty");
-    return { name: data.name, description: data.description || "", updatedAt: data.updated_at || null, cards };
+    // 함께 실려 온 과목 문서(있으면)
+    const rawDocs = Array.isArray(data.payload?.docs) ? data.payload.docs : [];
+    const docs = rawDocs
+      .filter(d => d && typeof d.name === "string" && typeof d.html === "string")
+      .slice(0, 50)
+      .map(d => ({ name: String(d.name).slice(0, 80), html: String(d.html), css: String(d.css || ""), subject: String(d.subject || "").slice(0, 40) }));
+    const subject = String(data.payload?.subject || "").slice(0, 40);
+    return { name: data.name, description: data.description || "", updatedAt: data.updated_at || null, cards, docs, subject };
   }
 
   async function downloadDeck(sharedId) {
-    const { name, description, updatedAt, cards } = await fetchSharedDeck(sharedId);
+    const { name, description, updatedAt, cards, docs, subject } = await fetchSharedDeck(sharedId);
     const deck = Store.addDeck(name.slice(0, 60), description);
     Store.bulkAddCards(deck.id, cards);
-    // 원본과 연결을 기억 → 나중에 업데이트 확인/다시 받기 가능
-    Store.patchDeck(deck.id, { sourceId: sharedId, sourceUpdatedAt: updatedAt });
+    const patch = { sourceId: sharedId, sourceUpdatedAt: updatedAt };
+    if (subject) patch.subject = subject; // 받은 덱도 같은 과목으로 연결
+    Store.patchDeck(deck.id, patch);
+    // 함께 온 과목 문서를 내 문서 탭에 추가(이름+과목 중복은 건너뜀)
+    const docCount = docs && docs.length ? Store.importSharedDocs(docs) : 0;
     sb().rpc("petale_bump_downloads", { p_deck: sharedId }).then(() => {}, () => {});
-    return { deck, count: cards.length };
+    return { deck, count: cards.length, docCount };
   }
 
   // 받은 덱의 원본이 재발행돼 더 최신인지 확인

@@ -371,6 +371,23 @@ const Store = (() => {
     const d = state.docs.find(x => x.id === id);
     if (d) { Object.assign(d, patch); save(); }
   }
+  // 공유로 받은 문서들을 추가 — 이름+과목이 같은 문서가 이미 있으면 건너뛴다. 추가된 개수 반환.
+  function importSharedDocs(docs) {
+    if (!Array.isArray(docs)) return 0;
+    const now = Date.now();
+    const key = d => `${(d.name || "").trim()}\u0000${(d.subject || "").trim()}`;
+    const have = new Set(state.docs.map(key));
+    let added = 0;
+    docs.forEach((d, i) => {
+      if (!d || typeof d.html !== "string") return;
+      if (have.has(key(d))) return;
+      have.add(key(d));
+      state.docs.push({ id: uid() + i.toString(36), name: d.name || "문서", html: d.html || "", css: d.css || "", subject: d.subject || "", created: now + i });
+      added++;
+    });
+    if (added) save();
+    return added;
+  }
   function deleteDoc(id) {
     state.docs = state.docs.filter(d => d.id !== id);
     save();
@@ -672,7 +689,7 @@ const Store = (() => {
     addMedia, getMedia, putMedia, referencedMedia, gcMedia,
     addCard, updateCard, deleteCard, deleteCards, cardsOf, moveCards, bulkAddCards, syncClozeSiblings, syncOcclusionSiblings, replaceDeckCards,
     sectionsOf, setSection,
-    addDoc, updateDoc, deleteDoc, getDoc,
+    addDoc, updateDoc, deleteDoc, getDoc, importSharedDocs,
     applyReview, undoReview, newIntroducedToday,
     resetDeckSchedule, exportDeckBundle, importDeckBundle,
     deckCounts, streak, forecast, retention, exportDeckCSV,
