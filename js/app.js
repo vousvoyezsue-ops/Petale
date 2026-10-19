@@ -1280,9 +1280,9 @@
     if (!deck || !deck.sourceId) return;
     confirmDialog(t("update.title"), t("update.text"), async () => {
       try {
-        const { count } = await Social.pullDeckUpdate(currentDeckId, deck.sourceId);
+        const { added, updated, removed } = await Social.pullDeckUpdate(currentDeckId, deck.sourceId);
         renderDeck();
-        toast(t("update.done", { n: count }));
+        toast(t("update.doneSmart", { a: added, u: updated, r: removed }));
       } catch {
         toast(t("update.fail"));
       }
