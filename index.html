@@ -749,6 +749,7 @@
       <button type="button" class="type-tab active" data-type="basic" data-i18n="type.basic"></button>
       <button type="button" class="type-tab" data-type="cloze" data-i18n="type.cloze"></button>
       <button type="button" class="type-tab" data-type="occlusion" data-i18n="type.occlusion"></button>
+      <button type="button" class="type-tab" data-type="sequence" data-i18n="type.sequence"></button>
     </div>
 
     <div class="rich-toolbar" id="richToolbar">
@@ -818,6 +819,18 @@
         <div class="rich-field cloze-rich" id="clozeInput" contenteditable="true" data-i18n-placeholder="cardModal.clozePh"></div>
       </label>
       <p class="field-hint" data-i18n="cardModal.clozeHint"></p>
+    </div>
+
+    <div id="seqFields" class="hidden">
+      <label class="field">
+        <span data-i18n="cardModal.seqTitle"></span>
+        <input type="text" id="seqTitleInput" maxlength="120" data-i18n-placeholder="cardModal.seqTitlePh">
+      </label>
+      <label class="field">
+        <span data-i18n="cardModal.seqItems"></span>
+        <textarea id="seqItemsInput" rows="6" class="bulk-textarea" data-i18n-placeholder="cardModal.seqItemsPh"></textarea>
+      </label>
+      <p class="field-hint" data-i18n="cardModal.seqHint"></p>
     </div>
 
     <div id="occTextFields" class="hidden">
