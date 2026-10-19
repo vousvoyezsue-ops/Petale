@@ -378,6 +378,11 @@ const I18N = (() => {
       "notify.body": "복습할 카드 {n}장이 기다리고 있어요",
       "notify.bodyGeneric": "잊기 전에 오늘의 복습을 해볼까요? 🌸",
       "set.data": "데이터",
+      "set.resync": "공개한 덱 다시 올리기",
+      "set.resyncHint": "이미 공개한 덱들을 다시 올려 소제목(장)과 과목 문서를 공유본에 반영해요.",
+      "set.resyncing": "올리는 중…",
+      "set.resyncNone": "공개한 덱이 없어요",
+      "set.resyncDone": "공개한 덱 {n}개를 다시 올렸어요",
 
       // login gate
       "gate.title": "Petale",
@@ -825,6 +830,11 @@ const I18N = (() => {
       "notify.body": "{n} cards are ready to review",
       "notify.bodyGeneric": "Review today's cards before you forget 🌸",
       "set.data": "Data",
+      "set.resync": "Re-upload shared decks",
+      "set.resyncHint": "Re-publishes decks you've already shared so chapters and subject docs are included.",
+      "set.resyncing": "Uploading…",
+      "set.resyncNone": "No shared decks",
+      "set.resyncDone": "Re-uploaded {n} shared deck(s)",
 
       "gate.title": "Petale",
       "gate.subtitle": "Study less, remember more",

@@ -3029,6 +3029,26 @@
   $("#btnExport2").addEventListener("click", doExport);
   $("#btnImport").addEventListener("click", () => $("#importFile").click());
   $("#btnImport2").addEventListener("click", () => $("#importFile").click());
+
+  // 이미 공개한 덱들을 전부 다시 올린다 → 소제목(장)·과목 문서가 공유본에 반영됨
+  $("#btnResyncShared").addEventListener("click", async () => {
+    if (!Social.profile) { toast(t("share.needLogin")); return; }
+    const decks = Store.state.decks.filter(d => d.sharedId);
+    if (!decks.length) { toast(t("set.resyncNone")); return; }
+    const btn = $("#btnResyncShared");
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = t("set.resyncing");
+    let ok = 0;
+    for (const deck of decks) {
+      try {
+        const { sharedId } = await Social.publishDeck(deck, Store.cardsOf(deck.id), deck.visibility || "public");
+        Store.patchDeck(deck.id, { sharedId });
+        ok++;
+      } catch { /* 개별 실패는 건너뛴다 */ }
+    }
+    btn.disabled = false; btn.textContent = orig;
+    toast(t("set.resyncDone", { n: ok }));
+  });
   $("#importFile").addEventListener("change", async (e) => {
     const file = e.target.files[0];
     if (!file) return;
