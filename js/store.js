@@ -513,13 +513,14 @@ const Store = (() => {
       const f = String(c.front || "").trim();
       if (c.type === "cloze") return `c|${f}|${c.clozeIndex ?? ""}`;
       if (c.type === "occlusion") return `o|${f}|${c.hideIndex ?? ""}`;
+      if (c.type === "sequence") return `s|${f}|${(c.seq || []).length}`;
       return `b|${f}|${String(c.back || "").trim()}`;
     };
     const byContent = new Map();
     local.forEach(c => { const k = contentKey(c); (byContent.get(k) || byContent.set(k, []).get(k)).push(c); });
 
     // 내용 필드만 갱신(학습 상태·id·deckId·플래그는 보존)
-    const CONTENT = ["type", "front", "back", "clozeIndex", "rects", "hideIndex", "occMode", "imageId", "frontImageId", "backImageId"];
+    const CONTENT = ["type", "front", "back", "clozeIndex", "seq", "rects", "hideIndex", "occMode", "imageId", "frontImageId", "backImageId"];
     const used = new Set();
     const now = Date.now();
     let added = 0, updated = 0;

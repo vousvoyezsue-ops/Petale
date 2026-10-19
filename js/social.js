@@ -436,7 +436,7 @@ const Social = (() => {
   // 이미지 자체는 Storage에 별도 업로드하고, payload에는 storage 경로만 남긴다.
   function sharablePayload(cards) {
     return cards
-      .filter(c => !c.suspended && (c.type === "basic" || c.type === "cloze" || c.type === "occlusion"))
+      .filter(c => !c.suspended && (c.type === "basic" || c.type === "cloze" || c.type === "occlusion" || c.type === "sequence"))
       .slice(0, 2000);
   }
 
@@ -501,6 +501,7 @@ const Social = (() => {
       const sec = (c.section && String(c.section).trim()) ? { section: String(c.section).trim() } : {};
       const sid = c.id ? { sid: c.id } : {}; // 안정적 카드 식별자 → 받는 쪽 스마트 업데이트(진도 보존)용
       if (c.type === "cloze") return { type: "cloze", front: c.front, clozeIndex: c.clozeIndex, ...sec, ...sid };
+      if (c.type === "sequence") return { type: "sequence", front: c.front || "", seq: Array.isArray(c.seq) ? c.seq : [], ...sec, ...sid };
       if (c.type === "occlusion") {
         return {
           type: "occlusion", front: c.front, rects: c.rects, hideIndex: c.hideIndex, occMode: c.occMode,
@@ -576,7 +577,7 @@ const Social = (() => {
     const { data, error } = await sb().from("petale_shared_decks")
       .select("name, description, payload, updated_at").eq("id", sharedId).single();
     if (error || !data) throw error || new Error("not_found");
-    const rawCards = (data.payload?.cards || []).filter(c => c && (c.type === "basic" || c.type === "cloze" || c.type === "occlusion"));
+    const rawCards = (data.payload?.cards || []).filter(c => c && (c.type === "basic" || c.type === "cloze" || c.type === "occlusion" || c.type === "sequence"));
     if (!rawCards.length) throw new Error("empty");
 
     // 이 다운로드에서 등장하는 storage 경로들을 한 번씩만 받아서 로컬 imageId로 매핑
@@ -607,6 +608,8 @@ const Social = (() => {
       const sid = c.sid ? { sourceCardId: String(c.sid) } : {}; // 스마트 업데이트 매칭용(없으면 내용으로 매칭)
       if (c.type === "cloze") {
         cards.push({ type: "cloze", front: c.front, back: "", clozeIndex: Number(c.clozeIndex) || 1, ...sec, ...sid });
+      } else if (c.type === "sequence") {
+        cards.push({ type: "sequence", front: String(c.front || ""), seq: Array.isArray(c.seq) ? c.seq.map(String) : [], ...sec, ...sid });
       } else if (c.type === "occlusion") {
         const imageId = await localIdFor(c.imagePath);
         if (!imageId) continue; // 이미지 못 받아오면 이 카드는 건너뜀
