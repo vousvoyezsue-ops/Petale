@@ -1482,6 +1482,11 @@
         `<option value="${f.id}" ${f.id === selectedId ? "selected" : ""}>${"　".repeat(depth)}${escapeHTML(f.name)}</option>`).join("");
   }
 
+  function fillDeckSubjects(selected) {
+    $("#deckSubjectList").innerHTML = docSubjects().map(s => `<option value="${escapeHTML(s)}"></option>`).join("");
+    $("#deckSubjectInput").value = selected || "";
+  }
+
   $("#btnNewDeck").addEventListener("click", () => {
     editingDeck = false;
     $("#deckModalTitle").textContent = t("deckModal.new");
@@ -1489,6 +1494,7 @@
     $("#deckNameInput").value = "";
     $("#deckDescInput").value = "";
     $("#deckNewLimit").value = 20;
+    fillDeckSubjects("");
     fillFolderSelect(currentFolder); // 폴더를 보고 있으면 그 폴더가 기본값
     deckModal.showModal();
   });
@@ -1501,6 +1507,7 @@
     $("#deckNameInput").value = deck.name;
     $("#deckDescInput").value = deck.desc || "";
     $("#deckNewLimit").value = deck.newPerDay ?? 20;
+    fillDeckSubjects(deck.subject || "");
     fillFolderSelect(deck.folderId || "");
     deckModal.showModal();
   });
@@ -1508,17 +1515,18 @@
   $("#deckForm").addEventListener("submit", () => {
     const name = $("#deckNameInput").value.trim();
     const desc = $("#deckDescInput").value.trim();
+    const subject = $("#deckSubjectInput").value.trim();
     const limit = Math.max(0, Math.min(500, Number($("#deckNewLimit").value) || 0));
     const folderId = $("#deckFolderSel").value || null;
     if (!name) return;
     if (editingDeck) {
       Store.updateDeck(currentDeckId, name, desc, limit);
-      Store.patchDeck(currentDeckId, { folderId });
+      Store.patchDeck(currentDeckId, { folderId, subject });
       renderDeck();
       toast(t("toast.deckUpdated"));
     } else {
       const deck = Store.addDeck(name, desc, limit);
-      Store.patchDeck(deck.id, { folderId });
+      Store.patchDeck(deck.id, { folderId, subject });
       currentDeckId = deck.id;
       show("deck");
       toast(t("toast.deckCreated"));
@@ -1572,11 +1580,11 @@
     btn.disabled = true;
     toast(t("share.uploading"));
     try {
-      const { sharedId, count } = await Social.publishDeck(deck, Store.cardsOf(deck.id), shareVisibility);
+      const { sharedId, count, docCount } = await Social.publishDeck(deck, Store.cardsOf(deck.id), shareVisibility);
       Store.patchDeck(deck.id, { sharedId, visibility: shareVisibility });
       renderShareButton();
       shareModal.close();
-      toast(t("share.done", { n: count }));
+      toast(docCount ? t("share.doneDocs", { n: count, d: docCount }) : t("share.done", { n: count }));
     } catch (err) {
       toast(err?.message === "no_text_cards" ? t("share.noText") : t("fr.offline"));
     } finally {
@@ -3274,8 +3282,8 @@
       btn.addEventListener("click", async () => {
         btn.disabled = true;
         try {
-          const { deck, count } = await Social.downloadDeck(btn.closest(".friend-deck-row").dataset.id);
-          toast(t("explore.got", { name: deck.name, n: count }));
+          const { deck, count, docCount } = await Social.downloadDeck(btn.closest(".friend-deck-row").dataset.id);
+          toast(docCount ? t("explore.gotDocs", { name: deck.name, n: count, d: docCount }) : t("explore.got", { name: deck.name, n: count }));
         } catch {
           toast(t("fr.offline"));
         } finally {
@@ -3363,8 +3371,8 @@
       btn.addEventListener("click", async () => {
         btn.disabled = true;
         try {
-          const { deck, count } = await Social.downloadDeck(btn.closest(".explore-row").dataset.id);
-          toast(t("explore.got", { name: deck.name, n: count }));
+          const { deck, count, docCount } = await Social.downloadDeck(btn.closest(".explore-row").dataset.id);
+          toast(docCount ? t("explore.gotDocs", { name: deck.name, n: count, d: docCount }) : t("explore.got", { name: deck.name, n: count }));
         } catch {
           toast(t("fr.offline"));
         } finally {

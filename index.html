@@ -721,6 +721,11 @@
       <input type="text" id="deckDescInput" maxlength="120" data-i18n-placeholder="deckModal.descPh">
     </label>
     <label class="field">
+      <span data-i18n="deckModal.subject"></span>
+      <input type="text" id="deckSubjectInput" maxlength="40" list="deckSubjectList" data-i18n-placeholder="deckModal.subjectPh">
+      <datalist id="deckSubjectList"></datalist>
+    </label>
+    <label class="field">
       <span data-i18n="deckModal.newLimit"></span>
       <input type="number" id="deckNewLimit" min="0" max="500" value="20">
     </label>
