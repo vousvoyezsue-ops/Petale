@@ -403,6 +403,11 @@
       const plain = clozeStrip(card.front).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
       return { front: plain, back: `${t("type.cloze")} c${card.clozeIndex}` };
     }
+    if (card.type === "sequence") {
+      const items = card.seq || [];
+      const plain = String(card.front || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      return { front: plain || items.join(" → ").replace(/<[^>]+>/g, " "), back: `${t("type.sequence")} · ${items.length}` };
+    }
     return { front: card.front, back: card.back };
   }
 
@@ -1645,7 +1650,8 @@
     $$("#typeTabs .type-tab").forEach(b => b.classList.toggle("active", b.dataset.type === type));
     $("#basicFields").classList.toggle("hidden", type !== "basic");
     $("#clozeFields").classList.toggle("hidden", type !== "cloze");
-    $("#richToolbar").classList.toggle("hidden", type === "occlusion");
+    $("#seqFields").classList.toggle("hidden", type !== "sequence");
+    $("#richToolbar").classList.toggle("hidden", type === "occlusion" || type === "sequence");
     // 빈칸 삽입 버튼은 cloze 모드에서만 노출
     $$(".rt-cloze-only").forEach(el => el.classList.toggle("hidden", type !== "cloze"));
   }
@@ -1703,16 +1709,21 @@
       // 이미지 가리기: 마스크는 편집기에서, 여기선 헤더·메모만 수정
       $("#basicFields").classList.add("hidden");
       $("#clozeFields").classList.add("hidden");
+      $("#seqFields").classList.add("hidden");
       $("#occHeaderInput").value = card.front || "";
     } else if (card?.type === "cloze") {
       setCardType("cloze");
       setRich($("#clozeInput"), card.front);
+    } else if (card?.type === "sequence") {
+      setCardType("sequence");
+      $("#seqTitleInput").value = card.front || "";
+      $("#seqItemsInput").value = (card.seq || []).join("\n");
     } else {
       // 새 카드는 항상 basic으로 시작(직전 타입을 기억하지 않아 헷갈리지 않게)
       setCardType("basic");
       setRich($("#cardFrontInput"), card ? card.front : "");
       setRich($("#cardBackInput"), card ? card.back : "");
-      if (!card) setRich($("#clozeInput"), "");
+      if (!card) { setRich($("#clozeInput"), ""); $("#seqTitleInput").value = ""; $("#seqItemsInput").value = ""; }
     }
     cardModal.showModal();
   }
@@ -1823,6 +1834,21 @@
         const rows = indices.map(idx => ({ type: "cloze", front: text, back: "", clozeIndex: idx, clozeNoteId: noteId, notes, noteImageId, section, ...scaleValues() }));
         const ok = Store.bulkAddCards(currentDeckId, rows);
         toast(ok ? t("toast.cardsAdded", { n: rows.length }) : t("toast.storageFull"));
+      }
+      afterCardSaved();
+      return;
+    }
+
+    if (cardType === "sequence") {
+      const title = $("#seqTitleInput").value.trim();
+      const items = $("#seqItemsInput").value.split("\n").map(s => s.trim()).filter(Boolean);
+      if (items.length < 2) { e.preventDefault(); toast(t("toast.seqNeeded")); return; }
+      if (editingCardId) {
+        Store.updateCard(editingCardId, { front: title, seq: items, notes, noteImageId, section, ...scaleValues() });
+        toast(t("toast.cardUpdated"));
+      } else {
+        const ok = Store.bulkAddCards(currentDeckId, [{ type: "sequence", front: title, seq: items, notes, noteImageId, section, ...scaleValues() }]);
+        toast(ok ? t("toast.cardAdded") : t("toast.storageFull"));
       }
       afterCardSaved();
       return;
@@ -2632,7 +2658,8 @@
     $("#keyHint").textContent = t("study.revealHint");
     $("#speakBtn").hidden = !(Store.settings.tts && "speechSynthesis" in window && card.type !== "occlusion");
     answerCard.classList.toggle("media-card", isMediaCard(card));
-    renderFace($("#acQuestion"), card, false);
+    if (card.type === "sequence") renderSeqStudy($("#acQuestion"), card);
+    else renderFace($("#acQuestion"), card, false);
     showNotes(card, false);
     updateStudyStar();
     updateStudyRibbon();
@@ -2685,6 +2712,16 @@
       host.innerHTML = renderCloze(card.front, card.clozeIndex, revealed);
       return;
     }
+    if (card.type === "sequence") {
+      const items = card.seq || [];
+      const head = card.front ? `<div class="seq-prompt">${sanitizeRichHTML(card.front)}</div>` : "";
+      if (revealed) {
+        host.innerHTML = head + `<ol class="seq-static">${items.map(x => `<li>${sanitizeRichHTML(x)}</li>`).join("")}</ol>`;
+      } else {
+        host.innerHTML = head + `<p class="seq-face-hint">${t("seq.facePrompt", { n: items.length })}</p>`;
+      }
+      return;
+    }
     const text = revealed ? card.back : card.front;
     const imgId = revealed ? card.backImageId : card.frontImageId;
     // 서식(굵게/밑줄/색상/하이라이트) 표시 — 어떤 출처(로컬/공유 다운로드)든 항상 새니타이즈해서 렌더링
@@ -2695,6 +2732,88 @@
       img.src = Store.getMedia(imgId);
       img.alt = "";
       host.appendChild(img);
+    }
+  }
+
+  /* ── 시퀀스(순서 맞추기) 학습 ── */
+  function shuffleArr(a) {
+    const r = a.slice();
+    for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; }
+    return r;
+  }
+  // 학습 화면: 섞인 항목을 드래그해 순서를 맞춘다. (showCard에서 질문 영역에 그린다)
+  function renderSeqStudy(host, card) {
+    const items = (card.seq || []).map((text, i) => ({ text, idx: i }));
+    let order = shuffleArr(items);
+    // 이미 정답 순서면 한 번 더 섞는다(길이 2 이상)
+    if (items.length >= 2 && order.every((it, p) => it.idx === p)) order = shuffleArr(items);
+    const head = card.front ? `<div class="seq-prompt">${sanitizeRichHTML(card.front)}</div>` : "";
+    host.innerHTML = head + `<div class="seq-list" id="seqList"></div><p class="seq-hint">${t("seq.hint")}</p>`;
+    const list = host.querySelector("#seqList");
+    order.forEach(it => {
+      const el = document.createElement("div");
+      el.className = "seq-item";
+      el.setAttribute("data-idx", it.idx);
+      el.innerHTML = `<span class="seq-grip" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="6" r="1.6"/><circle cx="16" cy="6" r="1.6"/><circle cx="8" cy="12" r="1.6"/><circle cx="16" cy="12" r="1.6"/><circle cx="8" cy="18" r="1.6"/><circle cx="16" cy="18" r="1.6"/></svg></span><span class="seq-text">${sanitizeRichHTML(it.text)}</span>`;
+      list.appendChild(el);
+    });
+    makeSortable(list);
+  }
+  function getDragAfter(list, y) {
+    const els = [...list.querySelectorAll(".seq-item:not(.dragging)")];
+    let closest = { offset: -Infinity, el: null };
+    for (const child of els) {
+      const box = child.getBoundingClientRect();
+      const offset = y - box.top - box.height / 2;
+      if (offset < 0 && offset > closest.offset) closest = { offset, el: child };
+    }
+    return closest.el;
+  }
+  function makeSortable(list) {
+    let dragEl = null;
+    list.querySelectorAll(".seq-item").forEach(item => {
+      item.addEventListener("pointerdown", (e) => {
+        if (list.classList.contains("revealed")) return;
+        dragEl = item;
+        item.classList.add("dragging");
+        try { item.setPointerCapture(e.pointerId); } catch {}
+      });
+      item.addEventListener("pointermove", (e) => {
+        if (!dragEl) return;
+        e.preventDefault();
+        const after = getDragAfter(list, e.clientY);
+        if (after == null) list.appendChild(dragEl);
+        else if (after !== dragEl) list.insertBefore(dragEl, after);
+      });
+      const end = (e) => {
+        if (!dragEl) return;
+        dragEl.classList.remove("dragging");
+        try { dragEl.releasePointerCapture(e.pointerId); } catch {}
+        dragEl = null;
+      };
+      item.addEventListener("pointerup", end);
+      item.addEventListener("pointercancel", end);
+    });
+  }
+  // 답 공개: 현재 배열을 정답과 비교해 각 항목에 맞음/틀림과 정답 번호를 표시
+  function revealSeq(host, card) {
+    const list = host.querySelector("#seqList");
+    if (!list) { renderFace(host, card, true); return; }
+    list.classList.add("revealed");
+    const items = [...list.querySelectorAll(".seq-item")];
+    let correct = 0;
+    items.forEach((el, pos) => {
+      const idx = Number(el.getAttribute("data-idx"));
+      const ok = idx === pos;
+      if (ok) correct++;
+      el.classList.add(ok ? "ok" : "bad");
+      el.insertAdjacentHTML("afterbegin", `<span class="seq-num">${idx + 1}</span>`);
+    });
+    const all = correct === items.length;
+    host.insertAdjacentHTML("beforeend", `<p class="seq-score ${all ? "all" : ""}">${t("seq.score", { n: correct, total: items.length })}</p>`);
+    if (!all) {
+      const ol = (card.seq || []).map(x => `<li>${sanitizeRichHTML(x)}</li>`).join("");
+      host.insertAdjacentHTML("beforeend", `<div class="seq-answer"><span class="seq-answer-label">${t("seq.correct")}</span><ol>${ol}</ol></div>`);
     }
   }
 
@@ -2760,6 +2879,9 @@
     if (card.type === "basic") {
       renderFace($("#acAnswer"), card, true);
       $("#acAnswerWrap").classList.remove("hidden");
+    } else if (card.type === "sequence") {
+      // 드래그한 배열을 정답과 비교해 제자리에서 채점 공개
+      revealSeq($("#acQuestion"), card);
     } else {
       // cloze/occlusion은 질문 영역을 제자리에서 공개 상태로 다시 그린다
       renderFace($("#acQuestion"), card, true);
@@ -2873,6 +2995,7 @@
     const card = session && currentCard();
     if (!card) return;
     if (card.type === "cloze") speak(clozeStrip(card.front));
+    else if (card.type === "sequence") speak([card.front, ...(session.revealed ? (card.seq || []) : [])].filter(Boolean).join(". "));
     else speak(session.revealed ? card.back : card.front);
   });
 
