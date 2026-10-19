@@ -498,17 +498,18 @@ const Social = (() => {
     }
 
     const finalCards = rows.map(c => {
-      if (c.type === "cloze") return { type: "cloze", front: c.front, clozeIndex: c.clozeIndex };
+      const sec = (c.section && String(c.section).trim()) ? { section: String(c.section).trim() } : {};
+      if (c.type === "cloze") return { type: "cloze", front: c.front, clozeIndex: c.clozeIndex, ...sec };
       if (c.type === "occlusion") {
         return {
           type: "occlusion", front: c.front, rects: c.rects, hideIndex: c.hideIndex, occMode: c.occMode,
-          imagePath: pathOf[c.imageId] || null,
+          imagePath: pathOf[c.imageId] || null, ...sec,
         };
       }
       return {
         type: "basic", front: c.front, back: c.back,
         frontImagePath: c.frontImageId ? (pathOf[c.frontImageId] || null) : null,
-        backImagePath: c.backImageId ? (pathOf[c.backImageId] || null) : null,
+        backImagePath: c.backImageId ? (pathOf[c.backImageId] || null) : null, ...sec,
       };
     });
 
@@ -592,16 +593,17 @@ const Social = (() => {
 
     const cards = [];
     for (const c of rawCards) {
+      const sec = (c.section && String(c.section).trim()) ? { section: String(c.section).trim() } : {};
       if (c.type === "cloze") {
-        cards.push({ type: "cloze", front: c.front, back: "", clozeIndex: Number(c.clozeIndex) || 1 });
+        cards.push({ type: "cloze", front: c.front, back: "", clozeIndex: Number(c.clozeIndex) || 1, ...sec });
       } else if (c.type === "occlusion") {
         const imageId = await localIdFor(c.imagePath);
         if (!imageId) continue; // 이미지 못 받아오면 이 카드는 건너뜀
-        cards.push({ type: "occlusion", front: c.front || "", imageId, rects: c.rects || [], hideIndex: c.hideIndex || 0, occMode: c.occMode || "one" });
+        cards.push({ type: "occlusion", front: c.front || "", imageId, rects: c.rects || [], hideIndex: c.hideIndex || 0, occMode: c.occMode || "one", ...sec });
       } else {
         const frontImageId = c.frontImagePath ? await localIdFor(c.frontImagePath) : null;
         const backImageId = c.backImagePath ? await localIdFor(c.backImagePath) : null;
-        cards.push({ type: "basic", front: String(c.front || ""), back: String(c.back || ""), frontImageId, backImageId });
+        cards.push({ type: "basic", front: String(c.front || ""), back: String(c.back || ""), frontImageId, backImageId, ...sec });
       }
     }
     if (!cards.length) throw new Error("empty");
