@@ -499,17 +499,18 @@ const Social = (() => {
 
     const finalCards = rows.map(c => {
       const sec = (c.section && String(c.section).trim()) ? { section: String(c.section).trim() } : {};
-      if (c.type === "cloze") return { type: "cloze", front: c.front, clozeIndex: c.clozeIndex, ...sec };
+      const sid = c.id ? { sid: c.id } : {}; // 안정적 카드 식별자 → 받는 쪽 스마트 업데이트(진도 보존)용
+      if (c.type === "cloze") return { type: "cloze", front: c.front, clozeIndex: c.clozeIndex, ...sec, ...sid };
       if (c.type === "occlusion") {
         return {
           type: "occlusion", front: c.front, rects: c.rects, hideIndex: c.hideIndex, occMode: c.occMode,
-          imagePath: pathOf[c.imageId] || null, ...sec,
+          imagePath: pathOf[c.imageId] || null, ...sec, ...sid,
         };
       }
       return {
         type: "basic", front: c.front, back: c.back,
         frontImagePath: c.frontImageId ? (pathOf[c.frontImageId] || null) : null,
-        backImagePath: c.backImageId ? (pathOf[c.backImageId] || null) : null, ...sec,
+        backImagePath: c.backImageId ? (pathOf[c.backImageId] || null) : null, ...sec, ...sid,
       };
     });
 
@@ -603,16 +604,17 @@ const Social = (() => {
     const cards = [];
     for (const c of rawCards) {
       const sec = (c.section && String(c.section).trim()) ? { section: String(c.section).trim() } : {};
+      const sid = c.sid ? { sourceCardId: String(c.sid) } : {}; // 스마트 업데이트 매칭용(없으면 내용으로 매칭)
       if (c.type === "cloze") {
-        cards.push({ type: "cloze", front: c.front, back: "", clozeIndex: Number(c.clozeIndex) || 1, ...sec });
+        cards.push({ type: "cloze", front: c.front, back: "", clozeIndex: Number(c.clozeIndex) || 1, ...sec, ...sid });
       } else if (c.type === "occlusion") {
         const imageId = await localIdFor(c.imagePath);
         if (!imageId) continue; // 이미지 못 받아오면 이 카드는 건너뜀
-        cards.push({ type: "occlusion", front: c.front || "", imageId, rects: c.rects || [], hideIndex: c.hideIndex || 0, occMode: c.occMode || "one", ...sec });
+        cards.push({ type: "occlusion", front: c.front || "", imageId, rects: c.rects || [], hideIndex: c.hideIndex || 0, occMode: c.occMode || "one", ...sec, ...sid });
       } else {
         const frontImageId = c.frontImagePath ? await localIdFor(c.frontImagePath) : null;
         const backImageId = c.backImagePath ? await localIdFor(c.backImagePath) : null;
-        cards.push({ type: "basic", front: String(c.front || ""), back: String(c.back || ""), frontImageId, backImageId, ...sec });
+        cards.push({ type: "basic", front: String(c.front || ""), back: String(c.back || ""), frontImageId, backImageId, ...sec, ...sid });
       }
     }
     if (!cards.length) throw new Error("empty");
@@ -651,12 +653,13 @@ const Social = (() => {
     } catch { return { hasUpdate: false }; }
   }
 
-  // 받은 덱을 원본 최신본으로 교체(카드 갈아끼움 — 학습 진행상황은 초기화)
+  // 받은 덱을 원본 최신본으로 스마트 병합 — 같은 카드는 내용·소제목만 갱신하고 복습 진도는 보존,
+  // 새 카드는 추가, 원본에서 사라진 카드는 제거한다.
   async function pullDeckUpdate(deckId, sharedId) {
     const { updatedAt, cards } = await fetchSharedDeck(sharedId);
-    Store.replaceDeckCards(deckId, cards);
+    const res = Store.mergeDeckCards(deckId, cards);
     Store.patchDeck(deckId, { sourceId: sharedId, sourceUpdatedAt: updatedAt });
-    return { count: cards.length };
+    return { count: cards.length, ...res };
   }
 
   function cleanUrl() {

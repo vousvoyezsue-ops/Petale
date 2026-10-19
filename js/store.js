@@ -502,6 +502,59 @@ const Store = (() => {
     return save();
   }
 
+  // 스마트 병합(공유 덱 업데이트 받기): 같은 카드는 내용·소제목만 갱신하고 복습 진도(ef/interval/due 등)는
+  // 그대로 둔다. 매칭은 sourceCardId(안정적 공유 id) 우선, 없으면 내용으로. 새 카드는 추가, 원본에서
+  // 사라진(= sourceCardId가 있는데 이번 목록에 없는) 카드는 제거. 사용자가 직접 넣은 카드(sourceCardId 없음)는 유지.
+  function mergeDeckCards(deckId, rows) {
+    const local = state.cards.filter(c => c.deckId === deckId);
+    const bySid = new Map();
+    local.forEach(c => { if (c.sourceCardId) bySid.set(c.sourceCardId, c); });
+    const contentKey = c => {
+      const f = String(c.front || "").trim();
+      if (c.type === "cloze") return `c|${f}|${c.clozeIndex ?? ""}`;
+      if (c.type === "occlusion") return `o|${f}|${c.hideIndex ?? ""}`;
+      return `b|${f}|${String(c.back || "").trim()}`;
+    };
+    const byContent = new Map();
+    local.forEach(c => { const k = contentKey(c); (byContent.get(k) || byContent.set(k, []).get(k)).push(c); });
+
+    // 내용 필드만 갱신(학습 상태·id·deckId·플래그는 보존)
+    const CONTENT = ["type", "front", "back", "clozeIndex", "rects", "hideIndex", "occMode", "imageId", "frontImageId", "backImageId"];
+    const used = new Set();
+    const now = Date.now();
+    let added = 0, updated = 0;
+
+    rows.forEach((row, i) => {
+      if (!row || typeof row !== "object") return;
+      let m = (row.sourceCardId && bySid.get(row.sourceCardId)) || null;
+      if (m && used.has(m)) m = null;
+      if (!m) { const arr = byContent.get(contentKey(row)) || []; m = arr.find(c => !used.has(c)) || null; }
+      if (m) {
+        used.add(m);
+        CONTENT.forEach(k => { if (k in row) m[k] = row[k]; });
+        m.section = row.section || "";               // 소제목 갱신/해제
+        if (row.sourceCardId) m.sourceCardId = String(row.sourceCardId); // 최초 병합 시 바인딩
+        updated++;
+      } else {
+        const nc = { id: uid() + i.toString(36), deckId, type: "basic", created: now + i, ...row, ...SRS.newCardState() };
+        state.cards.push(nc);
+        used.add(nc); // 새로 추가한 카드도 보존 대상
+        added++;
+      }
+    });
+
+    // 남은 로컬 카드: 원본에서 온(sourceCardId 있는) 것인데 이번에 안 나왔으면 제거, 직접 추가한 건 유지
+    let removed = 0;
+    state.cards = state.cards.filter(c => {
+      if (c.deckId !== deckId || used.has(c)) return true;
+      if (c.sourceCardId) { removed++; return false; }
+      return true;
+    });
+    gcMedia();
+    save();
+    return { added, updated, removed };
+  }
+
   // 평가 적용. 실행 취소용 스냅샷을 반환한다.
   function applyReview(cardId, rating) {
     const c = state.cards.find(x => x.id === cardId);
@@ -687,7 +740,7 @@ const Store = (() => {
     addDeck, updateDeck, deleteDeck, deleteDecks, getDeck, patchDeck,
     addFolder, updateFolder, deleteFolder, getFolder, childFolders, isDescendantFolder,
     addMedia, getMedia, putMedia, referencedMedia, gcMedia,
-    addCard, updateCard, deleteCard, deleteCards, cardsOf, moveCards, bulkAddCards, syncClozeSiblings, syncOcclusionSiblings, replaceDeckCards,
+    addCard, updateCard, deleteCard, deleteCards, cardsOf, moveCards, bulkAddCards, syncClozeSiblings, syncOcclusionSiblings, replaceDeckCards, mergeDeckCards,
     sectionsOf, setSection,
     addDoc, updateDoc, deleteDoc, getDoc, importSharedDocs,
     applyReview, undoReview, newIntroducedToday,
