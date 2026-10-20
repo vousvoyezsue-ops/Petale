@@ -2378,6 +2378,30 @@
         for (const idx of indices) rows.push({ type: "cloze", front, back: "", clozeIndex: idx, section });
         continue;
       }
+      // 순서 맞추기(sequence): 화살표(-> 또는 →)로 2개 이상 이어진 줄이 있으면 순서 카드.
+      // 제목은 화살표가 없는 줄(보통 첫 줄)이나 "제목: 첫단계" 형태로 적을 수 있다.
+      const SEQ_ARROW = /\s*(?:->|→|=>)\s*/;
+      const seqLines = block.split("\n").map(s => s.trim()).filter(Boolean);
+      const hasArrow = seqLines.some(l => l.split(SEQ_ARROW).filter(Boolean).length >= 2);
+      if (hasArrow) {
+        const items = [];
+        const titleParts = [];
+        seqLines.forEach(l => {
+          const parts = l.split(SEQ_ARROW).map(s => s.trim()).filter(Boolean);
+          if (parts.length >= 2) items.push(...parts);
+          else titleParts.push(l);
+        });
+        if (items.length >= 2) {
+          let title = titleParts.join(" ").trim();
+          if (!title && items[0].includes(":")) { // "제목: 첫 단계" 한 줄 형태 지원
+            const ci = items[0].indexOf(":");
+            const maybe = items[0].slice(0, ci).trim(), rest = items[0].slice(ci + 1).trim();
+            if (maybe && rest) { title = maybe; items[0] = rest; }
+          }
+          rows.push({ type: "sequence", front: title, seq: items, section });
+          continue;
+        }
+      }
       let front, back;
       if (block.includes("\t")) {
         [front, ...back] = block.split("\t");
