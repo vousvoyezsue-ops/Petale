@@ -550,15 +550,20 @@ const Social = (() => {
   // ownerIds가 주어지면 그 사용자들(친구)이 공유한 덱만 검색한다.
   async function searchDecks(query, ownerIds) {
     if (Array.isArray(ownerIds) && ownerIds.length === 0) return []; // 친구 없음 → 결과 없음
-    let req = sb().from("petale_shared_decks")
-      .select("id, name, description, card_count, downloads, created_at, owner, visibility, petale_profiles(username), subject:payload->>subject")
-      .order("downloads", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(30);
     const q = query.trim().replaceAll(",", " ");
-    if (q) req = req.or(`name.ilike.%${q}%,description.ilike.%${q}%`);
-    if (Array.isArray(ownerIds)) req = req.in("owner", ownerIds);
-    const { data, error } = await req;
+    const BASE = "id, name, description, card_count, downloads, created_at, owner, visibility, petale_profiles(username)";
+    const run = (sel) => {
+      let req = sb().from("petale_shared_decks").select(sel)
+        .order("downloads", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(30);
+      if (q) req = req.or(`name.ilike.%${q}%,description.ilike.%${q}%`);
+      if (Array.isArray(ownerIds)) req = req.in("owner", ownerIds);
+      return req;
+    };
+    // 과목(subject)까지 함께 시도 → 실패하면 과목 없이 다시 조회(explore가 깨지지 않게)
+    let { data, error } = await run(BASE + ", subject:payload->>subject");
+    if (error) ({ data, error } = await run(BASE));
     if (error) throw error;
     return (data || []).map(d => ({
       id: d.id,
