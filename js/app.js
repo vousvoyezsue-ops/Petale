@@ -2403,7 +2403,12 @@
         }
       }
       let front, back;
-      if (block.includes("\t")) {
+      // Q/A 구분선(--- 또는 ===): 윗부분 = 질문, 아랫부분 = 답 (여러 줄·불릿 자유)
+      const qaSep = blkLines.findIndex(l => /^\s*(?:-{3,}|={3,})\s*$/.test(l));
+      if (qaSep >= 0) {
+        front = blkLines.slice(0, qaSep).join("\n").trim();
+        back = blkLines.slice(qaSep + 1).join("\n").trim();
+      } else if (block.includes("\t")) {
         [front, ...back] = block.split("\t");
         back = back.join(" ").trim();
       } else {
