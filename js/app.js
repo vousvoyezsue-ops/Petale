@@ -3525,7 +3525,7 @@
       list.innerHTML = `<li class="friend-empty">${exploreScope === "friends" ? t("explore.friendsEmpty") : t("explore.empty")}</li>`;
       return;
     }
-    list.innerHTML = results.map(r => `
+    const rowHTML = r => `
       <li class="friend-row explore-row" data-id="${r.id}">
         <span class="friend-avatar">${escapeHTML((r.author || "?")[0])}</span>
         <div class="texts">
@@ -3537,7 +3537,23 @@
           <span class="pill new">${t("explore.downloads", { n: r.downloads })}</span>
         </span>
         <button class="btn secondary sm get">${t("explore.get")}</button>
-      </li>`).join("");
+      </li>`;
+
+    // 과목(subject)별로 묶는다 — 과목 없는 덱은 '미분류'로 맨 아래
+    const NO_SUB = "\u0000";
+    const groups = new Map();
+    const order = [];
+    results.forEach(r => {
+      const s = (r.subject || "").trim() || NO_SUB;
+      if (!groups.has(s)) { groups.set(s, []); order.push(s); }
+      groups.get(s).push(r);
+    });
+    order.sort((a, b) => a === NO_SUB ? 1 : b === NO_SUB ? -1 : a.localeCompare(b, "ko"));
+    const showHeads = order.length > 1 || order[0] !== NO_SUB; // 과목이 실제로 있을 때만 헤더
+    list.innerHTML = order.map(s => {
+      const head = showHeads ? `<li class="explore-sec-head">${s === NO_SUB ? t("docs.noSubject") : escapeHTML(s)}</li>` : "";
+      return head + groups.get(s).map(rowHTML).join("");
+    }).join("");
 
     list.querySelectorAll(".explore-row .get").forEach(btn =>
       btn.addEventListener("click", async () => {
