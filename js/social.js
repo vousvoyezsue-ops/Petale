@@ -455,6 +455,22 @@ const Social = (() => {
     return "jpg";
   }
 
+  // 덱이 속한 폴더 트리에서 '과목'을 추론한다.
+  // 과목 = 루트 폴더 바로 아래의 조상 폴더(예: Physiology>Kristof 의 덱 → Physiology).
+  function folderCourseName(deck) {
+    const folders = (Store.state && Store.state.folders) || [];
+    const byId = new Map(folders.map(f => [f.id, f]));
+    let cur = deck.folderId ? byId.get(deck.folderId) : null;
+    if (!cur) return "";
+    let guard = 0;
+    while (cur.parentId && byId.get(cur.parentId) && guard++ < 30) {
+      const parent = byId.get(cur.parentId);
+      if (!parent.parentId) break; // 부모가 루트 → 지금 cur 이 과목
+      cur = parent;
+    }
+    return String(cur.name || "").trim();
+  }
+
   // 덱 공개(업서트) — visibility: "public" | "friends"
   // 1) 메타데이터만 먼저 업서트해 안정적인 sharedId 확보
   // 2) 카드가 참조하는 이미지들을 {owner}/{sharedId}/{imageId}.ext 경로로 업로드
@@ -515,8 +531,9 @@ const Social = (() => {
       };
     });
 
-    // 덱에 지정된 과목이 있으면, 같은 과목의 문서(과목 파일)도 함께 실어 보낸다
-    const subject = (deck.subject || "").trim();
+    // 과목: 덱에 지정된 값이 있으면 그걸, 없으면 폴더 트리에서 추론한 과목을 쓴다.
+    // 같은 과목의 문서(과목 파일)도 함께 실어 보낸다.
+    const subject = (deck.subject || "").trim() || folderCourseName(deck);
     const docs = subject
       ? Store.state.docs
           .filter(d => (d.subject || "").trim() === subject)

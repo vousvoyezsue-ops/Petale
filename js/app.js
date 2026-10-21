@@ -3526,17 +3526,19 @@
       return;
     }
     const rowHTML = r => `
-      <li class="friend-row explore-row" data-id="${r.id}">
-        <span class="friend-avatar">${escapeHTML((r.author || "?")[0])}</span>
-        <div class="texts">
-          <div class="fr-name">${escapeHTML(r.name)}</div>
-          <div class="explore-desc">${escapeHTML(r.description || "")}</div>
+      <li class="xp-row" data-id="${r.id}">
+        <div class="xp-row-body">
+          <div class="xp-row-title">${escapeHTML(r.name)}</div>
+          ${r.description ? `<div class="xp-row-desc">${escapeHTML(r.description)}</div>` : ""}
+          <div class="xp-row-meta">
+            <span>${t("explore.cards", { n: r.cardCount })}</span>
+            <span class="xp-dot">·</span>
+            <span>${t("explore.downloads", { n: r.downloads })}</span>
+            <span class="xp-dot">·</span>
+            <span class="xp-by">${escapeHTML(r.author || "?")}</span>
+          </div>
         </div>
-        <span class="fr-meta">
-          <span class="pill total">${t("explore.cards", { n: r.cardCount })}</span>
-          <span class="pill new">${t("explore.downloads", { n: r.downloads })}</span>
-        </span>
-        <button class="btn secondary sm get">${t("explore.get")}</button>
+        <button class="btn secondary sm get xp-get">${t("explore.get")}</button>
       </li>`;
 
     // 과목(subject)별로 묶는다 — 과목 없는 덱은 '미분류'로 맨 아래
@@ -3551,15 +3553,18 @@
     order.sort((a, b) => a === NO_SUB ? 1 : b === NO_SUB ? -1 : a.localeCompare(b, "ko"));
     const showHeads = order.length > 1 || order[0] !== NO_SUB; // 과목이 실제로 있을 때만 헤더
     list.innerHTML = order.map(s => {
-      const head = showHeads ? `<li class="explore-sec-head">${s === NO_SUB ? t("docs.noSubject") : escapeHTML(s)}</li>` : "";
-      return head + groups.get(s).map(rowHTML).join("");
+      const rows = groups.get(s);
+      const head = showHeads
+        ? `<li class="xp-head"><span class="xp-head-name">${s === NO_SUB ? t("docs.noSubject") : escapeHTML(s)}</span><span class="xp-head-n">${rows.length}</span></li>`
+        : "";
+      return head + rows.map(rowHTML).join("");
     }).join("");
 
-    list.querySelectorAll(".explore-row .get").forEach(btn =>
+    list.querySelectorAll(".xp-row .get").forEach(btn =>
       btn.addEventListener("click", async () => {
         btn.disabled = true;
         try {
-          const { deck, count, docCount } = await Social.downloadDeck(btn.closest(".explore-row").dataset.id);
+          const { deck, count, docCount } = await Social.downloadDeck(btn.closest(".xp-row").dataset.id);
           toast(docCount ? t("explore.gotDocs", { name: deck.name, n: count, d: docCount }) : t("explore.got", { name: deck.name, n: count }));
         } catch {
           toast(t("fr.offline"));
