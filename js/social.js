@@ -551,7 +551,7 @@ const Social = (() => {
   async function searchDecks(query, ownerIds) {
     if (Array.isArray(ownerIds) && ownerIds.length === 0) return []; // 친구 없음 → 결과 없음
     let req = sb().from("petale_shared_decks")
-      .select("id, name, description, card_count, downloads, created_at, owner, visibility, petale_profiles(username)")
+      .select("id, name, description, card_count, downloads, created_at, owner, visibility, petale_profiles(username), subject:payload->>subject")
       .order("downloads", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(30);
@@ -568,6 +568,7 @@ const Social = (() => {
       downloads: d.downloads,
       author: d.petale_profiles?.username || "?",
       visibility: d.visibility,
+      subject: (d.subject || "").trim(),
     }));
   }
 
