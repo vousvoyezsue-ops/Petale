@@ -2332,29 +2332,64 @@ mark, mark.hl, .hl {
 }
 
 /* ═══ explore ═══ */
-.explore-search { max-width: 640px; margin: 0 auto 22px; }
-.explore-heading { font-family: var(--font-display); font-size: 18px; margin-bottom: 14px; }
-.explore-list { max-width: 760px; margin: 0 auto; }
-.explore-row .texts { flex: 1; min-width: 0; }
-.explore-row .fr-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* explore 과목(subject) 구분 헤더 */
-.explore-sec-head {
-  list-style: none;
-  font-family: var(--font-display);
-  font-size: 13px; font-weight: 700; letter-spacing: -.01em;
-  color: var(--sage-500);
-  margin: 18px 2px 7px; padding-bottom: 6px;
-  border-bottom: 1px solid var(--edge);
+.explore-search { max-width: 560px; margin: 0 auto 16px; }
+.explore-scope { justify-content: center; }
+.explore-heading {
+  max-width: 720px; margin: 2px auto 14px;
+  font-family: var(--font-display); font-size: 15px; font-weight: 600;
+  color: var(--ink-2); letter-spacing: -.01em;
 }
-.explore-sec-head:first-child { margin-top: 2px; }
-.explore-desc {
-  font-size: 12.5px; color: var(--ink-3);
-  margin-top: 2px;
+.explore-list { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 5px; }
+
+/* 과목(subject) 구분 헤더 — 조용한 선반 라벨 */
+.xp-head {
+  list-style: none;
+  display: flex; align-items: center; gap: 10px;
+  margin: 24px 2px 11px;
+}
+.xp-head:first-child { margin-top: 4px; }
+.xp-head-name {
+  font-family: var(--font-display);
+  font-size: 15px; font-weight: 600; letter-spacing: -.01em;
+  color: var(--sage-500); flex-shrink: 0;
+}
+.xp-head-n {
+  font-size: 11px; color: var(--ink-3); line-height: 1;
+  background: color-mix(in srgb, var(--sage-400) 13%, transparent);
+  padding: 3px 8px; border-radius: 999px; flex-shrink: 0;
+}
+.xp-head::after { content: ""; flex: 1; height: 1px; background: var(--edge); }
+
+/* 덱 카드 — 이름 중심, 여백 넉넉, 은은한 호버 */
+.xp-row {
+  list-style: none;
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 18px;
+  border-radius: var(--r-md);
+  background: var(--paper);
+  border: 1px solid var(--edge);
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.xp-row:hover {
+  border-color: color-mix(in srgb, var(--sage-400) 42%, transparent);
+  box-shadow: var(--shadow-xs);
+}
+.xp-row-body { flex: 1; min-width: 0; }
+.xp-row-title {
+  font-weight: 620; font-size: 14.5px; color: var(--ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-@media (max-width: 600px) {
-  .explore-row .fr-meta { display: none; }
+.xp-row-desc {
+  font-size: 12.5px; color: var(--ink-3); margin-top: 3px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.xp-row-meta {
+  display: flex; align-items: center; gap: 7px; margin-top: 6px;
+  font-size: 11.5px; color: var(--ink-3);
+}
+.xp-dot { opacity: .45; }
+.xp-by { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.xp-get { flex-shrink: 0; }
 
 /* ═══ toast ═══ */
 .toast {
