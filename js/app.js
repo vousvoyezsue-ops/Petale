@@ -3396,7 +3396,7 @@
     list.innerHTML = ov.friends.map(f => {
       const st = ov.stats[f.id] || { today: 0, streak: 0 };
       return `
-        <li class="friend-item" data-id="${f.id}">
+        <li class="friend-item" data-id="${f.id}" data-name="${escapeHTML(f.username || "?")}">
           <button type="button" class="friend-row friend-row-btn">
             <span class="friend-avatar">${escapeHTML((f.username || "?")[0])}</span>
             <span class="fr-name">${escapeHTML(f.username || "?")}</span>
@@ -3406,19 +3406,39 @@
             </span>
             <svg class="friend-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
           </button>
-          <div class="friend-decks hidden"></div>
+          <div class="friend-panel hidden">
+            <div class="friend-decks"></div>
+            <button type="button" class="friend-remove">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+              ${t("fr.remove")}
+            </button>
+          </div>
         </li>`;
     }).join("");
 
     list.querySelectorAll(".friend-item").forEach(item => {
       const btn = item.querySelector(".friend-row-btn");
+      const panel = item.querySelector(".friend-panel");
       const box = item.querySelector(".friend-decks");
       btn.addEventListener("click", () => {
-        const open = !box.classList.contains("hidden");
-        if (open) { box.classList.add("hidden"); item.classList.remove("open"); return; }
+        const open = !panel.classList.contains("hidden");
+        if (open) { panel.classList.add("hidden"); item.classList.remove("open"); return; }
         item.classList.add("open");
-        box.classList.remove("hidden");
+        panel.classList.remove("hidden");
         if (!box.dataset.loaded) loadFriendDecks(item.dataset.id, box);
+      });
+      item.querySelector(".friend-remove").addEventListener("click", () => {
+        const name = item.dataset.name;
+        confirmDialog(t("fr.removeTitle", { name }), t("fr.removeText"), async () => {
+          try {
+            await Social.removeFriend(item.dataset.id);
+            friendIdsCache = null; // explore 친구 필터 캐시 무효화
+            toast(t("fr.removed"));
+            renderFriendsPanel();
+          } catch {
+            toast(t("fr.offline"));
+          }
+        }, t("fr.remove"));
       });
     });
   }

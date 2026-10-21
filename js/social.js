@@ -388,6 +388,15 @@ const Social = (() => {
     }
   }
 
+  // 친구 삭제 — 두 사람 사이의 친구 관계 행을 방향 상관없이 지운다
+  async function removeFriend(friendId) {
+    if (!profile) throw new Error("not_signed_in");
+    const { error } = await sb().from("petale_friendships")
+      .delete()
+      .or(`and(requester.eq.${profile.id},addressee.eq.${friendId}),and(requester.eq.${friendId},addressee.eq.${profile.id})`);
+    if (error) throw error;
+  }
+
   // 친구 목록 + 받은 요청 + 각 친구의 오늘 기록
   async function fetchOverview() {
     if (!profile) return null;
@@ -772,7 +781,7 @@ const Social = (() => {
 
   return {
     init, signUp, signIn, signInWithGoogle, signOut, consumeAuthError,
-    sendRequest, respondRequest, fetchOverview,
+    sendRequest, respondRequest, removeFriend, fetchOverview,
     pushStats, pushStatsQuiet,
     syncOnLogin, schedulePush, pushCollection, syncMedia, flushPush, syncOnVisible, setOnRemoteUpdate,
     publishDeck, unpublishDeck, searchDecks, downloadDeck, checkDeckUpdate, pullDeckUpdate,
