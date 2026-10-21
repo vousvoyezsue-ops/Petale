@@ -1573,6 +1573,27 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
 .friend-deck-row .fr-name { font-weight: 600; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .friend-deck-row .get { flex-shrink: 0; }
 
+/* 친구 패널 — 공개 덱 + 조용한 삭제 버튼 */
+.friend-panel { display: flex; flex-direction: column; padding-top: 2px; }
+.friend-remove {
+  align-self: flex-end;
+  display: flex; align-items: center; gap: 5px;
+  margin: 4px 8px 6px;
+  padding: 6px 12px;
+  font-size: 12.5px; font-weight: 550;
+  color: var(--ink-3);
+  background: transparent;
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color .16s, border-color .16s, background .16s;
+}
+.friend-remove:hover {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 35%, transparent);
+  background: color-mix(in srgb, var(--danger) 7%, transparent);
+}
+
 /* ═══ modal ═══ */
 .modal {
   margin: auto; /* 전역 리셋이 dialog 기본 센터링(margin:auto)을 제거하므로 복원 */
