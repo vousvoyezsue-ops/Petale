@@ -1093,8 +1093,15 @@ body[data-view="docreader"] #app { max-width: none; }
 .face-body li::marker, .cardview-body li::marker, .rich-field li::marker { color: var(--olive-600); }
 .face-body ul, .cardview-body ul, .rich-field ul { list-style: disc; }
 .face-body ol, .cardview-body ol, .rich-field ol { list-style: decimal; }
-/* 본문 칼럼 안의 목록은 가운데 칼럼 폭에 맞춰 좌측 정렬 */
-.card-body ul, .card-body ol { max-width: 32em; margin-inline: auto; }
+/* 중첩 목록(들여쓰기) — 깊이마다 마커를 바꿔 구분, 세로 여백은 더 촘촘하게 */
+.face-body ul ul, .cardview-body ul ul, .rich-field ul ul { list-style: circle; }
+.face-body ul ul ul, .cardview-body ul ul ul, .rich-field ul ul ul { list-style: square; }
+.face-body li ul, .face-body li ol, .cardview-body li ul, .cardview-body li ol, .rich-field li ul, .rich-field li ol,
+.face-body ul ul, .face-body ul ol, .face-body ol ul, .face-body ol ol,
+.cardview-body ul ul, .cardview-body ul ol, .cardview-body ol ul, .cardview-body ol ol,
+.rich-field ul ul, .rich-field ul ol, .rich-field ol ul, .rich-field ol ol { margin: 0; }
+/* 본문 칼럼 안의 목록은 가운데 칼럼 폭에 맞춰 좌측 정렬(중첩 목록은 제외) */
+.card-body > ul, .card-body > ol { max-width: 32em; margin-inline: auto; }
 
 /* occlusion (학습 + 편집 공용 마스크) */
 .occ-view {
