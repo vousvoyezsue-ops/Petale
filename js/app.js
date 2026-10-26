@@ -317,23 +317,51 @@
     return [...new Set([...text.matchAll(/\{\{c(\d+)::/g)].map(m => Number(m[1])))].sort((a, b) => a - b);
   }
 
-  const BULLET_RE = /^\s*[-–—•·*]\s+([\s\S]*)$/;
-  const NUMBER_RE = /^\s*\d+[.)]\s+([\s\S]*)$/;
+  // 들여쓰기(앞 공백/탭)까지 잡기 위해 선행 공백을 캡처한다. 탭 1개 = 공백 2칸.
+  const BULLET_RE = /^(\s*)[-–—•·*]\s+([\s\S]*)$/;
+  const NUMBER_RE = /^(\s*)\d+[.)]\s+([\s\S]*)$/;
+  const isListLine = s => BULLET_RE.test(s) || NUMBER_RE.test(s);
+  const indentWidth = s => s.replace(/\t/g, "  ").length;
+
+  // 연속된 목록 줄(group)을 들여쓰기 깊이에 따라 중첩된 <ul>/<ol>로 만든다.
+  function buildNestedList(group) {
+    let html = "";
+    const stack = []; // [{indent, type}]
+    for (const it of group) {
+      // 더 얕은 들여쓰기면 깊은 목록부터 닫는다
+      while (stack.length && it.indent < stack[stack.length - 1].indent) html += `</${stack.pop().type}>`;
+      const top = stack[stack.length - 1];
+      if (!top || it.indent > top.indent) {            // 더 깊어짐 → 새 목록 시작
+        stack.push({ indent: it.indent, type: it.type });
+        html += `<${it.type}>`;
+      } else if (top.type !== it.type) {               // 같은 깊이, 종류만 다름 → 교체
+        html += `</${stack.pop().type}>`;
+        stack.push({ indent: it.indent, type: it.type });
+        html += `<${it.type}>`;
+      }
+      html += `<li>${inlineMd(it.text.trim())}</li>`;
+    }
+    while (stack.length) html += `</${stack.pop().type}>`;
+    return html;
+  }
+
   // 여러 줄 텍스트 → HTML: 연속된 불릿(-, •, * …)은 <ul>, 번호(1. 2) …)는 <ol>,
-  // 그 외 줄은 <br>로 이어 붙인다. 각 줄 내용엔 **굵게**·==형광==(inlineMd) 적용.
+  // 들여쓴 줄은 중첩 목록으로. 그 외 줄은 <br>로 이어 붙인다. inlineMd(**굵게**·==형광==)도 적용.
   function linesToHtml(lines) {
     const out = [];
     let i = 0;
     while (i < lines.length) {
-      const bm = lines[i].match(BULLET_RE), nm = lines[i].match(NUMBER_RE);
-      if (bm || nm) {
-        const tag = bm ? "ul" : "ol", re = bm ? BULLET_RE : NUMBER_RE;
-        const items = [];
-        while (i < lines.length) { const m = lines[i].match(re); if (!m) break; items.push(`<li>${inlineMd(m[1].trim())}</li>`); i++; }
-        out.push(`<${tag}>${items.join("")}</${tag}>`);
+      if (isListLine(lines[i])) {
+        const group = [];
+        while (i < lines.length && isListLine(lines[i])) {
+          const bm = lines[i].match(BULLET_RE), nm = lines[i].match(NUMBER_RE), m = bm || nm;
+          group.push({ indent: indentWidth(m[1]), type: bm ? "ul" : "ol", text: m[2] });
+          i++;
+        }
+        out.push(buildNestedList(group));
       } else {
         const text = [];
-        while (i < lines.length && !BULLET_RE.test(lines[i]) && !NUMBER_RE.test(lines[i])) { text.push(inlineMd(lines[i])); i++; }
+        while (i < lines.length && !isListLine(lines[i])) { text.push(inlineMd(lines[i])); i++; }
         out.push(text.join("<br>"));
       }
     }
@@ -1895,14 +1923,26 @@
       const sel = window.getSelection();
       if (!sel || !sel.rangeCount) return;
       let n = sel.getRangeAt(0).startContainer;
-      const cell = (n.nodeType === 1 ? n : n.parentElement)?.closest("td,th");
-      if (!cell || !el.contains(cell)) return; // 표 밖이면 기본 동작
-      e.preventDefault();
-      const cells = [...el.querySelectorAll("td,th")];
-      const i = cells.indexOf(cell);
-      if (e.shiftKey) { if (i > 0) focusCell(cells[i - 1]); }
-      else if (i < cells.length - 1) focusCell(cells[i + 1]);
-      else focusCell(addTableRow(cell));
+      const base = n.nodeType === 1 ? n : n.parentElement;
+      const cell = base?.closest("td,th");
+      if (cell && el.contains(cell)) { // 표 안: 셀 이동
+        e.preventDefault();
+        const cells = [...el.querySelectorAll("td,th")];
+        const i = cells.indexOf(cell);
+        if (e.shiftKey) { if (i > 0) focusCell(cells[i - 1]); }
+        else if (i < cells.length - 1) focusCell(cells[i + 1]);
+        else focusCell(addTableRow(cell));
+        return;
+      }
+      // 목록 안: Tab = 들여쓰기(중첩), Shift+Tab = 내어쓰기
+      const li = base?.closest("li");
+      if (li && el.contains(li)) {
+        e.preventDefault();
+        try { document.execCommand("styleWithCSS", false, false); } catch { /* 무시 */ }
+        try { document.execCommand(e.shiftKey ? "outdent" : "indent"); } catch { /* 무시 */ }
+        return;
+      }
+      // 그 외: 기본 Tab 동작(포커스 이동)
     });
   });
   document.addEventListener("selectionchange", () => {
