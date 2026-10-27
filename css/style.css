@@ -1311,6 +1311,12 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
   display: flex; justify-content: center;
   margin-bottom: 8px;
 }
+/* 정답 공개 후 '다시 문제 보기(뒤집기)' */
+.flip-back-row { display: flex; justify-content: center; margin-bottom: 10px; }
+.flip-back-row.hidden { display: none; }
+#btnFlipBack { gap: 6px; color: var(--ink-3); }
+#btnFlipBack:hover { color: var(--olive-700); }
+#btnFlipBack svg { opacity: .85; }
 
 /* ── 플래시카드 모드 컨트롤 ── */
 .flash-controls {

@@ -2811,6 +2811,7 @@
     const card = currentCard();
     session.revealed = false;
     ratingRow.classList.add("hidden");
+    $("#flipBackRow").classList.add("hidden");
     $("#revealRow").classList.remove("hidden");
     $("#acAnswerWrap").classList.add("hidden");
     $("#keyHint").textContent = t("study.revealHint");
@@ -3067,7 +3068,23 @@
     $("#ivGood").textContent = SRS.previewInterval(card, 2);
     $("#ivEasy").textContent = SRS.previewInterval(card, 3);
     ratingRow.classList.remove("hidden");
+    $("#flipBackRow").classList.remove("hidden");
     $("#keyHint").textContent = t("study.keysHint");
+  }
+
+  // 정답을 접고 다시 문제만 보는 상태로(뒤집기) — 같은 카드를 다시 풀어볼 수 있다. 채점·일정 변화 없음.
+  function unreveal() {
+    if (!session || !session.current || !session.revealed) return;
+    const card = currentCard();
+    session.revealed = false;
+    $("#acAnswerWrap").classList.add("hidden");
+    if (card.type === "sequence") renderSeqStudy($("#acQuestion"), card);
+    else renderFace($("#acQuestion"), card, false); // cloze/occlusion은 빈칸 상태로 복귀
+    showNotes(card, false);
+    ratingRow.classList.add("hidden");
+    $("#flipBackRow").classList.add("hidden");
+    $("#revealRow").classList.remove("hidden");
+    $("#keyHint").textContent = t("study.revealHint");
   }
 
   function rate(rating) {
@@ -3153,6 +3170,7 @@
 
   answerCard.addEventListener("click", () => reveal());
   $("#btnReveal").addEventListener("click", () => reveal());
+  $("#btnFlipBack").addEventListener("click", () => unreveal());
   $$(".rate-btn").forEach(b => b.addEventListener("click", () => rate(Number(b.dataset.rate))));
 
   /* ── TTS ── */
@@ -3183,6 +3201,7 @@
       if (!session?.revealed) reveal();
       else rate(2);
     }
+    if (e.code === "Backspace" || e.key === "0") { if (session?.revealed) { e.preventDefault(); unreveal(); } return; }
     if (["1", "2", "3", "4"].includes(e.key)) rate(Number(e.key) - 1);
     if (e.key === "z" || e.key === "Z") undo();
     if (e.code === "Escape") quitStudy();
