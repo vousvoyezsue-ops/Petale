@@ -254,7 +254,28 @@
       });
     })(root);
     migrateNoteBullets(root); // 옛 .nb/.gbull 불릿 구조 → 편집 가능한 <ul><li>
+    newlinesToBr(root);       // 편집기가 넣는 줄바꿈(\n)을 실제 <br>로 — 모든 화면에서 줄바꿈 보이게
     return root.innerHTML;
+  }
+
+  // 텍스트 노드의 줄바꿈 문자(\n)를 <br> 요소로 바꾼다. 편집기(.rich-field)는 pre-wrap이라
+  // \n이 줄바꿈으로 보이지만, 카드 뷰 등 pre-wrap이 아닌 곳에선 공백으로 뭉개진다.
+  // 표 안은 구조적 공백(\n)이 섞여 있어 건드리지 않는다.
+  function newlinesToBr(root) {
+    const texts = [];
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let n; while ((n = walker.nextNode())) texts.push(n);
+    for (const tn of texts) {
+      if (!tn.nodeValue.includes("\n")) continue;
+      if (tn.parentElement && tn.parentElement.closest("table")) continue; // 표 안은 그대로
+      const parts = tn.nodeValue.split("\n");
+      const frag = document.createDocumentFragment();
+      parts.forEach((part, i) => {
+        if (i > 0) frag.appendChild(document.createElement("br"));
+        if (part) frag.appendChild(document.createTextNode(part));
+      });
+      tn.replaceWith(frag);
+    }
   }
 
   // 예전 가져오기가 만든 .nb(줄)·.gbull(불릿) 블록 구조를 진짜 <ul><li> 목록으로 바꾼다.
@@ -1919,11 +1940,22 @@
     });
     // 표 안에서 Tab: 다음 셀로 이동(마지막 셀이면 행 추가), Shift+Tab: 이전 셀
     el.addEventListener("keydown", (e) => {
-      if (e.key !== "Tab") return;
+      if (e.key !== "Tab" && e.key !== "Enter") return;
       const sel = window.getSelection();
       if (!sel || !sel.rangeCount) return;
       let n = sel.getRangeAt(0).startContainer;
       const base = n.nodeType === 1 ? n : n.parentElement;
+      // Enter: 목록·표가 아니면 <br>로 줄바꿈한다. 브라우저가 Enter마다 <div> 블록을
+      // 만들면, 거기에 밑줄/굵게를 적용할 때 위아래로 빈 줄이 생기는 문제가 있다.
+      if (e.key === "Enter") {
+        if (e.shiftKey) return;                    // Shift+Enter는 기본(<br>)
+        if (base?.closest("li, td, th")) return;   // 목록·표는 기본 동작 유지
+        e.preventDefault();
+        let ok = false;
+        try { ok = document.execCommand("insertLineBreak"); } catch { /* 무시 */ }
+        if (!ok) { try { document.execCommand("insertHTML", false, "<br>"); } catch { /* 무시 */ } }
+        return;
+      }
       const cell = base?.closest("td,th");
       if (cell && el.contains(cell)) { // 표 안: 셀 이동
         e.preventDefault();
