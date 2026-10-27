@@ -289,6 +289,10 @@
     </div>
 
     <div class="practice-row">
+      <button class="mode-card mode-recall" id="btnRecall">
+        <span class="mode-ic"><svg width="19" height="19"><use href="#i-target"/></svg></span>
+        <span class="mode-txt"><b data-i18n="mode.recall"></b><small data-i18n="mode.recallDesc"></small></span>
+      </button>
       <button class="mode-card mode-overview" id="btnOverview">
         <span class="mode-ic"><svg width="19" height="19"><use href="#i-book"/></svg></span>
         <span class="mode-txt"><b data-i18n="mode.overview"></b><small data-i18n="mode.overviewDesc"></small></span>
@@ -353,6 +357,28 @@
       <p class="overview-sub" id="overviewSub"></p>
     </div>
     <div class="overview-body" id="overviewBody"></div>
+  </section>
+
+  <!-- ═══════════ 백지 테스트 ═══════════ -->
+  <section class="view hidden" id="view-recall">
+    <button class="back-link" data-back="deck">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+      <span data-i18n="recall.back"></span>
+    </button>
+    <div class="overview-head">
+      <h2 class="deck-title" id="recallTitle"></h2>
+      <p class="overview-sub" data-i18n="recall.sub"></p>
+    </div>
+    <div class="recall-controls">
+      <select id="recallScope" class="recall-scope"></select>
+      <span class="recall-count" id="recallCount"></span>
+    </div>
+    <textarea id="recallInput" class="recall-input" data-i18n-placeholder="recall.placeholder"></textarea>
+    <div class="recall-actions">
+      <button class="btn primary large" id="recallReveal" data-i18n="recall.reveal"></button>
+      <button class="btn secondary large hidden" id="recallAgain" data-i18n="recall.again"></button>
+    </div>
+    <div class="recall-answers hidden" id="recallAnswers"></div>
   </section>
 
   <!-- ═══════════ 학습 ═══════════ -->
