@@ -1782,11 +1782,7 @@
     renderDeck();
     if (!$("#view-study").classList.contains("hidden") && session && session.current) {
       const card = currentCard();
-      if (card && card.id === editingCardId) {
-        renderFace($("#acQuestion"), card, session.revealed);
-        if (session.revealed && card.type === "basic") renderFace($("#acAnswer"), card, true);
-        showNotes(card, session.revealed);
-      }
+      if (card && card.id === editingCardId) rerenderStudyFaces(card);
     }
   }
 
@@ -2766,6 +2762,22 @@
     updateStudyRibbon();
   }
 
+  // 학습 중인 카드의 질문/정답 면을 타입·공개상태에 맞게 다시 그린다.
+  // (기본 카드의 질문면은 항상 '앞면'이어야 한다 — 공개 상태를 넘기면 정답으로 덮여버린다)
+  function rerenderStudyFaces(card) {
+    if (card.type === "sequence") {
+      if (session.revealed) revealSeq($("#acQuestion"), card);
+      else renderSeqStudy($("#acQuestion"), card);
+    } else if (card.type === "basic") {
+      renderFace($("#acQuestion"), card, false);
+      if (session.revealed) renderFace($("#acAnswer"), card, true);
+    } else {
+      // cloze / occlusion: 질문면이 공개 상태를 반영
+      renderFace($("#acQuestion"), card, session.revealed);
+    }
+    showNotes(card, session.revealed);
+  }
+
   // 학습 중 현재 카드가 속한 장(섹션)을 상단 리본으로 보여줘 흐름의 위치를 알려준다
   function updateStudyRibbon() {
     const el = $("#studyRibbon");
@@ -3739,9 +3751,7 @@
     if (v === "home") renderHome();
     else if (v === "deck") renderDeck();
     else if (v === "study" && session && session.current) {
-      const c = currentCard();
-      renderFace($("#acQuestion"), c, session.revealed);
-      if (session.revealed && c.type === "basic") renderFace($("#acAnswer"), c, true);
+      rerenderStudyFaces(currentCard());
     }
   }
 
