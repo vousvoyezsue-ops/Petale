@@ -2720,6 +2720,37 @@ body:not(.pre-auth) .auth-gate { display: none; }
 .overview-sub { color: var(--ink-3); font-size: 13px; margin-top: 2px; }
 .overview-body { max-width: 700px; margin: 16px auto 60px; }
 
+/* ── 백지 테스트 ── */
+#view-recall { max-width: 700px; margin-inline: auto; }
+.recall-controls { display: flex; align-items: center; gap: 10px; margin: 14px 2px 10px; }
+.recall-scope {
+  font: inherit; font-size: 13.5px; font-weight: 560;
+  padding: 7px 30px 7px 12px; border-radius: 10px;
+  border: 1px solid var(--edge); background: var(--paper); color: var(--ink);
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a8778' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
+  -webkit-appearance: none; appearance: none;
+}
+.recall-scope.hidden { display: none; }
+.recall-count { font-size: 12.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.recall-input {
+  width: 100%; min-height: 260px; resize: vertical;
+  font: inherit; font-size: 15.5px; line-height: 1.75; color: var(--ink);
+  padding: 18px 20px; border-radius: 14px;
+  border: 1px solid var(--edge); background: var(--paper);
+  /* 노트 줄선 느낌(은은하게) */
+  background-image: repeating-linear-gradient(var(--paper), var(--paper) calc(1.75em - 1px), color-mix(in srgb, var(--edge) 55%, transparent) calc(1.75em - 1px), color-mix(in srgb, var(--edge) 55%, transparent) 1.75em);
+  background-attachment: local;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.recall-input:focus { border-color: var(--sage-400); box-shadow: 0 0 0 3.5px color-mix(in srgb, var(--sage-400) 15%, transparent); }
+.recall-actions { display: flex; gap: 10px; margin: 14px 0 4px; }
+.recall-actions .btn { flex: 1; }
+.recall-answers { margin: 10px auto 60px; }
+.recall-answers.hidden { display: none; }
+
 /* 개요 = 한 장의 '요약 노트 시트' (카드 박스·타임라인 없이 흐르는 문서) */
 .ov-sheet {
   background: var(--paper);
