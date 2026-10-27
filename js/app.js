@@ -461,7 +461,7 @@
   }
 
   /* ══════════ 화면 전환 ══════════ */
-  const views = ["home", "deck", "study", "stats", "friends", "quiz", "write", "match", "flash", "explore", "docs", "docreader", "overview"];
+  const views = ["home", "deck", "study", "stats", "friends", "quiz", "write", "match", "flash", "explore", "docs", "docreader", "overview", "recall"];
 
   function show(view) {
     Practice.stopMatchTimer(); // 매치 중 다른 화면으로 이탈 시 타이머 정리
@@ -475,6 +475,7 @@
     if (view === "explore") renderExplore();
     if (view === "docs") renderDocs();
     if (view === "overview") renderOverview();
+    if (view === "recall") renderRecall();
     window.scrollTo({ top: 0 });
   }
 
@@ -2592,6 +2593,12 @@
   /* ── 개요(흐름 보기): 덱 전체를 장(섹션)별로 이어지는 한 편의 글처럼 읽기 ── */
   $("#btnOverview").addEventListener("click", () => show("overview"));
 
+  /* ── 백지 테스트 ── */
+  $("#btnRecall").addEventListener("click", openRecall);
+  $("#recallScope").addEventListener("change", (e) => { recallScope = e.target.value; renderRecall(); });
+  $("#recallReveal").addEventListener("click", revealRecall);
+  $("#recallAgain").addEventListener("click", renderRecall);
+
   function notesBlockHTML(card) {
     const noteImg = card.noteImageId ? Store.getMedia(card.noteImageId) : null;
     const hasText = card.notes && card.notes.trim();
@@ -2601,30 +2608,19 @@
     return `<div class="ov-notes">${html}</div>`;
   }
 
-  function renderOverview() {
-    const deck = Store.getDeck(currentDeckId);
-    if (!deck) { show("deck"); return; }
-    $("#overviewTitle").textContent = deck.name;
-    const body = $("#overviewBody");
-    const allCards = Store.cardsOf(currentDeckId).filter(c => !c.suspended);
-    if (!allCards.length) {
-      $("#overviewSub").textContent = "";
-      body.innerHTML = `<p class="list-empty">${t("overview.empty")}</p>`;
-      return;
-    }
-    // 빈칸(cloze) 형제는 같은 본문을 공유하므로 개요에선 한 번만 — 모든 빈칸을 초록으로 드러낸다
+  // 빈칸(cloze) 형제는 같은 본문을 공유하므로 개요·백지테스트에선 한 번만 보여준다
+  function dedupeClozeSiblings(cards) {
     const seen = new Set();
-    const cards = allCards.filter(c => {
+    return cards.filter(c => {
       if (c.type !== "cloze") return true;
       if (seen.has(c.front)) return false;
       seen.add(c.front); return true;
     });
-    const sections = Store.sectionsOf(currentDeckId);
-    $("#overviewSub").textContent = sections.length
-      ? t("overview.subSections", { c: cards.length, s: sections.length })
-      : t("overview.subFlat", { c: cards.length });
+  }
 
-    // 장별로 묶는다 (섹션 없는 카드는 마지막 '기타'로)
+  // 카드들을 장(섹션)별로 묶어 '정답 펼친' 시트(ov-sheet) DOM을 만든다 (개요·백지테스트 공용)
+  function buildOverviewSheet(cards) {
+    const sections = Store.sectionsOf(currentDeckId);
     const groups = [];
     if (sections.length) {
       const bySec = new Map(sections.map(s => [s, []]));
@@ -2677,7 +2673,72 @@
       });
       sheet.appendChild(chap);
     });
-    body.replaceChildren(sheet);
+    return sheet;
+  }
+
+  function renderOverview() {
+    const deck = Store.getDeck(currentDeckId);
+    if (!deck) { show("deck"); return; }
+    $("#overviewTitle").textContent = deck.name;
+    const body = $("#overviewBody");
+    const allCards = Store.cardsOf(currentDeckId).filter(c => !c.suspended);
+    if (!allCards.length) {
+      $("#overviewSub").textContent = "";
+      body.innerHTML = `<p class="list-empty">${t("overview.empty")}</p>`;
+      return;
+    }
+    const cards = dedupeClozeSiblings(allCards);
+    const sections = Store.sectionsOf(currentDeckId);
+    $("#overviewSub").textContent = sections.length
+      ? t("overview.subSections", { c: cards.length, s: sections.length })
+      : t("overview.subFlat", { c: cards.length });
+    body.replaceChildren(buildOverviewSheet(cards));
+  }
+
+  /* ── 백지 테스트 (브레인덤프: 빈 종이에 다 적고 정답 펼쳐 대조) ── */
+  let recallScope = ""; // "" = 덱 전체, 그 외 = 섹션명
+
+  function openRecall() {
+    if (!Store.getDeck(currentDeckId)) return;
+    recallScope = "";
+    show("recall"); // show()가 renderRecall() 호출
+  }
+
+  function recallCards() {
+    const all = Store.cardsOf(currentDeckId).filter(c => !c.suspended);
+    const scoped = recallScope ? all.filter(c => (c.section || "").trim() === recallScope) : all;
+    return dedupeClozeSiblings(scoped);
+  }
+
+  function renderRecall() {
+    const deck = Store.getDeck(currentDeckId);
+    if (!deck) { show("deck"); return; }
+    $("#recallTitle").textContent = deck.name;
+    // 범위 선택: 덱 전체 + 섹션들
+    const sections = Store.sectionsOf(currentDeckId);
+    const sel = $("#recallScope");
+    sel.innerHTML = `<option value="">${t("recall.whole")}</option>`
+      + sections.map(s => `<option value="${escapeHTML(s)}" ${s === recallScope ? "selected" : ""}>${escapeHTML(s)}</option>`).join("");
+    sel.value = recallScope;
+    sel.classList.toggle("hidden", !sections.length); // 섹션 없으면 선택 숨김
+    const n = recallCards().length;
+    $("#recallCount").textContent = t("recall.count", { n });
+    // 입력·정답 초기화
+    $("#recallInput").value = "";
+    $("#recallAnswers").classList.add("hidden");
+    $("#recallAnswers").replaceChildren();
+    $("#recallReveal").classList.remove("hidden");
+    $("#recallAgain").classList.add("hidden");
+    $("#recallInput").focus();
+  }
+
+  function revealRecall() {
+    const answers = $("#recallAnswers");
+    answers.replaceChildren(buildOverviewSheet(recallCards()));
+    answers.classList.remove("hidden");
+    $("#recallReveal").classList.add("hidden");
+    $("#recallAgain").classList.remove("hidden");
+    answers.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   /* ── 플래시카드 모드 (뒤집기 카드로 훑어보기) ── */
