@@ -2048,6 +2048,43 @@
     } catch { return false; }
   }
 
+  // 선택 지점이 속한 형광펜 요소(.hl / mark)를 찾는다(없으면 null)
+  function highlightAncestor(node, field) {
+    let el = node && node.nodeType === 1 ? node : (node ? node.parentElement : null);
+    while (el && el !== field) {
+      if ((el.classList && el.classList.contains("hl")) || el.tagName === "MARK") return el;
+      el = el.parentElement;
+    }
+    return null;
+  }
+  // 형광펜 요소를 벗겨 일반 텍스트로(토글 off)
+  function unwrapHighlight(el) {
+    const parent = el.parentNode;
+    if (!parent) return;
+    const sel = window.getSelection();
+    const r = document.createRange();
+    const first = el.firstChild;
+    while (el.firstChild) parent.insertBefore(el.firstChild, el);
+    const last = el.previousSibling;
+    parent.removeChild(el);
+    parent.normalize();
+    if (first) { try { r.setStartBefore(first); r.setEndAfter(last || first); sel.removeAllRanges(); sel.addRange(r); } catch { /* 무시 */ } }
+  }
+  // 형광펜 토글: 이미 같은 색이면 제거, 다른 색이면 교체, 없으면 선택 영역에 적용
+  function toggleHighlight(field, val) {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    const hit = highlightAncestor(range.commonAncestorContainer, field);
+    if (hit) {
+      const cur = (hit.style.getPropertyValue("--hl") || "").trim().toLowerCase();
+      if (!val || cur === String(val).toLowerCase()) { unwrapHighlight(hit); return; } // 같은 색 → 제거
+      hit.style.setProperty("--hl", val); hit.classList.add("hl"); hit.style.removeProperty("background-color"); // 다른 색 → 교체
+      return;
+    }
+    wrapSelection(field, "span", { "--hl": val }, "hl"); // 새로 적용
+  }
+
   // 표 편집 헬퍼 — 셀로 커서 이동(내용 선택) / 마지막 행 뒤에 빈 행 추가
   function focusCell(cell) {
     if (!cell) return;
@@ -2099,7 +2136,7 @@
       field.focus();
       // 글자색·형광펜: 선택 영역만 정확히 span으로 감싼다 (줄 전체 적용·글자 축소 방지)
       if (cmd === "foreColor") { wrapSelection(field, "span", { color: btn.dataset.val }); return; }
-      if (cmd === "hiliteColor" || cmd === "backColor") { wrapSelection(field, "span", { "--hl": btn.dataset.val }, "hl"); return; }
+      if (cmd === "hiliteColor" || cmd === "backColor") { toggleHighlight(field, btn.dataset.val); return; }
       // 굵게·밑줄·서식지우기: execCommand 사용 (굵게·밑줄은 <b>/<u> 유지)
       const before = field.innerHTML;
       try { document.execCommand("styleWithCSS", false, false); } catch { /* 무시 */ }
