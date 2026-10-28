@@ -1588,7 +1588,6 @@
     $("#deckModalSubmit").textContent = t("deckModal.create");
     $("#deckNameInput").value = "";
     $("#deckDescInput").value = "";
-    $("#deckNewLimit").value = 20;
     fillDeckSubjects("");
     fillFolderSelect(currentFolder); // 폴더를 보고 있으면 그 폴더가 기본값
     deckModal.showModal();
@@ -1601,7 +1600,6 @@
     $("#deckModalSubmit").textContent = t("cardModal.submitSave");
     $("#deckNameInput").value = deck.name;
     $("#deckDescInput").value = deck.desc || "";
-    $("#deckNewLimit").value = deck.newPerDay ?? 20;
     fillDeckSubjects(deck.subject || "");
     fillFolderSelect(deck.folderId || "");
     deckModal.showModal();
@@ -1611,16 +1609,15 @@
     const name = $("#deckNameInput").value.trim();
     const desc = $("#deckDescInput").value.trim();
     const subject = $("#deckSubjectInput").value.trim();
-    const limit = Math.max(0, Math.min(500, Number($("#deckNewLimit").value) || 0));
     const folderId = $("#deckFolderSel").value || null;
     if (!name) return;
     if (editingDeck) {
-      Store.updateDeck(currentDeckId, name, desc, limit);
+      Store.updateDeck(currentDeckId, name, desc);
       Store.patchDeck(currentDeckId, { folderId, subject });
       renderDeck();
       toast(t("toast.deckUpdated"));
     } else {
-      const deck = Store.addDeck(name, desc, limit);
+      const deck = Store.addDeck(name, desc);
       Store.patchDeck(deck.id, { folderId, subject });
       currentDeckId = deck.id;
       show("deck");
@@ -2611,7 +2608,7 @@
   const answerCard = $("#answerCard");
   const ratingRow = $("#ratingRow");
 
-  // deckId가 null이면 모든 덱을 통합 학습. 덱별 하루 새 카드 한도를 지킨다.
+  // deckId가 null이면 모든 덱을 통합 학습. 새 카드는 제한 없이 전부 포함한다.
   function buildQueue(deckId) {
     const now = Date.now();
     const decks = deckId ? [Store.getDeck(deckId)].filter(Boolean) : Store.state.decks;
@@ -2620,8 +2617,7 @@
     for (const deck of decks) {
       const cards = Store.cardsOf(deck.id).filter(c => !c.suspended);
       due.push(...cards.filter(c => !SRS.isNew(c) && SRS.isDue(c, now)));
-      const allowed = Math.max(0, (deck.newPerDay ?? 20) - Store.newIntroducedToday(deck.id));
-      neu.push(...cards.filter(SRS.isNew).slice(0, allowed));
+      neu.push(...cards.filter(SRS.isNew)); // 하루 새 카드 제한 없음(무제한)
     }
     const shuffle = arr => arr.map(v => [Math.random(), v]).sort((a, b) => a[0] - b[0]).map(p => p[1]);
     // 복습 카드는 섞고, 새 카드(처음 학습)는 등록한 순서 그대로 (cardsOf가 생성 순서로 반환)
