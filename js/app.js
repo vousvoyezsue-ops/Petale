@@ -504,6 +504,14 @@
   $$(".nav-link").forEach(b => b.addEventListener("click", () => show(b.dataset.view)));
   $$("[data-back]").forEach(b => b.addEventListener("click", () => show(b.dataset.back)));
 
+  // 앱으로 돌아왔을 때, 보고 있는 '받은 덱'의 최신본을 자동으로 반영
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible" || !Social.profile) return;
+    if ($("#view-deck").classList.contains("hidden")) return;
+    const deck = Store.getDeck(currentDeckId);
+    if (deck && deck.sourceId) checkDeckUpdate(deck);
+  });
+
   /* ══════════ 문서 (빈칸 리더) ══════════ */
   const DOC_TOKEN = /\{\{c\d+::([\s\S]*?)\}\}/g;
   // 문서 렌더링에서 통째로 제거할 위험·불필요 태그
@@ -1341,13 +1349,24 @@
     checkDeckUpdate(deck);
   }
 
-  // 받은(다운로드한) 덱이면 원본이 갱신됐는지 조용히 확인해 업데이트 버튼을 노출
+  // 받은(다운로드한) 덱이면 원본이 갱신됐는지 확인해 자동으로 최신본을 받아온다.
+  // (주인의 수정이 자동 반영 — 내가 직접 넣은 카드는 병합에서 보존된다.)
+  let autoPulling = false;
   function checkDeckUpdate(deck) {
     const btn = $("#btnDeckUpdate");
     btn.classList.add("hidden");
     if (!deck.sourceId || !Social.checkDeckUpdate) return;
-    Social.checkDeckUpdate(deck.sourceId, deck.sourceUpdatedAt).then(r => {
-      if (currentDeckId === deck.id && r && r.hasUpdate) btn.classList.remove("hidden");
+    Social.checkDeckUpdate(deck.sourceId, deck.sourceUpdatedAt).then(async r => {
+      if (!r || !r.hasUpdate || currentDeckId !== deck.id || autoPulling) return;
+      // 편집 모달 등이 열려 있으면 자동 적용을 미루고 버튼만 노출(작업 방해 방지)
+      if (document.querySelector("dialog[open]")) { btn.classList.remove("hidden"); return; }
+      autoPulling = true;
+      try {
+        const { added, updated, removed } = await Social.pullDeckUpdate(deck.id, deck.sourceId);
+        if (currentDeckId === deck.id) renderDeck();
+        if (added || updated || removed) toast(t("update.autoDone", { a: added, u: updated, r: removed }));
+      } catch { btn.classList.remove("hidden"); }
+      finally { autoPulling = false; }
     }).catch(() => {});
   }
 
@@ -3832,7 +3851,7 @@
     loadEl.classList.remove("hidden");
     loadEl.querySelector("[data-i18n]").textContent = t("gate.syncing");
 
-    Store.setOnSave(() => Social.schedulePush());
+    Store.setOnSave(() => { Social.schedulePush(); Social.scheduleSharedResync(); });
     // 다른 기기의 변경을 받아 반영하면(앱 복귀 시) 현재 화면을 다시 그린다
     Social.setOnRemoteUpdate(() => { applySettingsToUI(); refreshCurrentView(); });
     try {
