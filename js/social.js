@@ -697,6 +697,44 @@ const Social = (() => {
     return { count: cards.length, ...res };
   }
 
+  /* ── 공개한 덱 자동 재발행 ──
+     내가 공개한 덱을 수정하면, 디바운스 후 공유본을 자동으로 다시 올린다
+     (받는 사람들이 최신본을 받아갈 수 있게). 내용이 안 바뀌었으면 건너뛴다. */
+  const SHARED_SIG_PREFIX = "petale.sharedsig.";
+  // 진도(복습 상태)는 제외하고 '내용'만으로 서명 → 학습만 해서는 재발행 안 함
+  function deckContentSig(deckId) {
+    const cards = Store.cardsOf(deckId);
+    const s = JSON.stringify(cards.map(c => [
+      c.id, c.type, c.front, c.back, c.clozeIndex, c.seq, (c.section || ""),
+      c.hideIndex, c.occMode, c.rects, c.frontImageId, c.backImageId, c.imageId,
+    ]));
+    let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return h.toString(36) + "." + cards.length;
+  }
+  let resyncTimer = null, resyncing = false;
+  function scheduleSharedResync() {
+    if (!profile) return;
+    clearTimeout(resyncTimer);
+    resyncTimer = setTimeout(() => { resyncSharedNow().catch(() => {}); }, 6000);
+  }
+  async function resyncSharedNow() {
+    if (!profile || resyncing) return;
+    resyncing = true;
+    try {
+      // sharedId가 있는 덱 = 내가 공개한 덱(받은 덱은 sourceId를 쓴다)
+      const owned = Store.state.decks.filter(d => d.sharedId);
+      for (const deck of owned) {
+        let sig; try { sig = deckContentSig(deck.id); } catch { continue; }
+        let last = null; try { last = localStorage.getItem(SHARED_SIG_PREFIX + deck.sharedId); } catch { /* 무시 */ }
+        if (sig === last) continue; // 내용 변화 없음 → 재발행 생략
+        try {
+          await publishDeck(deck, Store.cardsOf(deck.id), deck.visibility || "public");
+          try { localStorage.setItem(SHARED_SIG_PREFIX + deck.sharedId, sig); } catch { /* 무시 */ }
+        } catch { /* 개별 실패는 다음 기회에 */ }
+      }
+    } finally { resyncing = false; }
+  }
+
   function cleanUrl() {
     try { history.replaceState({}, document.title, location.origin + location.pathname); } catch {}
   }
@@ -785,6 +823,7 @@ const Social = (() => {
     pushStats, pushStatsQuiet,
     syncOnLogin, schedulePush, pushCollection, syncMedia, flushPush, syncOnVisible, setOnRemoteUpdate,
     publishDeck, unpublishDeck, searchDecks, downloadDeck, checkDeckUpdate, pullDeckUpdate,
+    scheduleSharedResync, resyncSharedNow,
     get profile() { return profile; },
   };
 })();
