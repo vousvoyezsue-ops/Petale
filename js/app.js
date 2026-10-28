@@ -9,7 +9,28 @@
   await Store.load(); // IndexedDB에서 비동기 로드
   Store.setQuotaHandler(() => toast(t("toast.storageFull")));
   I18N.setLang(Store.settings.lang);
-  document.documentElement.dataset.theme = Store.settings.theme;
+  // 외형(라이트/다크/자동) → 실제 테마 해석. noir = 다크, 그 외 = 라이트 팔레트.
+  const darkMQ = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : { matches: false, addEventListener() {} };
+  function resolveTheme() {
+    const ap = Store.settings.appearance || "auto";
+    let light = Store.settings.theme || "pearl";
+    if (light === "noir") light = "pearl";
+    if (ap === "dark") return "noir";
+    if (ap === "light") return light;
+    return darkMQ.matches ? "noir" : light; // auto = 시스템 설정 따름
+  }
+  function applyTheme() {
+    document.documentElement.dataset.theme = resolveTheme();
+    // 브라우저 상태바(theme-color)도 배경에 맞춘다
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) {
+      const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+      if (bg) meta.setAttribute("content", bg);
+    }
+  }
+  applyTheme();
+  // 자동 모드일 때 시스템 다크 설정이 바뀌면 즉시 반영
+  darkMQ.addEventListener("change", () => { if ((Store.settings.appearance || "auto") === "auto") applyTheme(); });
   SRS.setSteps(Store.settings.steps); // 저장된 학습 단계(s/m/h/day) 스케줄러에 반영
 
   /* ── 상태 ── */
@@ -3384,9 +3405,10 @@
 
   function applySettingsToUI() {
     I18N.setLang(Store.settings.lang);
-    document.documentElement.dataset.theme = Store.settings.theme;
+    applyTheme();
     I18N.apply();
     $$("#langSeg .seg-btn").forEach(b => b.classList.toggle("active", b.dataset.lang === Store.settings.lang));
+    $$("#appearanceSeg .seg-btn").forEach(b => b.classList.toggle("active", b.dataset.appearance === (Store.settings.appearance || "auto")));
     $$("#themeGrid .theme-swatch").forEach(b => b.classList.toggle("active", b.dataset.theme === Store.settings.theme));
     $("#ttsToggle").checked = !!Store.settings.tts;
     const remOn = !!Store.settings.reminders && Reminders.granted();
@@ -3412,9 +3434,16 @@
     if (active && active !== "study") show(active);
   }));
 
+  $$("#appearanceSeg .seg-btn").forEach(b => b.addEventListener("click", () => {
+    Store.setSetting("appearance", b.dataset.appearance);
+    applySettingsToUI();
+    refreshCurrentView();
+  }));
+
   $$("#themeGrid .theme-swatch").forEach(b => b.addEventListener("click", () => {
     Store.setSetting("theme", b.dataset.theme);
     applySettingsToUI();
+    refreshCurrentView();
   }));
 
   $("#ttsToggle").addEventListener("change", (e) => Store.setSetting("tts", e.target.checked));

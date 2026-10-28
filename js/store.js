@@ -55,7 +55,7 @@ const Store = (() => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   }
 
-  const DEFAULT_SETTINGS = { lang: "ko", theme: "pearl", tts: true, reminders: false, reminderTime: "09:00", steps: SRS.defaultSteps() };
+  const DEFAULT_SETTINGS = { lang: "ko", theme: "pearl", appearance: "auto", tts: true, reminders: false, reminderTime: "09:00", steps: SRS.defaultSteps() };
 
   // 첫 실행 시 빈 상태로 시작한다 (예시 덱을 자동으로 만들지 않음).
   function seed() {
@@ -88,6 +88,11 @@ const Store = (() => {
       settings: { ...DEFAULT_SETTINGS, ...(data.settings || {}) },
       updatedAt: data.updatedAt || Date.now(),
     };
+    // 예전에 'noir'(다크) 테마를 직접 고른 사용자는 다크 모드로 이전한다
+    if (s.settings.theme === "noir") {
+      if (!(data.settings && data.settings.appearance)) s.settings.appearance = "dark";
+      s.settings.theme = "pearl";
+    }
     s.cards.forEach(c => { c.type ??= "basic"; });
     s.decks.forEach(d => { d.newPerDay ??= 20; });
     return s;
