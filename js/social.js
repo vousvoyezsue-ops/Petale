@@ -484,6 +484,58 @@ const Social = (() => {
   // 1) 메타데이터만 먼저 업서트해 안정적인 sharedId 확보
   // 2) 카드가 참조하는 이미지들을 {owner}/{sharedId}/{imageId}.ext 경로로 업로드
   // 3) 이미지 경로를 채운 최종 payload로 갱신
+  // 카드 payload 빌드(이미지 업로드 포함) — publish/공동편집 push 공용
+  // 반환: { cards, docs, subject }  (서버 payload 그대로 쓸 수 있는 형태)
+  async function buildDeckPayload(sharedId, deck, cards) {
+    const rows = sharablePayload(cards);
+    if (!rows.length) throw new Error("no_text_cards");
+
+    const imageIds = new Set();
+    for (const c of rows) {
+      if (c.type === "occlusion" && c.imageId) imageIds.add(c.imageId);
+      if (c.frontImageId) imageIds.add(c.frontImageId);
+      if (c.backImageId) imageIds.add(c.backImageId);
+    }
+    const pathOf = {};
+    for (const imageId of imageIds) {
+      const dataURL = Store.getMedia(imageId);
+      if (!dataURL) continue;
+      const blob = dataURLtoBlob(dataURL);
+      const path = `${profile.id}/${sharedId}/${imageId}.${extFromMime(blob.type)}`;
+      const { error } = await sb().storage.from(SHARED_MEDIA_BUCKET)
+        .upload(path, blob, { upsert: true, contentType: blob.type });
+      if (!error) pathOf[imageId] = path;
+    }
+
+    const finalCards = rows.map(c => {
+      const sec = (c.section && String(c.section).trim()) ? { section: String(c.section).trim() } : {};
+      const sid = c.id ? { sid: c.id } : {}; // 안정적 카드 식별자(진도 보존·병합 매칭용)
+      if (c.type === "cloze") return { type: "cloze", front: c.front, clozeIndex: c.clozeIndex, ...sec, ...sid };
+      if (c.type === "sequence") return { type: "sequence", front: c.front || "", seq: Array.isArray(c.seq) ? c.seq : [], ...sec, ...sid };
+      if (c.type === "occlusion") {
+        return {
+          type: "occlusion", front: c.front, rects: c.rects, hideIndex: c.hideIndex, occMode: c.occMode,
+          imagePath: pathOf[c.imageId] || null, ...sec, ...sid,
+        };
+      }
+      return {
+        type: "basic", front: c.front, back: c.back,
+        frontImagePath: c.frontImageId ? (pathOf[c.frontImageId] || null) : null,
+        backImagePath: c.backImageId ? (pathOf[c.backImageId] || null) : null, ...sec, ...sid,
+      };
+    });
+
+    const subject = (deck.subject || "").trim() || folderCourseName(deck);
+    const docs = subject
+      ? Store.state.docs
+          .filter(d => (d.subject || "").trim() === subject)
+          .slice(0, 50)
+          .map(d => ({ name: String(d.name || "").slice(0, 80), html: String(d.html || ""), css: String(d.css || ""), subject }))
+      : [];
+    return { cards: finalCards, docs, subject };
+  }
+
+  // 덱 공개(업서트) — visibility: "public" | "friends"
   async function publishDeck(deck, cards, visibility = "public") {
     if (!profile) throw new Error("not_signed_in");
     const rows = sharablePayload(cards);
@@ -504,58 +556,52 @@ const Social = (() => {
     if (upErr) throw upErr;
     const sharedId = row.id;
 
-    // 카드가 참조하는 로컬 이미지 id 전부 수집(occlusion은 여러 카드가 같은 이미지를 공유)
-    const imageIds = new Set();
-    for (const c of rows) {
-      if (c.type === "occlusion" && c.imageId) imageIds.add(c.imageId);
-      if (c.frontImageId) imageIds.add(c.frontImageId);
-      if (c.backImageId) imageIds.add(c.backImageId);
-    }
-    const pathOf = {};
-    for (const imageId of imageIds) {
-      const dataURL = Store.getMedia(imageId);
-      if (!dataURL) continue;
-      const blob = dataURLtoBlob(dataURL);
-      const path = `${profile.id}/${sharedId}/${imageId}.${extFromMime(blob.type)}`;
-      const { error: upErr2 } = await sb().storage.from(SHARED_MEDIA_BUCKET)
-        .upload(path, blob, { upsert: true, contentType: blob.type });
-      if (!upErr2) pathOf[imageId] = path;
-    }
-
-    const finalCards = rows.map(c => {
-      const sec = (c.section && String(c.section).trim()) ? { section: String(c.section).trim() } : {};
-      const sid = c.id ? { sid: c.id } : {}; // 안정적 카드 식별자 → 받는 쪽 스마트 업데이트(진도 보존)용
-      if (c.type === "cloze") return { type: "cloze", front: c.front, clozeIndex: c.clozeIndex, ...sec, ...sid };
-      if (c.type === "sequence") return { type: "sequence", front: c.front || "", seq: Array.isArray(c.seq) ? c.seq : [], ...sec, ...sid };
-      if (c.type === "occlusion") {
-        return {
-          type: "occlusion", front: c.front, rects: c.rects, hideIndex: c.hideIndex, occMode: c.occMode,
-          imagePath: pathOf[c.imageId] || null, ...sec, ...sid,
-        };
-      }
-      return {
-        type: "basic", front: c.front, back: c.back,
-        frontImagePath: c.frontImageId ? (pathOf[c.frontImageId] || null) : null,
-        backImagePath: c.backImageId ? (pathOf[c.backImageId] || null) : null, ...sec, ...sid,
-      };
-    });
-
-    // 과목: 덱에 지정된 값이 있으면 그걸, 없으면 폴더 트리에서 추론한 과목을 쓴다.
-    // 같은 과목의 문서(과목 파일)도 함께 실어 보낸다.
-    const subject = (deck.subject || "").trim() || folderCourseName(deck);
-    const docs = subject
-      ? Store.state.docs
-          .filter(d => (d.subject || "").trim() === subject)
-          .slice(0, 50)
-          .map(d => ({ name: String(d.name || "").slice(0, 80), html: String(d.html || ""), css: String(d.css || ""), subject }))
-      : [];
-
+    const payload = await buildDeckPayload(sharedId, deck, cards);
     const { error: finalErr } = await sb().from("petale_shared_decks")
-      .update({ payload: { cards: finalCards, docs, subject }, card_count: finalCards.length, visibility, updated_at: new Date().toISOString() })
+      .update({ payload, card_count: payload.cards.length, visibility, updated_at: new Date().toISOString() })
       .eq("id", sharedId);
     if (finalErr) throw finalErr;
 
-    return { sharedId, count: finalCards.length, docCount: docs.length };
+    return { sharedId, count: payload.cards.length, docCount: payload.docs.length };
+  }
+
+  // 공동편집 on/off (주인만) — RLS가 비소유자 변경을 막는다
+  async function setDeckCollab(sharedId, on) {
+    if (!profile) throw new Error("not_signed_in");
+    const { error } = await sb().from("petale_shared_decks")
+      .update({ collab: !!on, updated_at: new Date().toISOString() }).eq("id", sharedId);
+    if (error) throw error;
+    return { collab: !!on };
+  }
+
+  // 공동편집 덱 양방향 동기화: 읽기→병합→쓰기(낙관적 락으로 동시수정 충돌 방지).
+  // 반환: {ok, added, updated, removed} | {gone} | {notCollab, updatedAt} | {error} | {conflict}
+  async function syncCollabDeck(deckId, sharedId) {
+    for (let attempt = 0; attempt < 4; attempt++) {
+      let sd;
+      try { sd = await fetchSharedDeck(sharedId); }
+      catch (e) { return (e && e.message === "not_found") ? { gone: true } : { error: true }; }
+      if (!sd) return { gone: true };
+      if (!sd.collab) return { notCollab: true, updatedAt: sd.updatedAt }; // 공동편집 꺼짐 → 호출부가 일반 pull 처리
+      // 1) 서버본을 로컬에 병합(내가 넣은 카드 보존, 진도 유지)
+      const mergeRes = Store.mergeDeckCards(deckId, sd.cards);
+      if (sd.docs && sd.docs.length) Store.importSharedDocs(sd.docs);
+      // 2) 병합된 로컬을 서버에 다시 쓰기(낙관적 락: 내가 읽은 시점 이후 변경 없을 때만)
+      let payload;
+      try { payload = await buildDeckPayload(sharedId, Store.getDeck(deckId), Store.cardsOf(deckId)); }
+      catch { return { error: true, ...mergeRes }; }
+      const newTs = new Date().toISOString();
+      const { data: upd, error: uErr } = await sb().from("petale_shared_decks")
+        .update({ payload, card_count: payload.cards.length, updated_at: newTs })
+        .eq("id", sharedId).eq("updated_at", sd.updatedAt).select("id");
+      if (uErr) return { error: true, ...mergeRes };
+      if (upd && upd.length) {
+        Store.patchDeck(deckId, { sourceUpdatedAt: newTs, collab: true });
+        return { ok: true, ...mergeRes };
+      }
+      // 그 사이 누가 먼저 썼음 → 다시 읽어서 재시도
+    }
+    return { conflict: true };
   }
 
   async function unpublishDeck(sharedId) {
@@ -607,7 +653,7 @@ const Social = (() => {
   // 발행본을 읽어 로컬 카드 배열로 변환(이미지 포함). 덱은 만들지 않는다.
   async function fetchSharedDeck(sharedId) {
     const { data, error } = await sb().from("petale_shared_decks")
-      .select("name, description, payload, updated_at").eq("id", sharedId).single();
+      .select("name, description, payload, updated_at, collab").eq("id", sharedId).single();
     if (error || !data) throw error || new Error("not_found");
     const rawCards = (data.payload?.cards || []).filter(c => c && (c.type === "basic" || c.type === "cloze" || c.type === "occlusion" || c.type === "sequence"));
     if (!rawCards.length) throw new Error("empty");
@@ -660,14 +706,14 @@ const Social = (() => {
       .slice(0, 50)
       .map(d => ({ name: String(d.name).slice(0, 80), html: String(d.html), css: String(d.css || ""), subject: String(d.subject || "").slice(0, 40) }));
     const subject = String(data.payload?.subject || "").slice(0, 40);
-    return { name: data.name, description: data.description || "", updatedAt: data.updated_at || null, cards, docs, subject };
+    return { name: data.name, description: data.description || "", updatedAt: data.updated_at || null, collab: !!data.collab, cards, docs, subject };
   }
 
   async function downloadDeck(sharedId) {
-    const { name, description, updatedAt, cards, docs, subject } = await fetchSharedDeck(sharedId);
+    const { name, description, updatedAt, collab, cards, docs, subject } = await fetchSharedDeck(sharedId);
     const deck = Store.addDeck(name.slice(0, 60), description);
     Store.bulkAddCards(deck.id, cards);
-    const patch = { sourceId: sharedId, sourceUpdatedAt: updatedAt };
+    const patch = { sourceId: sharedId, sourceUpdatedAt: updatedAt, collab: !!collab };
     if (subject) patch.subject = subject; // 받은 덱도 같은 과목으로 연결
     Store.patchDeck(deck.id, patch);
     // 함께 온 과목 문서를 내 문서 탭에 추가(이름+과목 중복은 건너뜀)
@@ -680,20 +726,20 @@ const Social = (() => {
   async function checkDeckUpdate(sharedId, sinceUpdatedAt) {
     try {
       const { data, error } = await sb().from("petale_shared_decks")
-        .select("updated_at").eq("id", sharedId).maybeSingle();
+        .select("updated_at, collab").eq("id", sharedId).maybeSingle();
       if (error || !data) return { hasUpdate: false, gone: !data };
       const upd = data.updated_at || null;
       const hasUpdate = !!upd && (!sinceUpdatedAt || new Date(upd) > new Date(sinceUpdatedAt));
-      return { hasUpdate, updatedAt: upd };
+      return { hasUpdate, updatedAt: upd, collab: !!data.collab };
     } catch { return { hasUpdate: false }; }
   }
 
   // 받은 덱을 원본 최신본으로 스마트 병합 — 같은 카드는 내용·소제목만 갱신하고 복습 진도는 보존,
   // 새 카드는 추가, 원본에서 사라진 카드는 제거한다.
   async function pullDeckUpdate(deckId, sharedId) {
-    const { updatedAt, cards } = await fetchSharedDeck(sharedId);
+    const { updatedAt, collab, cards } = await fetchSharedDeck(sharedId);
     const res = Store.mergeDeckCards(deckId, cards);
-    Store.patchDeck(deckId, { sourceId: sharedId, sourceUpdatedAt: updatedAt });
+    Store.patchDeck(deckId, { sourceId: sharedId, sourceUpdatedAt: updatedAt, collab: !!collab });
     return { count: cards.length, ...res };
   }
 
@@ -721,15 +767,21 @@ const Social = (() => {
     if (!profile || resyncing) return;
     resyncing = true;
     try {
-      // sharedId가 있는 덱 = 내가 공개한 덱(받은 덱은 sourceId를 쓴다)
-      const owned = Store.state.decks.filter(d => d.sharedId);
-      for (const deck of owned) {
+      // 내가 공개한 덱(sharedId) + 내가 받은 '공동편집' 덱(sourceId & collab) — 둘 다 내 수정을 올려야 함
+      const decks = Store.state.decks.filter(d => d.sharedId || (d.sourceId && d.collab));
+      for (const deck of decks) {
+        const sharedId = deck.sharedId || deck.sourceId;
         let sig; try { sig = deckContentSig(deck.id); } catch { continue; }
-        let last = null; try { last = localStorage.getItem(SHARED_SIG_PREFIX + deck.sharedId); } catch { /* 무시 */ }
-        if (sig === last) continue; // 내용 변화 없음 → 재발행 생략
+        let last = null; try { last = localStorage.getItem(SHARED_SIG_PREFIX + sharedId); } catch { /* 무시 */ }
+        if (sig === last) continue; // 내용 변화 없음 → 생략
         try {
-          await publishDeck(deck, Store.cardsOf(deck.id), deck.visibility || "public");
-          try { localStorage.setItem(SHARED_SIG_PREFIX + deck.sharedId, sig); } catch { /* 무시 */ }
+          if (deck.collab) {
+            await syncCollabDeck(deck.id, sharedId); // 공동편집: 병합+푸시(낙관적 락)
+          } else if (deck.sharedId) {
+            await publishDeck(deck, Store.cardsOf(deck.id), deck.visibility || "public"); // 주인 일방 발행
+          }
+          // 병합으로 내용이 바뀌었을 수 있으니 서명은 동기화 후로 다시 계산
+          try { localStorage.setItem(SHARED_SIG_PREFIX + sharedId, deckContentSig(deck.id)); } catch { /* 무시 */ }
         } catch { /* 개별 실패는 다음 기회에 */ }
       }
     } finally { resyncing = false; }
@@ -823,7 +875,7 @@ const Social = (() => {
     pushStats, pushStatsQuiet,
     syncOnLogin, schedulePush, pushCollection, syncMedia, flushPush, syncOnVisible, setOnRemoteUpdate,
     publishDeck, unpublishDeck, searchDecks, downloadDeck, checkDeckUpdate, pullDeckUpdate,
-    scheduleSharedResync, resyncSharedNow,
+    scheduleSharedResync, resyncSharedNow, setDeckCollab, syncCollabDeck,
     get profile() { return profile; },
   };
 })();
