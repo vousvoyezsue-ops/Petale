@@ -1362,9 +1362,17 @@
       if (document.querySelector("dialog[open]")) { btn.classList.remove("hidden"); return; }
       autoPulling = true;
       try {
-        const { added, updated, removed } = await Social.pullDeckUpdate(deck.id, deck.sourceId);
+        const collab = r.collab || deck.collab;
+        let res = collab
+          ? await Social.syncCollabDeck(deck.id, deck.sourceId) // 공동편집 → 양방향 병합
+          : await Social.pullDeckUpdate(deck.id, deck.sourceId);  // 일반 → 받기만
+        if (res && res.notCollab) { // 공동편집이 꺼졌으면 일반 받기로 폴백
+          Store.patchDeck(deck.id, { collab: false });
+          res = await Social.pullDeckUpdate(deck.id, deck.sourceId);
+        }
         if (currentDeckId === deck.id) renderDeck();
-        if (added || updated || removed) toast(t("update.autoDone", { a: added, u: updated, r: removed }));
+        const a = res?.added || 0, u = res?.updated || 0, rm = res?.removed || 0;
+        if (a || u || rm) toast(t("update.autoDone", { a, u, r: rm }));
       } catch { btn.classList.remove("hidden"); }
       finally { autoPulling = false; }
     }).catch(() => {});
@@ -1632,7 +1640,28 @@
     btn.textContent = !deck?.sharedId ? t("share.publish")
       : deck.visibility === "friends" ? t("share.publishedFriends") : t("share.published");
     btn.classList.toggle("is-shared", !!deck?.sharedId);
+    // 공동편집 토글은 내가 공개한 덱(sharedId)에서만 노출
+    const cbtn = $("#btnCollab");
+    cbtn.classList.toggle("hidden", !deck?.sharedId);
+    if (deck?.sharedId) {
+      cbtn.textContent = deck.collab ? t("collab.on") : t("collab.off");
+      cbtn.classList.toggle("is-shared", !!deck.collab);
+    }
   }
+
+  $("#btnCollab").addEventListener("click", async () => {
+    const deck = Store.getDeck(currentDeckId);
+    if (!deck?.sharedId) return;
+    const next = !deck.collab;
+    const cbtn = $("#btnCollab"); cbtn.disabled = true;
+    try {
+      await Social.setDeckCollab(deck.sharedId, next);
+      Store.patchDeck(deck.id, { collab: next });
+      renderShareButton();
+      toast(next ? t("collab.turnedOn") : t("collab.turnedOff"));
+    } catch { toast(t("fr.offline")); }
+    finally { cbtn.disabled = false; }
+  });
 
   const shareModal = $("#shareModal");
   let shareVisibility = "public";
