@@ -3276,11 +3276,45 @@
   $$(".rate-btn").forEach(b => b.addEventListener("click", () => rate(Number(b.dataset.rate))));
 
   /* ── TTS ── */
+  // 음성 목록은 비동기로 로드되므로(크롬) 캐시하고 voiceschanged 때 갱신한다
+  let ttsVoices = [];
+  function loadTtsVoices() {
+    try { ttsVoices = speechSynthesis.getVoices() || []; } catch { ttsVoices = []; }
+  }
+  if ("speechSynthesis" in window) {
+    loadTtsVoices();
+    try { speechSynthesis.addEventListener("voiceschanged", loadTtsVoices); } catch {}
+  }
+
+  // 같은 언어의 음성 중 가장 자연스러운(신경망·고품질) 것을 고른다
+  const TTS_GOOD = /(neural|premium|enhanced|natural|siri|google|wavenet|multilingual|online|nuance)/i;
+  const TTS_BAD = /(compact|eloquence|espeak|robot|novelty|lo-?fi)/i;
+  function pickTtsVoice(lang) {
+    if (!ttsVoices.length) loadTtsVoices();
+    const base = lang.slice(0, 2).toLowerCase();
+    const norm = s => (s || "").toLowerCase().replace(/_/g, "-");
+    const cand = ttsVoices.filter(v => norm(v.lang).startsWith(base));
+    if (!cand.length) return null;
+    const score = v => {
+      let s = 0;
+      const n = `${v.name || ""} ${v.voiceURI || ""}`;
+      if (TTS_GOOD.test(n)) s += 10;
+      if (TTS_BAD.test(n)) s -= 8;
+      if (v.localService === false) s += 4;      // 온라인 음성(크롬 구글 등)이 대체로 더 자연스러움
+      if (norm(v.lang) === lang.toLowerCase()) s += 2; // 정확한 지역 매칭
+      if (v.default) s += 1;
+      return s;
+    };
+    return cand.slice().sort((a, b) => score(b) - score(a))[0] || null;
+  }
+
   function speak(text) {
     if (!("speechSynthesis" in window) || !text) return;
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = /[가-힣]/.test(text) ? "ko-KR" : "en-US";
+    const v = pickTtsVoice(u.lang);
+    if (v) u.voice = v;
     u.rate = 0.95;
     speechSynthesis.speak(u);
   }
