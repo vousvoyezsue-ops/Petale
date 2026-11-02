@@ -93,7 +93,20 @@ const Store = (() => {
       if (!(data.settings && data.settings.appearance)) s.settings.appearance = "dark";
       s.settings.theme = "pearl";
     }
-    s.cards.forEach(c => { c.type ??= "basic"; });
+    s.cards.forEach(c => {
+      c.type ??= "basic";
+      // 시퀀스(순서 맞추기) 형식 폐지 — 기존 카드는 기본 Q&A로 변환(제목=앞면, 순서=뒷면 번호목록)
+      if (c.type === "sequence") {
+        const items = Array.isArray(c.seq) ? c.seq.map(x => String(x)) : [];
+        const esc = x => String(x).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        if (items.length) {
+          const list = "<ol>" + items.map(x => `<li>${esc(x)}</li>`).join("") + "</ol>";
+          c.back = c.back ? `${c.back}<br>${list}` : list;
+        }
+        c.type = "basic";
+        delete c.seq;
+      }
+    });
     s.decks.forEach(d => { d.newPerDay ??= 20; });
     return s;
   }
