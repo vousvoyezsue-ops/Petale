@@ -1263,8 +1263,8 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
 .answer-card.media-card .occ-view { margin: 0 auto; }
 .ac-answer-wrap { width: 100%; }
 .ac-notes {
-  width: 100%;
-  margin-top: 18px;
+  width: min(calc(680px * var(--card-scale, 1)), 100%);
+  margin: 16px auto 14px;
   padding: 14px 16px;
   border-radius: var(--r-md);
   background: var(--paper-soft);
