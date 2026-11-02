@@ -426,9 +426,10 @@
           <div class="ac-divider"></div>
           <div class="face-body" id="acAnswer"></div>
         </div>
-        <div class="ac-notes hidden" id="acNotes"></div>
       </div>
     </div>
+
+    <div class="ac-notes hidden" id="acNotes"></div>
 
     <div class="reveal-row" id="revealRow">
       <button class="btn primary large" id="btnReveal" data-i18n="study.showAnswer"></button>
@@ -868,7 +869,7 @@
 
     <label class="field" id="notesField">
       <span data-i18n="cardModal.notes"></span>
-      <textarea id="cardNotesInput" rows="2" maxlength="800" data-i18n-placeholder="cardModal.notesPh"></textarea>
+      <div class="rich-field note-rich" id="cardNotesInput" contenteditable="true" role="textbox" aria-multiline="true" data-i18n-placeholder="cardModal.notesPh"></div>
       <div class="note-image-row">
         <button type="button" class="btn ghost sm" id="noteImgBtn" data-i18n="cardModal.addImage"></button>
         <input type="file" id="noteImgFile" accept="image/*" hidden>
