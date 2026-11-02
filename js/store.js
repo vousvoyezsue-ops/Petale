@@ -71,6 +71,7 @@ const Store = (() => {
       ratingCounts: { 0: 0, 1: 0, 2: 0, 3: 0 },
       settings: { ...DEFAULT_SETTINGS },
       updatedAt: now, // 마지막 변경 시각 — 클라우드 동기화 충돌 판정용
+      notesHtmlV: 1,  // 신규 설치는 이미 HTML 메모 포맷 — 평문 이전 마이그레이션 대상 아님
     };
   }
 
