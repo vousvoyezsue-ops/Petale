@@ -1815,7 +1815,7 @@
     $("#typeTabs").classList.toggle("hidden", !!card);
     $("#reversedRow").classList.toggle("hidden", !!card);
     $("#cardReversed").checked = false;
-    $("#cardNotesInput").value = card?.notes || "";
+    setRich($("#cardNotesInput"), card?.notes || "");
     $("#cardSectionInput").value = card?.section || "";
     $("#sectionList").innerHTML = Store.sectionsOf(currentDeckId).map(s => `<option value="${escapeHTML(s)}">`).join("");
     noteImageData = card?.noteImageId ? (Store.getMedia(card.noteImageId) || null) : null;
@@ -1917,7 +1917,7 @@
   });
 
   $("#cardForm").addEventListener("submit", (e) => {
-    const notes = $("#cardNotesInput").value.trim();
+    const notes = getRich($("#cardNotesInput"));
     const section = $("#cardSectionInput").value.trim();
     const editCard = editingCardId ? Store.state.cards.find(c => c.id === editingCardId) : null;
     const noteImageId = commitNoteImage(editCard?.noteImageId);
@@ -1966,7 +1966,7 @@
 
   /* ══════════ 서식 툴바(굵게/밑줄/글자색/하이라이트) ══════════ */
   let activeRichField = $("#cardFrontInput");
-  [$("#cardFrontInput"), $("#cardBackInput"), $("#clozeInput")].forEach(el => {
+  [$("#cardFrontInput"), $("#cardBackInput"), $("#clozeInput"), $("#cardNotesInput")].forEach(el => {
             el.addEventListener("focusin", () => {
       activeRichField = el;
       try { document.execCommand("defaultParagraphSeparator", false, "br"); } catch {}
@@ -2024,7 +2024,7 @@
     });
   });
   document.addEventListener("selectionchange", () => {
-    if (!document.activeElement || !document.activeElement.closest?.("#basicFields, #clozeFields")) return;
+    if (!document.activeElement || !document.activeElement.closest?.("#basicFields, #clozeFields, #notesField")) return;
     try {
       $("#richToolbar .rt-btn[data-cmd=bold]")?.classList.toggle("active", document.queryCommandState("bold"));
       $("#richToolbar .rt-btn[data-cmd=italic]")?.classList.toggle("active", document.queryCommandState("italic"));
@@ -2665,7 +2665,7 @@
     const noteImg = card.noteImageId ? Store.getMedia(card.noteImageId) : null;
     const hasText = card.notes && card.notes.trim();
     if (!hasText && !noteImg) return "";
-    let html = hasText ? `<div class="note-text">${escapeHTML(card.notes).replace(/\n/g, "<br>")}</div>` : "";
+    let html = hasText ? `<div class="note-text">${sanitizeRichHTML(card.notes)}</div>` : "";
     if (noteImg) html += `<img class="note-img" src="${noteImg}" alt="">`;
     return `<div class="ov-notes">${html}</div>`;
   }
@@ -2920,7 +2920,7 @@
     const noteImg = card.noteImageId ? Store.getMedia(card.noteImageId) : null;
     const hasText = card.notes && card.notes.trim();
     if (revealed && (hasText || noteImg)) {
-      let html = hasText ? `<div class="note-text">${escapeHTML(card.notes).replace(/\n/g, "<br>")}</div>` : "";
+      let html = hasText ? `<div class="note-text">${sanitizeRichHTML(card.notes)}</div>` : "";
       if (noteImg) html += `<img class="note-img" src="${noteImg}" alt="">`;
       el.innerHTML = html;
       el.classList.remove("hidden");
@@ -2969,7 +2969,7 @@
     const hasText = card.notes && card.notes.trim();
     const nEl = $("#cardViewNotes");
     if (hasText || noteImg) {
-      let html = hasText ? `<div class="note-text">${escapeHTML(card.notes).replace(/\n/g, "<br>")}</div>` : "";
+      let html = hasText ? `<div class="note-text">${sanitizeRichHTML(card.notes)}</div>` : "";
       if (noteImg) html += `<img class="note-img" src="${noteImg}" alt="">`;
       nEl.innerHTML = html;
       nEl.classList.remove("hidden");

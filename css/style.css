@@ -1732,6 +1732,8 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
   color: var(--ink-3);
   pointer-events: none;
 }
+/* 메모 입력은 조금 더 낮게 */
+.note-rich { min-height: 46px; max-height: 160px; font-size: 14px; }
 /* 형광펜 — 글자 전체 배경이 아니라 글자 아래쪽에만 깔리는 밴드(마커 느낌) */
 mark, mark.hl, .hl {
   background: linear-gradient(to top, var(--hl, #d6e3b8) 0.42em, transparent 0.42em);
