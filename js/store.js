@@ -310,6 +310,7 @@ const Store = (() => {
       deckId,
       type: "basic",
       created: Date.now(),
+      mtime: Date.now(),
       ...fields,
       ...SRS.newCardState(),
     };
@@ -319,7 +320,7 @@ const Store = (() => {
   }
   function updateCard(id, fields) {
     const c = state.cards.find(x => x.id === id);
-    if (c) { Object.assign(c, fields); save(); }
+    if (c) { Object.assign(c, fields); if (!("mtime" in fields)) c.mtime = Date.now(); save(); }
   }
   function deleteCard(id) {
     state.cards = state.cards.filter(c => c.id !== id);
@@ -361,7 +362,8 @@ const Store = (() => {
     const base = state.cards.find(c => c.id === cardId);
     if (!base) return;
     const val = (section || "").trim();
-    noteSiblings(base).forEach(c => { c.section = val; });
+    const now = Date.now();
+    noteSiblings(base).forEach(c => { c.section = val; c.mtime = now; });
     save();
   }
 
@@ -416,6 +418,7 @@ const Store = (() => {
         deckId,
         type: "basic",
         created: now,
+        mtime: now,
         ...row,
         ...SRS.newCardState(),
       });
@@ -441,7 +444,9 @@ const Store = (() => {
         (c.id === base.id || c.imageId === base.imageId || (baseImg && state.media[c.imageId] === baseImg)));
     }
     const rectCount = (fields.rects || base.rects || []).length;
+    const now = Date.now();
     siblings.forEach(c => {
+      c.mtime = now;
       if (fields.imageId != null) c.imageId = fields.imageId; // 이미지 교체 시 형제도 통일
       if (fields.rects) c.rects = fields.rects.map(r => ({ ...r }));
       if (fields.occMode != null) c.occMode = fields.occMode;
@@ -474,12 +479,13 @@ const Store = (() => {
     const byIdx = new Map();
     siblings.forEach(c => byIdx.set(c.clozeIndex, c));
     // 남는 빈칸: 기존 형제는 내용만 갱신(일정 유지), 새 빈칸은 새 카드로 추가
+    const nowC = Date.now();
     indices.forEach(idx => {
       const ex = byIdx.get(idx);
-      if (ex) Object.assign(ex, { front: newFront, clozeNoteId: noteId, ...content });
+      if (ex) Object.assign(ex, { front: newFront, clozeNoteId: noteId, ...content, mtime: nowC });
       else state.cards.push({
         id: uid(), deckId: base.deckId, type: "cloze", front: newFront, back: "",
-        clozeIndex: idx, clozeNoteId: noteId, created: Date.now(), ...content, ...SRS.newCardState(),
+        clozeIndex: idx, clozeNoteId: noteId, created: nowC, mtime: nowC, ...content, ...SRS.newCardState(),
       });
     });
     // 사라진 빈칸 번호의 형제 삭제
@@ -512,8 +518,9 @@ const Store = (() => {
   // 사라진(= sourceCardId가 있는데 이번 목록에 없는) 카드는 제거. 사용자가 직접 넣은 카드(sourceCardId 없음)는 유지.
   function mergeDeckCards(deckId, rows) {
     const local = state.cards.filter(c => c.deckId === deckId);
+    // 안정적 공유 id로 매칭: 받은 카드는 sourceCardId, 내가 만든 원본은 자기 id가 곧 공유 id.
     const bySid = new Map();
-    local.forEach(c => { if (c.sourceCardId) bySid.set(c.sourceCardId, c); });
+    local.forEach(c => { const key = c.sourceCardId || c.id; if (key) bySid.set(String(key), c); });
     const contentKey = c => {
       const f = String(c.front || "").trim();
       if (c.type === "cloze") return `c|${f}|${c.clozeIndex ?? ""}`;
@@ -526,23 +533,38 @@ const Store = (() => {
 
     // 내용 필드만 갱신(학습 상태·id·deckId·플래그는 보존)
     const CONTENT = ["type", "front", "back", "clozeIndex", "seq", "rects", "hideIndex", "occMode", "imageId", "frontImageId", "backImageId"];
+    const same = (a, b) => a === b || (a == null && b == null) || JSON.stringify(a) === JSON.stringify(b);
     const used = new Set();
     const now = Date.now();
-    let added = 0, updated = 0;
+    let added = 0, updated = 0, localNewer = 0;
 
     rows.forEach((row, i) => {
       if (!row || typeof row !== "object") return;
-      let m = (row.sourceCardId && bySid.get(row.sourceCardId)) || null;
-      if (m && used.has(m)) m = null;
+      const rsid = row.sourceCardId ? String(row.sourceCardId) : null;
+      let m = (rsid && bySid.get(rsid)) || null;
+      let matchedBySid = !!m;
+      if (m && used.has(m)) { m = null; matchedBySid = false; }
       if (!m) { const arr = byContent.get(contentKey(row)) || []; m = arr.find(c => !used.has(c)) || null; }
       if (m) {
         used.add(m);
-        CONTENT.forEach(k => { if (k in row) m[k] = row[k]; });
-        m.section = row.section || "";               // 소제목 갱신/해제
-        if (row.sourceCardId) m.sourceCardId = String(row.sourceCardId); // 최초 병합 시 바인딩
-        updated++;
+        // 최신본 우선(last-writer-wins): 서버본이 내 로컬 수정보다 최신일 때만 내용 갱신.
+        // 내 쪽이 더 최신이면 그대로 두고(아래에서 서버로 다시 올림) 로컬 수정이 사라지지 않게 한다.
+        const rmt = Number(row.mtime) || 0, lmt = Number(m.mtime) || 0;
+        if (rmt >= lmt) {
+          let changed = false;
+          CONTENT.forEach(k => { if (k in row && !same(m[k], row[k])) { m[k] = row[k]; changed = true; } });
+          const newSec = row.section || "";
+          if ((m.section || "") !== newSec) { m.section = newSec; changed = true; }
+          if (rmt > lmt) m.mtime = rmt;
+          if (changed) updated++;
+        } else {
+          localNewer++; // 로컬이 더 최신 → 푸시 필요
+        }
+        // 내용으로 매칭된 로컬 전용 카드를 공유 id에 바인딩(다음부터 id로 매칭).
+        // 내 원본 카드(자기 id로 매칭된 것)는 건드리지 않아 삭제 보호를 유지한다.
+        if (rsid && !matchedBySid && !m.sourceCardId) m.sourceCardId = rsid;
       } else {
-        const nc = { id: uid() + i.toString(36), deckId, type: "basic", created: now + i, ...row, ...SRS.newCardState() };
+        const nc = { id: uid() + i.toString(36), deckId, type: "basic", created: now + i, mtime: now, ...row, ...SRS.newCardState() };
         state.cards.push(nc);
         used.add(nc); // 새로 추가한 카드도 보존 대상
         added++;
@@ -556,9 +578,19 @@ const Store = (() => {
       if (c.sourceCardId) { removed++; return false; }
       return true;
     });
+
+    // 서버에 아직 없는 로컬 카드 수(= 내가 올려야 할 분량) 집계
+    const serverSids = new Set();
+    rows.forEach(r => { if (r && r.sourceCardId) serverSids.add(String(r.sourceCardId)); });
+    let localOnly = 0;
+    state.cards.forEach(c => {
+      if (c.deckId !== deckId) return;
+      if (!serverSids.has(String(c.sourceCardId || c.id))) localOnly++;
+    });
+
     gcMedia();
     save();
-    return { added, updated, removed };
+    return { added, updated, removed, localNewer, localOnly };
   }
 
   // 평가 적용. 실행 취소용 스냅샷을 반환한다.
