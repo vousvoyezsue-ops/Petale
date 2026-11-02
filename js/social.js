@@ -516,7 +516,6 @@ const Social = (() => {
       if (stable) sid.sid = String(stable);
       if (c.mtime) sid.mtime = c.mtime; // 최신본 판정(last-writer-wins)용
       if (c.type === "cloze") return { type: "cloze", front: c.front, clozeIndex: c.clozeIndex, ...sec, ...sid };
-      if (c.type === "sequence") return { type: "sequence", front: c.front || "", seq: Array.isArray(c.seq) ? c.seq : [], ...sec, ...sid };
       if (c.type === "occlusion") {
         return {
           type: "occlusion", front: c.front, rects: c.rects, hideIndex: c.hideIndex, occMode: c.occMode,
@@ -699,7 +698,11 @@ const Social = (() => {
       if (c.type === "cloze") {
         cards.push({ type: "cloze", front: c.front, back: "", clozeIndex: Number(c.clozeIndex) || 1, ...sec, ...sid, ...mt });
       } else if (c.type === "sequence") {
-        cards.push({ type: "sequence", front: String(c.front || ""), seq: Array.isArray(c.seq) ? c.seq.map(String) : [], ...sec, ...sid, ...mt });
+        // 시퀀스 형식 폐지 — 받은 레거시 카드는 기본 Q&A로 변환(제목=앞, 순서=뒤 번호목록)
+        const items = Array.isArray(c.seq) ? c.seq.map(String) : [];
+        const esc = x => String(x).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const back = items.length ? "<ol>" + items.map(x => `<li>${esc(x)}</li>`).join("") + "</ol>" : "";
+        cards.push({ type: "basic", front: String(c.front || ""), back, frontImageId: null, backImageId: null, ...sec, ...sid, ...mt });
       } else if (c.type === "occlusion") {
         const imageId = await localIdFor(c.imagePath);
         if (!imageId) continue; // 이미지 못 받아오면 이 카드는 건너뜀
