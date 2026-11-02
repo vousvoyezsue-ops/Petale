@@ -509,7 +509,7 @@
     if (document.visibilityState !== "visible" || !Social.profile) return;
     if ($("#view-deck").classList.contains("hidden")) return;
     const deck = Store.getDeck(currentDeckId);
-    if (deck && deck.sourceId) checkDeckUpdate(deck);
+    if (deck && (deck.sourceId || (deck.collab && deck.sharedId))) checkDeckUpdate(deck);
   });
 
   /* ══════════ 문서 (빈칸 리더) ══════════ */
@@ -1355,20 +1355,24 @@
   function checkDeckUpdate(deck) {
     const btn = $("#btnDeckUpdate");
     btn.classList.add("hidden");
-    if (!deck.sourceId || !Social.checkDeckUpdate) return;
-    Social.checkDeckUpdate(deck.sourceId, deck.sourceUpdatedAt).then(async r => {
+    // 받은 덱(sourceId)뿐 아니라 '내가 공개한 공동편집 덱(sharedId+collab)'도 확인해야
+    // 친구가 올린 수정·추가가 내 쪽으로 내려온다.
+    const srcId = deck.sourceId || (deck.collab && deck.sharedId) || null;
+    if (!srcId || !Social.checkDeckUpdate) return;
+    Social.checkDeckUpdate(srcId, deck.sourceUpdatedAt).then(async r => {
       if (!r || !r.hasUpdate || currentDeckId !== deck.id || autoPulling) return;
       // 편집 모달 등이 열려 있으면 자동 적용을 미루고 버튼만 노출(작업 방해 방지)
       if (document.querySelector("dialog[open]")) { btn.classList.remove("hidden"); return; }
       autoPulling = true;
       try {
         const collab = r.collab || deck.collab;
-        let res = collab
-          ? await Social.syncCollabDeck(deck.id, deck.sourceId) // 공동편집 → 양방향 병합
-          : await Social.pullDeckUpdate(deck.id, deck.sourceId);  // 일반 → 받기만
-        if (res && res.notCollab) { // 공동편집이 꺼졌으면 일반 받기로 폴백
+        let res;
+        if (collab) res = await Social.syncCollabDeck(deck.id, srcId); // 공동편집 → 양방향 병합
+        else if (deck.sourceId) res = await Social.pullDeckUpdate(deck.id, deck.sourceId); // 일반 → 받기만
+        else return; // 내가 공개한 비공동편집 덱은 내려받을 게 없음
+        if (res && res.notCollab) { // 공동편집이 꺼졌으면 일반 받기로 폴백(받은 덱만)
           Store.patchDeck(deck.id, { collab: false });
-          res = await Social.pullDeckUpdate(deck.id, deck.sourceId);
+          if (deck.sourceId) res = await Social.pullDeckUpdate(deck.id, deck.sourceId);
         }
         if (currentDeckId === deck.id) renderDeck();
         const a = res?.added || 0, u = res?.updated || 0, rm = res?.removed || 0;
@@ -1380,10 +1384,15 @@
 
   $("#btnDeckUpdate").addEventListener("click", () => {
     const deck = Store.getDeck(currentDeckId);
-    if (!deck || !deck.sourceId) return;
+    if (!deck) return;
+    const srcId = deck.sourceId || (deck.collab && deck.sharedId) || null;
+    if (!srcId) return;
     confirmDialog(t("update.title"), t("update.text"), async () => {
       try {
-        const { added, updated, removed } = await Social.pullDeckUpdate(currentDeckId, deck.sourceId);
+        const res = (deck.collab)
+          ? await Social.syncCollabDeck(currentDeckId, srcId)
+          : await Social.pullDeckUpdate(currentDeckId, srcId);
+        const { added = 0, updated = 0, removed = 0 } = res || {};
         renderDeck();
         toast(t("update.doneSmart", { a: added, u: updated, r: removed }));
       } catch {

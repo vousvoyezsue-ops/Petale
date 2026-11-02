@@ -509,7 +509,12 @@ const Social = (() => {
 
     const finalCards = rows.map(c => {
       const sec = (c.section && String(c.section).trim()) ? { section: String(c.section).trim() } : {};
-      const sid = c.id ? { sid: c.id } : {}; // 안정적 카드 식별자(진도 보존·병합 매칭용)
+      // 안정적 카드 식별자: 받은 카드는 원본 공유 id(sourceCardId), 내가 만든 건 내 id.
+      // (받은 카드를 다시 올릴 때 id가 바뀌지 않아 상대 쪽에서 '수정'으로 매칭된다)
+      const stable = c.sourceCardId || c.id;
+      const sid = {};
+      if (stable) sid.sid = String(stable);
+      if (c.mtime) sid.mtime = c.mtime; // 최신본 판정(last-writer-wins)용
       if (c.type === "cloze") return { type: "cloze", front: c.front, clozeIndex: c.clozeIndex, ...sec, ...sid };
       if (c.type === "sequence") return { type: "sequence", front: c.front || "", seq: Array.isArray(c.seq) ? c.seq : [], ...sec, ...sid };
       if (c.type === "occlusion") {
@@ -586,6 +591,12 @@ const Social = (() => {
       // 1) 서버본을 로컬에 병합(내가 넣은 카드 보존, 진도 유지)
       const mergeRes = Store.mergeDeckCards(deckId, sd.cards);
       if (sd.docs && sd.docs.length) Store.importSharedDocs(sd.docs);
+      // 내 쪽에 서버보다 새롭거나 서버에 없는 내용이 없으면 다시 올릴 필요가 없다
+      // (불필요한 재발행으로 updated_at이 계속 튀어 서로 무한 재동기화되는 것을 방지)
+      if (!mergeRes.localNewer && !mergeRes.localOnly) {
+        Store.patchDeck(deckId, { sourceUpdatedAt: sd.updatedAt, collab: true });
+        return { ok: true, ...mergeRes };
+      }
       // 2) 병합된 로컬을 서버에 다시 쓰기(낙관적 락: 내가 읽은 시점 이후 변경 없을 때만)
       let payload;
       try { payload = await buildDeckPayload(sharedId, Store.getDeck(deckId), Store.cardsOf(deckId)); }
@@ -684,18 +695,19 @@ const Social = (() => {
     for (const c of rawCards) {
       const sec = (c.section && String(c.section).trim()) ? { section: String(c.section).trim() } : {};
       const sid = c.sid ? { sourceCardId: String(c.sid) } : {}; // 스마트 업데이트 매칭용(없으면 내용으로 매칭)
+      const mt = Number(c.mtime) ? { mtime: Number(c.mtime) } : {}; // 최신본 판정(last-writer-wins)용
       if (c.type === "cloze") {
-        cards.push({ type: "cloze", front: c.front, back: "", clozeIndex: Number(c.clozeIndex) || 1, ...sec, ...sid });
+        cards.push({ type: "cloze", front: c.front, back: "", clozeIndex: Number(c.clozeIndex) || 1, ...sec, ...sid, ...mt });
       } else if (c.type === "sequence") {
-        cards.push({ type: "sequence", front: String(c.front || ""), seq: Array.isArray(c.seq) ? c.seq.map(String) : [], ...sec, ...sid });
+        cards.push({ type: "sequence", front: String(c.front || ""), seq: Array.isArray(c.seq) ? c.seq.map(String) : [], ...sec, ...sid, ...mt });
       } else if (c.type === "occlusion") {
         const imageId = await localIdFor(c.imagePath);
         if (!imageId) continue; // 이미지 못 받아오면 이 카드는 건너뜀
-        cards.push({ type: "occlusion", front: c.front || "", imageId, rects: c.rects || [], hideIndex: c.hideIndex || 0, occMode: c.occMode || "one", ...sec, ...sid });
+        cards.push({ type: "occlusion", front: c.front || "", imageId, rects: c.rects || [], hideIndex: c.hideIndex || 0, occMode: c.occMode || "one", ...sec, ...sid, ...mt });
       } else {
         const frontImageId = c.frontImagePath ? await localIdFor(c.frontImagePath) : null;
         const backImageId = c.backImagePath ? await localIdFor(c.backImagePath) : null;
-        cards.push({ type: "basic", front: String(c.front || ""), back: String(c.back || ""), frontImageId, backImageId, ...sec, ...sid });
+        cards.push({ type: "basic", front: String(c.front || ""), back: String(c.back || ""), frontImageId, backImageId, ...sec, ...sid, ...mt });
       }
     }
     if (!cards.length) throw new Error("empty");
