@@ -87,7 +87,14 @@ const Store = (() => {
       ratingCounts: data.ratingCounts || { 0: 0, 1: 0, 2: 0, 3: 0 },
       settings: { ...DEFAULT_SETTINGS, ...(data.settings || {}) },
       updatedAt: data.updatedAt || Date.now(),
+      notesHtmlV: data.notesHtmlV || 0, // 메모 서식(HTML) 이전 버전 플래그
     };
+    const escHTML = x => String(x).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    // 메모를 평문 → HTML로 1회 이전(서식 지원 전 메모는 escape + 줄바꿈 <br> 변환). HTML 메모와 섞이지 않게 플래그로 가드.
+    if (s.notesHtmlV < 1) {
+      s.cards.forEach(c => { if (c.notes) c.notes = escHTML(c.notes).replace(/\n/g, "<br>"); });
+      s.notesHtmlV = 1;
+    }
     // 예전에 'noir'(다크) 테마를 직접 고른 사용자는 다크 모드로 이전한다
     if (s.settings.theme === "noir") {
       if (!(data.settings && data.settings.appearance)) s.settings.appearance = "dark";
