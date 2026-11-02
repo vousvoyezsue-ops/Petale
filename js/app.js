@@ -2027,6 +2027,7 @@
     if (!document.activeElement || !document.activeElement.closest?.("#basicFields, #clozeFields")) return;
     try {
       $("#richToolbar .rt-btn[data-cmd=bold]")?.classList.toggle("active", document.queryCommandState("bold"));
+      $("#richToolbar .rt-btn[data-cmd=italic]")?.classList.toggle("active", document.queryCommandState("italic"));
       $("#richToolbar .rt-btn[data-cmd=underline]")?.classList.toggle("active", document.queryCommandState("underline"));
     } catch { /* 일부 브라우저는 지원 안 함 — 무시 */ }
   });
