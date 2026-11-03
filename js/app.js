@@ -3148,6 +3148,7 @@
   function updateRepBadge(card) {
     const el = $("#repBadge");
     if (!el) return;
+    if (Store.settings.repBadge === false) { el.classList.add("hidden"); return; }
     const n = (card.views || 0) + 1;
     el.textContent = t("study.rep", { n });
     el.classList.remove("hidden");
@@ -3740,6 +3741,7 @@
     $$("#appearanceSeg .seg-btn").forEach(b => b.classList.toggle("active", b.dataset.appearance === (Store.settings.appearance || "auto")));
     $$("#themeGrid .theme-swatch").forEach(b => b.classList.toggle("active", b.dataset.theme === Store.settings.theme));
     $("#ttsToggle").checked = !!Store.settings.tts;
+    $("#repBadgeToggle").checked = Store.settings.repBadge !== false;
     renderTtsVoiceOptions();
     $("#ttsVoiceRow").classList.toggle("hidden", !Store.settings.tts);
     renderBunnyPicker();
@@ -3782,6 +3784,12 @@
   $("#ttsToggle").addEventListener("change", (e) => {
     Store.setSetting("tts", e.target.checked);
     $("#ttsVoiceRow").classList.toggle("hidden", !e.target.checked);
+  });
+
+  $("#repBadgeToggle").addEventListener("change", (e) => {
+    Store.setSetting("repBadge", e.target.checked);
+    // 학습 중이면 즉시 반영
+    if (session && session.current) updateRepBadge(currentCard());
   });
 
   // 학습 알림 (망각곡선 기반)
