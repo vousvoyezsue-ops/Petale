@@ -884,6 +884,55 @@ const Social = (() => {
     window.addEventListener("pagehide", () => { flushPush(); });
   }
 
+  /* ══════════ 스터디룸 (실시간 접속 현황 — presence) ══════════
+     DB를 건드리지 않고 Supabase Realtime presence로 '지금 접속/공부 중'을
+     공유한다. 각자 { id, username, bunny, studying, since }를 track. */
+  let roomChannel = null, roomStudying = false, roomStateCb = null;
+  function roomMeta() {
+    return {
+      id: profile ? profile.id : "guest",
+      username: (profile && profile.username) || "익명",
+      bunny: (Store.settings && Store.settings.bunny) || "oatmeal-ivory",
+      studying: !!roomStudying,
+      since: Date.now(),
+    };
+  }
+  function emitRoom() {
+    if (!roomStateCb) return;
+    let users = [];
+    try {
+      const st = roomChannel ? roomChannel.presenceState() : {};
+      users = Object.values(st).map(arr => arr && arr[0]).filter(Boolean);
+    } catch { users = []; }
+    roomStateCb(users);
+  }
+  function setOnRoomState(cb) { roomStateCb = cb; }
+  function joinRoom() {
+    if (!profile || roomChannel) return;          // 로그인 사용자만, 중복 방지
+    try {
+      roomChannel = sb().channel("petale-room", { config: { presence: { key: profile.id } } });
+      roomChannel
+        .on("presence", { event: "sync" }, emitRoom)
+        .on("presence", { event: "join" }, emitRoom)
+        .on("presence", { event: "leave" }, emitRoom)
+        .subscribe(async (status) => {
+          if (status === "SUBSCRIBED") { try { await roomChannel.track(roomMeta()); } catch {} emitRoom(); }
+        });
+    } catch { roomChannel = null; }
+  }
+  function leaveRoom() {
+    if (!roomChannel) return;
+    try { roomChannel.untrack?.(); } catch {}
+    try { sb().removeChannel(roomChannel); } catch { try { roomChannel.unsubscribe(); } catch {} }
+    roomChannel = null;
+  }
+  function setRoomStudying(on) {
+    roomStudying = !!on;
+    if (roomChannel) { try { roomChannel.track(roomMeta()); } catch {} }
+  }
+  function refreshRoomMeta() { if (roomChannel) { try { roomChannel.track(roomMeta()); } catch {} } }
+  function roomReady() { return !!profile; }
+
   return {
     init, signUp, signIn, signInWithGoogle, signOut, consumeAuthError,
     sendRequest, respondRequest, removeFriend, fetchOverview,
@@ -891,6 +940,7 @@ const Social = (() => {
     syncOnLogin, schedulePush, pushCollection, syncMedia, flushPush, syncOnVisible, setOnRemoteUpdate,
     publishDeck, unpublishDeck, searchDecks, downloadDeck, checkDeckUpdate, pullDeckUpdate,
     scheduleSharedResync, resyncSharedNow, setDeckCollab, syncCollabDeck,
+    joinRoom, leaveRoom, setRoomStudying, refreshRoomMeta, setOnRoomState, roomReady,
     get profile() { return profile; },
   };
 })();
