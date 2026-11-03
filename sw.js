@@ -2,7 +2,7 @@
    전략: 네트워크 우선 + 캐시 폴백 (항상 최신, 오프라인에서도 동작)
    vendor/ 는 불변 대용량이라 캐시 우선 */
 
-const CACHE = "petale-v153";
+const CACHE = "petale-v154";
 const PRECACHE = [
   "./",
   "index.html",
@@ -11,6 +11,7 @@ const PRECACHE = [
   "assets/bunnies/bunny-oatmeal-ivory-sheet.png",
   "assets/bunnies/bunny-oatmeal-ivory-sit-sheet.png",
   "assets/bunnies/bunny-skeleton-sheet.png",
+  "assets/bunnies/bunny-skeleton-sit-sheet.png",
   "manifest.json",
   "fonts/fonts.css",
   "css/style.css",
