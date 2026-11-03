@@ -1249,13 +1249,25 @@
     host.innerHTML = html;
   }
   // 홈 마스코트 말풍선 — 남은 복습량에 맞춘 멘트(누르면 랜덤으로 바뀜)
+  // 오늘의 학습 목표(남은 수) — 복습(예정된 복습) + 새 학습(플랜 페이스)
+  function todayGoal(now = Date.now()) {
+    const plans = Store.state.plans || [];
+    if (plans.length) {
+      let reviews = 0, neu = 0;
+      plans.forEach(p => { const s = Store.planStats(p, now); reviews += s.dueToday; neu += s.todayNew; });
+      return { reviews, neu, total: reviews + neu, hasPlan: true };
+    }
+    // 플랜이 없으면 '예정된 복습'만 목표로 삼는다(새 카드는 페이스가 없어 전부 쌓이지 않게)
+    const reviews = Store.state.cards.filter(c => !c.suspended && (c.views || 0) > 0 && c.due <= now).length;
+    return { reviews, neu: 0, total: reviews, hasPlan: false };
+  }
   function setBunnyBubble(cycle) {
     const el = $("#bunnyBubble");
     if (!el) return;
-    const all = aggCounts(Store.state.decks);
-    const waiting = all.due + all.neu;
-    const pool = waiting > 0
-      ? [t("bunny.due", { n: waiting }), t("bunny.cheer"), t("bunny.lets")]
+    const g = todayGoal();
+    // 숫자는 아래 요약이 보여주므로 말풍선은 응원만(중복 방지)
+    const pool = g.total > 0
+      ? [t("bunny.cheer"), t("bunny.lets")]
       : [t("bunny.done"), t("bunny.proud"), t("bunny.rest")];
     el.textContent = pool[cycle ? Math.floor(Math.random() * pool.length) : 0];
   }
@@ -1313,6 +1325,14 @@
     for (const id of plan.deckIds || []) { const n = planNewCount(id); if (n > bestNew) { bestNew = n; best = id; } }
     return best ? Store.getDeck(best) : null;
   }
+  // 오늘 할 일: 복습 R · 새 N 로 분리 표기 (0이면 완료)
+  function planTodayLabel(s) {
+    if (s.todayTotal <= 0) return t("plan.todayDone");
+    const parts = [];
+    if (s.dueToday) parts.push(t("plan.splitReview", { n: s.dueToday }));
+    if (s.todayNew) parts.push(t("plan.splitNew", { n: s.todayNew }));
+    return parts.join(" · ");
+  }
 
   function renderPlanSection() {
     const host = $("#planSection");
@@ -1337,7 +1357,7 @@
       widget = `<div class="plan-widget" data-plan="${focus.p.id}">
         <div class="pw-label">${t("plan.todayFocus")}</div>
         <div class="pw-main">${sub}</div>
-        <div class="pw-meta">${s.todayTotal > 0 ? t("plan.todayCount", { n: s.todayTotal }) : t("plan.todayNone")} · ${escapeHTML(focus.p.name)} ${ddayLabel(s.daysLeft)}</div>
+        <div class="pw-meta">${planTodayLabel(s)} · ${escapeHTML(focus.p.name)} ${ddayLabel(s.daysLeft)}</div>
         <button class="btn primary sm pw-go" data-plan="${focus.p.id}">${t("plan.studyNow")}</button>
       </div>`;
     }
@@ -1347,7 +1367,7 @@
       return `<div class="plan-bar ${urgent ? "urgent" : ""} ${s.daysLeft != null && s.daysLeft < 0 ? "past" : ""}" data-plan="${p.id}" role="button" tabindex="0">
         <div class="pb-top"><span class="pb-name">${escapeHTML(p.name)}</span><span class="pb-dday">${ddayLabel(s.daysLeft)}</span></div>
         <div class="pb-track"><i class="pb-fill" style="width:${pct}%"></i></div>
-        <div class="pb-foot"><span>${t("plan.progressN", { n: pct })}</span><span>${s.todayTotal > 0 ? t("plan.todayCount", { n: s.todayTotal }) : t("plan.todayDone")}</span></div>
+        <div class="pb-foot"><span>${t("plan.progressN", { n: pct })}</span><span>${planTodayLabel(s)}</span></div>
       </div>`;
     }).join("");
     host.innerHTML = `<div class="plan-head"><h3>${t("plan.title")}</h3>${addBtn}</div>${widget}<div class="plan-bars">${bars}</div>`;
@@ -1391,7 +1411,8 @@
     const date = $("#planDateInput").value;
     const deckIds = planFormDeckIds();
     if (!date || !deckIds.length) { host.innerHTML = ""; return; }
-    const temp = { date, deckIds };
+    const dailyNew = Math.max(0, Number($("#planDailyNew").value) || 0);
+    const temp = { date, deckIds, dailyNew };
     const s = Store.planStats(temp);
     const tl = Store.planTimeline(temp);
     const max = Math.max(1, ...tl.map(d => d.newCount));
@@ -1407,6 +1428,7 @@
         <span class="plan-chip">${ddayLabel(s.daysLeft)}</span>
         <span>${t("plan.totalN", { n: s.total })}</span>
         <span>${t("plan.perDayN", { n: s.perDay })}</span>
+        <span>${t("plan.todaySplit", { r: s.dueToday, n: s.todayNew })}</span>
       </div>
       <div class="tl-strip">${bars}</div>`;
   }
@@ -1418,12 +1440,14 @@
     $("#planModalSubmit").textContent = p ? t("plan.save") : t("plan.create");
     $("#planNameInput").value = p ? p.name : "";
     $("#planDateInput").value = p ? p.date : planDateVal(Date.now() + 14 * 86400000);
+    $("#planDailyNew").value = p && p.dailyNew ? p.dailyNew : "";
     $("#planDelete").classList.toggle("hidden", !p);
     renderPlanDeckPick(new Set(p ? p.deckIds : []));
     renderPlanPreview();
     $("#planModal").showModal();
   }
   $("#planDateInput").addEventListener("change", renderPlanPreview);
+  $("#planDailyNew").addEventListener("input", renderPlanPreview);
   $("#planDelete").addEventListener("click", () => {
     if (!editingPlanId) return;
     confirmDialog(t("plan.deleteTitle"), t("plan.deleteConfirm"), () => {
@@ -1436,9 +1460,10 @@
     const name = $("#planNameInput").value.trim();
     const date = $("#planDateInput").value;
     const deckIds = planFormDeckIds();
+    const dailyNew = Math.max(0, Number($("#planDailyNew").value) || 0);
     if (!name || !date) return;
-    if (editingPlanId) Store.updatePlan(editingPlanId, { name, date, deckIds });
-    else Store.addPlan({ name, date, deckIds });
+    if (editingPlanId) Store.updatePlan(editingPlanId, { name, date, deckIds, dailyNew });
+    else Store.addPlan({ name, date, deckIds, dailyNew });
     renderPlanSection();
   });
 
@@ -1486,12 +1511,21 @@
     wireFolderCards(grid);
     wireDeckCards(grid);
 
-    // 히어로·상단 버튼: 전체 기준(어느 화면이든 "모두 학습"은 전체 대상)
-    const all = aggCounts(Store.state.decks);
-    const waiting = all.due + all.neu;
-    $("#heroSummary").innerHTML = waiting ? t("hero.waiting", { n: waiting }) : t("hero.done");
+    // 히어로: 오늘의 학습 목표(남은 수) — 복습/새 학습 분리 표시
+    const g = todayGoal();
+    if (g.total > 0) {
+      const parts = [];
+      if (g.reviews) parts.push(t("home.goalReview", { n: g.reviews }));
+      if (g.neu) parts.push(t("home.goalNew", { n: g.neu }));
+      $("#heroSummary").innerHTML = `${t("home.goalLead", { n: g.total })}<span class="goal-split"> · ${parts.join(" · ")}</span>`;
+    } else {
+      $("#heroSummary").textContent = g.hasPlan ? t("home.goalDone") : (g.total === 0 ? t("home.goalDone") : "");
+    }
     setBunnyBubble(false);
     applyBunnies();
+    // "모두 학습"은 지금 할 수 있는(예정 복습+남은 새) 게 있을 때만
+    const all = aggCounts(Store.state.decks);
+    const waiting = all.due + all.neu;
     $("#btnStudyAll").classList.toggle("hidden", !waiting || selectMode);
     $("#btnNewDeck").classList.toggle("hidden", selectMode);
 
