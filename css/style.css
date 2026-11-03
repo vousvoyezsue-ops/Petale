@@ -1525,6 +1525,17 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
 }
 .hm-stat { display: flex; align-items: baseline; gap: 6px; font-size: 13.5px; color: var(--ink-3); }
 .hm-stat b { font-size: 16px; font-weight: 720; color: var(--olive-700); }
+/* 히트맵 호버 툴팁 (사진처럼 날짜·횟수 표시) */
+.hm-tip {
+  position: fixed; z-index: 9999; pointer-events: none;
+  background: #2b2a26; color: #fff;
+  padding: 7px 11px; border-radius: 9px;
+  font-size: 12.5px; font-weight: 600; line-height: 1.35;
+  max-width: 220px; white-space: normal;
+  box-shadow: 0 6px 20px rgba(0,0,0,.28);
+}
+.hm-tip[hidden] { display: none; }
+.hm { cursor: pointer; }
 
 .data-actions { display: flex; gap: 10px; justify-content: center; }
 
