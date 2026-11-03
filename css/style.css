@@ -1517,6 +1517,14 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
 }
 .heatmap-legend .hm { width: 11px; height: 11px; border-radius: 3.5px; }
 .heatmap-legend span { margin: 0 5px; }
+/* 히트맵 요약 통계 (Anki 스타일) */
+.hm-summary {
+  display: flex; flex-wrap: wrap; gap: 10px 22px;
+  margin-top: 20px; padding-top: 18px;
+  border-top: 1px solid var(--edge);
+}
+.hm-stat { display: flex; align-items: baseline; gap: 6px; font-size: 13.5px; color: var(--ink-3); }
+.hm-stat b { font-size: 16px; font-weight: 720; color: var(--olive-700); }
 
 .data-actions { display: flex; gap: 10px; justify-content: center; }
 
