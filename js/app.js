@@ -477,7 +477,7 @@
   }
 
   /* ══════════ 화면 전환 ══════════ */
-  const views = ["home", "deck", "study", "stats", "friends", "quiz", "write", "match", "flash", "explore", "docs", "docreader", "overview", "recall"];
+  const views = ["home", "deck", "study", "stats", "friends", "room", "quiz", "write", "match", "flash", "explore", "docs", "docreader", "overview", "recall"];
 
   function show(view) {
     Practice.stopMatchTimer(); // 매치 중 다른 화면으로 이탈 시 타이머 정리
@@ -488,6 +488,7 @@
     if (view === "deck") renderDeck();
     if (view === "stats") renderStats();
     if (view === "friends") renderFriends();
+    if (view === "room") renderRoom();
     if (view === "explore") renderExplore();
     if (view === "docs") renderDocs();
     if (view === "overview") renderOverview();
@@ -1233,6 +1234,7 @@
     Store.setSetting("bunny", v);
     applyBunnies();
     renderBunnyPicker();
+    try { Social.refreshRoomMeta(); } catch { /* 룸에 새 토끼 반영 */ }
   }
   function renderBunnyPicker() {
     const host = $("#bunnyPicker");
@@ -1263,6 +1265,38 @@
   });
   $("#homeBunny")?.addEventListener("click", () => setBunnyBubble(true));
   applyBunnies(); // 초기화 시 게이트(로딩/로그인) 등 정적 마스코트에 현재 토끼 적용
+
+  /* ══════════ 스터디룸 (실시간 접속 토끼) ══════════ */
+  let roomUsers = [];
+  Social.setOnRoomState((users) => {
+    roomUsers = Array.isArray(users) ? users : [];
+    if (!$("#view-room").classList.contains("hidden")) renderRoom();
+  });
+  $("#roomSignin")?.querySelector("button")?.addEventListener("click", () => show("friends"));
+  function renderRoom() {
+    const signedIn = Social.roomReady && Social.roomReady();
+    $("#roomSignin").classList.toggle("hidden", !!signedIn);
+    $("#roomFloor").classList.toggle("hidden", !signedIn);
+    if (!signedIn) { $("#roomSummary").textContent = ""; $("#roomFloor").innerHTML = ""; return; }
+    const me = Social.profile && Social.profile.id;
+    const users = (roomUsers || []).slice().sort((a, b) =>
+      ((b.studying ? 1 : 0) - (a.studying ? 1 : 0)) || ((a.since || 0) - (b.since || 0)));
+    const studyingN = users.filter(u => u.studying).length;
+    $("#roomSummary").textContent = studyingN > 0
+      ? t("room.studyingN", { n: studyingN })
+      : t("room.onlineN", { n: users.length });
+    if (!users.length) { $("#roomFloor").innerHTML = `<div class="room-empty">${t("room.empty")}</div>`; return; }
+    $("#roomFloor").innerHTML = users.map(u => {
+      const v = bunnyValid(u.bunny) ? u.bunny : BUNNY_DEFAULT;
+      const isMe = me && u.id === me;
+      const name = isMe ? t("room.you") : escapeHTML(String(u.username || "익명").slice(0, 20));
+      return `<div class="room-bunny ${u.studying ? "studying" : "idle"} ${isMe ? "me" : ""}">
+        <span class="bunny-sprite ${u.studying ? "" : "static"}" style="background-image:url('${bunnyURL(v)}')"></span>
+        <span class="room-name">${name}</span>
+        <span class="room-status">${u.studying ? t("room.studying") : t("room.online")}</span>
+      </div>`;
+    }).join("");
+  }
 
   function renderHome() {
     renderFolderBar();
@@ -2672,6 +2706,7 @@
     $("#studyDone").classList.add("hidden");
     $(".study-stage").classList.remove("hidden");
     $("#btnUndo").classList.add("hidden");
+    try { Social.setRoomStudying(true); } catch { /* 룸은 베스트에포트 */ }
     show("study");
     nextCard();
   }
@@ -3365,6 +3400,7 @@
   function quitStudy() {
     const wasGlobal = session?.global;
     session = null;
+    try { Social.setRoomStudying(false); } catch { /* 베스트에포트 */ }
     speechSynthesis?.cancel?.();
     show(wasGlobal ? "home" : "deck");
   }
@@ -3670,6 +3706,7 @@
   $("#btnSignOut").addEventListener("click", async () => {
     try { await Social.pushCollection(); } catch { /* 마지막 저장 시도 */ }
     Store.setOnSave(null); // 로그아웃 후 클라우드 푸시 중단
+    try { Social.leaveRoom(); } catch { /* 스터디룸 정리 */ }
     await Social.signOut();
     setGateMode("signin");
     showGate();
@@ -3973,6 +4010,7 @@
     I18N.apply();
     show("home");
     Reminders.start(); // 로그인·동기화 후 학습 알림 예약 (설정 켜져 있을 때만)
+    try { Social.joinRoom(); } catch { /* 스터디룸은 베스트에포트 */ }
 
     // 이미지 기기 간 동기화(백그라운드): 다른 기기에서 만든 이미지를 내려받고,
     // 도착하면 현재 화면을 '제자리에서' 다시 그린다(스크롤 위치 유지 — 위로 안 튀게).

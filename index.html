@@ -165,6 +165,7 @@
       <button class="nav-link active" data-view="home" data-i18n="nav.decks">덱</button>
       <button class="nav-link" data-view="docs" data-i18n="nav.docs">문서</button>
       <button class="nav-link" data-view="explore" data-i18n="nav.explore">탐색</button>
+      <button class="nav-link" data-view="room" data-i18n="nav.room">룸</button>
       <button class="nav-link" data-view="stats" data-i18n="nav.stats">통계</button>
       <button class="nav-link" data-view="friends" data-i18n="nav.friends">친구</button>
     </nav>
@@ -649,6 +650,19 @@
       <button class="btn ghost" id="btnImport" data-i18n="stats.import"></button>
       <input type="file" id="importFile" accept=".json" hidden>
     </div>
+  </section>
+
+  <!-- ═══════════ 스터디룸 ═══════════ -->
+  <section class="view hidden" id="view-room">
+    <div class="hero small">
+      <h1 class="hero-title" data-i18n-html="room.title"></h1>
+      <p class="hero-sub" id="roomSummary"></p>
+    </div>
+    <div class="room-signin hidden" id="roomSignin">
+      <p data-i18n="room.signinNeeded"></p>
+      <button class="btn primary" data-view="friends" data-i18n="room.goSignin"></button>
+    </div>
+    <div class="room-floor" id="roomFloor"></div>
   </section>
 
   <!-- ═══════════ 친구 ═══════════ -->
