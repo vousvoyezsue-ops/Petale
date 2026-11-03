@@ -9,6 +9,7 @@ const PRECACHE = [
   "assets/logo-iris.webp",
   "assets/logo-iris-mark.webp",
   "assets/bunnies/bunny-oatmeal-ivory-sheet.png",
+  "assets/bunnies/bunny-oatmeal-ivory-sit-sheet.png",
   "assets/bunnies/bunny-skeleton-sheet.png",
   "manifest.json",
   "fonts/fonts.css",

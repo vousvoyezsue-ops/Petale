@@ -1226,9 +1226,13 @@
     return bunnyValid(v) ? v : BUNNY_DEFAULT;
   }
   const bunnyURL = v => `assets/bunnies/bunny-${v}-sheet.png`;
+  const bunnySitURL = v => `assets/bunnies/bunny-${v}-sit-sheet.png`;
+  // 앉은 버전이 있는 토끼(코스튬 토끼 36종). 해골 등 특별 토끼는 앉은 시트가 없음.
+  const bunnyHasSit = v => bunnyValid(v) && !BUNNY_SPECIAL.includes(v);
   function applyBunnies() {
     const url = `url('${bunnyURL(bunnyVariant())}')`;
     document.querySelectorAll(".bunny-sprite.js-bunny").forEach(el => { el.style.backgroundImage = url; });
+    updateCardBunny();
   }
   function setBunnyVariant(v) {
     if (!bunnyValid(v)) return;
@@ -3145,11 +3149,15 @@
     updateCardBunny();
   }
 
-  // 카드 모서리에 앉아 있는 토끼 표시 여부
+  // 카드 모서리에 앉아 있는 토끼 — 선택한 마스코트의 앉은 버전으로 표시
   function updateCardBunny() {
     const el = $("#cardBunny");
     if (!el) return;
-    el.classList.toggle("hidden", Store.settings.cardBunny === false);
+    const v = bunnyVariant();
+    const off = Store.settings.cardBunny === false;
+    if (off || !bunnyHasSit(v)) { el.classList.add("hidden"); return; }
+    el.style.backgroundImage = `url('${bunnySitURL(v)}')`;
+    el.classList.remove("hidden");
   }
 
   // 이 카드를 지금 몇 회째 보고 있는지 캡슐로 표시 (지난 복습 횟수 + 이번)

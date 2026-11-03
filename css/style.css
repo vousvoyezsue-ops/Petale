@@ -267,16 +267,13 @@ input, textarea, select { font-family: inherit; }
 }
 .brand-mark {
   display: grid; place-items: center;
-  width: 36px; height: 36px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--olive-700) 9%, var(--paper));
-  box-shadow: inset 0 0 0 1px var(--edge), 0 1px 3px rgba(0,0,0,.08);
+  height: 38px; width: auto;
 }
 .brand-iris {
-  width: 80%; height: 80%;
+  height: 38px; width: 28px;
   background-color: var(--ink);
-  -webkit-mask: url(../assets/logo-iris-mark.webp) center / contain no-repeat;
-  mask: url(../assets/logo-iris-mark.webp) center / contain no-repeat;
+  -webkit-mask: url(../assets/logo-iris.webp) center / contain no-repeat;
+  mask: url(../assets/logo-iris.webp) center / contain no-repeat;
 }
 .brand-name {
   font-family: var(--font-brand);
@@ -1247,17 +1244,28 @@ body[data-view="docreader"] #app { max-width: none; }
     linear-gradient(150deg, color-mix(in srgb, var(--blush-200) 85%, transparent), color-mix(in srgb, var(--lime-200) 65%, transparent)) border-box;
   box-shadow: var(--shadow-md);
 }
+/* 카드에 앉은 토끼 — 6프레임 23x38 앉은 시트 (138x38), swing 애니메이션.
+   --sc: 배율, left/right 값만 바꾸면 카드 아무 데나 앉힐 수 있음.
+   스프라이트 34행이 카드 윗변에 맞아(top: -34*sc) 발이 카드 앞으로 걸쳐짐. */
 .card-bunny {
-  --bs: 1.9;
+  --sc: 2.2;
   position: absolute;
-  top: 0; left: 20px;
-  transform: translateY(-84%);
+  top: calc(-34px * var(--sc));
+  left: 22px;                 /* ← 좌우 위치는 이 값(또는 right)만 바꾸면 됨 */
+  width: calc(23px * var(--sc));
+  height: calc(38px * var(--sc));
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  background-size: calc(138px * var(--sc)) calc(38px * var(--sc));
+  image-rendering: pixelated;
+  animation: bunny-swing 2.4s steps(6) infinite;
   z-index: 3;
   pointer-events: none;
-  filter: drop-shadow(0 3px 3px rgba(0,0,0,.16));
+  filter: drop-shadow(0 4px 3px rgba(0,0,0,.14));
 }
-.answer-card.media-card .card-bunny { left: 14px; }
-@media (max-width: 560px) { .card-bunny { --bs: 1.6; left: 14px; } }
+@keyframes bunny-swing { to { background-position: calc(-138px * var(--sc)) 0; } }
+@media (prefers-reduced-motion: reduce) { .card-bunny { animation: none; } }
+@media (max-width: 560px) { .card-bunny { --sc: 1.7; left: 12px; } }
 .answer-card:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--sage-400) 40%, transparent), var(--shadow-md);
