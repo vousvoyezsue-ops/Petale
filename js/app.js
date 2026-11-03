@@ -1298,8 +1298,153 @@
     }).join("");
   }
 
+  /* ══════════ 학습 플랜 (마감/자동 분배) ══════════ */
+  let editingPlanId = null;
+  const planDateVal = (ts) => { const d = new Date(ts); const p = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+  function ddayLabel(daysLeft) {
+    if (daysLeft == null) return "";
+    if (daysLeft > 0) return "D-" + daysLeft;
+    if (daysLeft === 0) return "D-DAY";
+    return "D+" + (-daysLeft);
+  }
+  function planNewCount(deckId) { return Store.cardsOf(deckId).filter(c => !c.suspended && (c.views || 0) === 0).length; }
+  function planFocusDeck(plan) {
+    let best = null, bestNew = -1;
+    for (const id of plan.deckIds || []) { const n = planNewCount(id); if (n > bestNew) { bestNew = n; best = id; } }
+    return best ? Store.getDeck(best) : null;
+  }
+
+  function renderPlanSection() {
+    const host = $("#planSection");
+    if (!host) return;
+    const plans = Store.state.plans || [];
+    const addBtn = `<button class="btn ghost sm plan-add" id="btnAddPlan">+ <span>${t("plan.add")}</span></button>`;
+    if (!plans.length) {
+      host.innerHTML = `<div class="plan-head"><h3>${t("plan.title")}</h3>${addBtn}</div>`
+        + `<p class="plan-empty">${t("plan.empty")}</p>`;
+      $("#btnAddPlan")?.addEventListener("click", () => openPlanModal(null));
+      return;
+    }
+    const now = Date.now();
+    const rows = plans.map(p => ({ p, s: Store.planStats(p, now) }))
+      .sort((a, b) => ((a.s.daysLeft == null ? 1e9 : a.s.daysLeft) - (b.s.daysLeft == null ? 1e9 : b.s.daysLeft)));
+    const focus = rows.find(x => (x.s.daysLeft == null || x.s.daysLeft >= 0) && x.s.todayTotal > 0) || rows[0];
+    let widget = "";
+    if (focus) {
+      const fd = planFocusDeck(focus.p);
+      const s = focus.s;
+      const sub = fd ? t("plan.focusDeck", { deck: escapeHTML(fd.name) }) : escapeHTML(focus.p.name);
+      widget = `<div class="plan-widget" data-plan="${focus.p.id}">
+        <div class="pw-label">${t("plan.todayFocus")}</div>
+        <div class="pw-main">${sub}</div>
+        <div class="pw-meta">${s.todayTotal > 0 ? t("plan.todayCount", { n: s.todayTotal }) : t("plan.todayNone")} · ${escapeHTML(focus.p.name)} ${ddayLabel(s.daysLeft)}</div>
+        <button class="btn primary sm pw-go" data-plan="${focus.p.id}">${t("plan.studyNow")}</button>
+      </div>`;
+    }
+    const bars = rows.map(({ p, s }) => {
+      const pct = Math.round(s.progress * 100);
+      const urgent = s.daysLeft != null && s.daysLeft <= 3 && s.daysLeft >= 0;
+      return `<div class="plan-bar ${urgent ? "urgent" : ""} ${s.daysLeft != null && s.daysLeft < 0 ? "past" : ""}" data-plan="${p.id}" role="button" tabindex="0">
+        <div class="pb-top"><span class="pb-name">${escapeHTML(p.name)}</span><span class="pb-dday">${ddayLabel(s.daysLeft)}</span></div>
+        <div class="pb-track"><i class="pb-fill" style="width:${pct}%"></i></div>
+        <div class="pb-foot"><span>${t("plan.progressN", { n: pct })}</span><span>${s.todayTotal > 0 ? t("plan.todayCount", { n: s.todayTotal }) : t("plan.todayDone")}</span></div>
+      </div>`;
+    }).join("");
+    host.innerHTML = `<div class="plan-head"><h3>${t("plan.title")}</h3>${addBtn}</div>${widget}<div class="plan-bars">${bars}</div>`;
+    $("#btnAddPlan")?.addEventListener("click", () => openPlanModal(null));
+    host.querySelectorAll(".plan-bar").forEach(el => {
+      el.addEventListener("click", () => openPlanModal(el.dataset.plan));
+      el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPlanModal(el.dataset.plan); } });
+    });
+    host.querySelectorAll(".pw-go").forEach(el => el.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const p = Store.getPlan(el.dataset.plan); if (p) startPlanSession(p);
+    }));
+  }
+
+  function startPlanSession(plan) {
+    const now = Date.now();
+    const deckSet = new Set(plan.deckIds || []);
+    const cards = Store.state.cards.filter(c => deckSet.has(c.deckId) && !c.suspended);
+    const due = cards.filter(c => (c.views || 0) > 0 && c.due <= now);
+    const st = Store.planStats(plan, now);
+    const neu = cards.filter(c => (c.views || 0) === 0).slice(0, st.todayNew);
+    const queue = [...due.map(c => c.id), ...neu.map(c => c.id)];
+    startSessionWith(queue, { global: true, emptyMsg: t("plan.nothingToday") });
+  }
+
+  function renderPlanDeckPick(selected) {
+    const host = $("#planDeckPick");
+    const decks = Store.state.decks;
+    if (!decks.length) { host.innerHTML = `<p class="plan-empty">${t("plan.noDecks")}</p>`; return; }
+    host.innerHTML = decks.map(d => {
+      const n = planNewCount(d.id);
+      return `<label class="plan-deck-opt"><input type="checkbox" value="${d.id}" ${selected.has(d.id) ? "checked" : ""}>
+        <span>${escapeHTML(d.name)}</span><em>${t("plan.newN", { n })}</em></label>`;
+    }).join("");
+    host.querySelectorAll("input").forEach(i => i.addEventListener("change", renderPlanPreview));
+  }
+  function planFormDeckIds() { return [...$("#planDeckPick").querySelectorAll("input:checked")].map(i => i.value); }
+
+  function renderPlanPreview() {
+    const host = $("#planPreview");
+    const date = $("#planDateInput").value;
+    const deckIds = planFormDeckIds();
+    if (!date || !deckIds.length) { host.innerHTML = ""; return; }
+    const temp = { date, deckIds };
+    const s = Store.planStats(temp);
+    const tl = Store.planTimeline(temp);
+    const max = Math.max(1, ...tl.map(d => d.newCount));
+    const fmt = new Intl.DateTimeFormat(I18N.lang === "ko" ? "ko-KR" : "en-US", { month: "numeric", day: "numeric" });
+    const bars = tl.map((d, i) => {
+      const h = d.newCount ? Math.max(8, Math.round((d.newCount / max) * 60)) : 2;
+      const heavy = d.newCount >= max * 0.8 && d.newCount > 0;
+      const lbl = i === 0 ? t("fc.today") : d.isExam ? "🎯" : "";
+      return `<div class="tl-col ${i === 0 ? "today" : ""} ${d.isExam ? "exam" : ""} ${heavy ? "heavy" : ""}" title="${fmt.format(new Date(d.ts))} · ${t("plan.newN", { n: d.newCount })}">
+        <span class="tl-n">${d.newCount || ""}</span><i class="tl-bar" style="height:${h}px"></i><span class="tl-d">${lbl}</span></div>`;
+    }).join("");
+    host.innerHTML = `<div class="plan-stat-row">
+        <span class="plan-chip">${ddayLabel(s.daysLeft)}</span>
+        <span>${t("plan.totalN", { n: s.total })}</span>
+        <span>${t("plan.perDayN", { n: s.perDay })}</span>
+      </div>
+      <div class="tl-strip">${bars}</div>`;
+  }
+
+  function openPlanModal(planId) {
+    editingPlanId = planId || null;
+    const p = planId ? Store.getPlan(planId) : null;
+    $("#planModalTitle").textContent = p ? t("plan.editTitle") : t("plan.newTitle");
+    $("#planModalSubmit").textContent = p ? t("plan.save") : t("plan.create");
+    $("#planNameInput").value = p ? p.name : "";
+    $("#planDateInput").value = p ? p.date : planDateVal(Date.now() + 14 * 86400000);
+    $("#planDelete").classList.toggle("hidden", !p);
+    renderPlanDeckPick(new Set(p ? p.deckIds : []));
+    renderPlanPreview();
+    $("#planModal").showModal();
+  }
+  $("#planDateInput").addEventListener("change", renderPlanPreview);
+  $("#planDelete").addEventListener("click", () => {
+    if (!editingPlanId) return;
+    confirmDialog(t("plan.deleteTitle"), t("plan.deleteConfirm"), () => {
+      Store.deletePlan(editingPlanId);
+      $("#planModal").close();
+      renderPlanSection();
+    });
+  });
+  $("#planForm").addEventListener("submit", () => {
+    const name = $("#planNameInput").value.trim();
+    const date = $("#planDateInput").value;
+    const deckIds = planFormDeckIds();
+    if (!name || !date) return;
+    if (editingPlanId) Store.updatePlan(editingPlanId, { name, date, deckIds });
+    else Store.addPlan({ name, date, deckIds });
+    renderPlanSection();
+  });
+
   function renderHome() {
     renderFolderBar();
+    renderPlanSection();
     const grid = $("#deckGrid");
     const hasFolders = Store.state.folders.length > 0;
     // mode: 'overview'(최상위·폴더 있음) | 'folder'(폴더 안) | 'starred' | 'flat'(폴더 없음 폴백)
