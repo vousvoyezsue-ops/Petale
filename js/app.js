@@ -1227,8 +1227,8 @@
   }
   const bunnyURL = v => `assets/bunnies/bunny-${v}-sheet.png`;
   const bunnySitURL = v => `assets/bunnies/bunny-${v}-sit-sheet.png`;
-  // 앉은 버전이 있는 토끼(코스튬 토끼 36종). 해골 등 특별 토끼는 앉은 시트가 없음.
-  const bunnyHasSit = v => bunnyValid(v) && !BUNNY_SPECIAL.includes(v);
+  // 모든 변형(코스튬 36종 + 해골)에 앉은 시트가 있음.
+  const bunnyHasSit = v => bunnyValid(v);
   function applyBunnies() {
     const url = `url('${bunnyURL(bunnyVariant())}')`;
     document.querySelectorAll(".bunny-sprite.js-bunny").forEach(el => { el.style.backgroundImage = url; });

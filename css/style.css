@@ -1250,7 +1250,7 @@ body[data-view="docreader"] #app { max-width: none; }
 .card-bunny {
   --sc: 2.2;
   position: absolute;
-  top: calc(-34px * var(--sc));
+  top: calc(-34px * var(--sc) + 8px);   /* 카드 윗변 기준 아주 살짝 아래로 */
   left: 22px;                 /* ← 좌우 위치는 이 값(또는 right)만 바꾸면 됨 */
   width: calc(23px * var(--sc));
   height: calc(38px * var(--sc));
