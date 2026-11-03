@@ -172,7 +172,7 @@ const I18N = (() => {
       "nav.settings": "설정",
 
       // hero
-      "hero.title": "간격 반복으로<br><em>오래</em> 기억하세요",
+      "hero.title": "",
       "hero.waiting": "오늘 복습할 카드 <b>{n}장</b>",
       "hero.done": "오늘 복습을 모두 마쳤습니다",
       "hero.empty": "아직 덱이 없습니다.<br>＋ 버튼으로 첫 덱을 만들어보세요.",
@@ -437,7 +437,7 @@ const I18N = (() => {
 
       // login gate
       "gate.title": "Petale",
-      "gate.subtitle": "간격 반복으로 오래 기억하세요",
+      "gate.subtitle": "",
       "gate.tagSignin": "이어서 학습하려면 로그인하세요",
       "gate.tagSignup": "계정을 만들고 어디서나 학습을 이어가세요",
       "gate.google": "Google로 계속하기",
@@ -689,7 +689,7 @@ const I18N = (() => {
       "toast.docSaved": "Document saved",
       "toast.docDeleted": "Document deleted",
       "nav.settings": "Settings",
-      "hero.title": "Study less,<br><em>remember</em> more",
+      "hero.title": "",
       "hero.waiting": "<b>{n} cards</b> due today",
       "hero.done": "All caught up for today",
       "hero.empty": "No decks yet.<br>Create one with the ＋ button.",
@@ -944,7 +944,7 @@ const I18N = (() => {
       "set.resyncDone": "Re-uploaded {n} shared deck(s)",
 
       "gate.title": "Petale",
-      "gate.subtitle": "Study less, remember more",
+      "gate.subtitle": "",
       "gate.tagSignin": "Sign in to keep studying",
       "gate.tagSignup": "Create an account to study anywhere",
       "gate.google": "Continue with Google",
