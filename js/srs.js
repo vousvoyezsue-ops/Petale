@@ -35,7 +35,7 @@ const SRS = (() => {
   function defaultSteps() { return { ...DEFAULT_STEPS }; }
 
   function newCardState() {
-    return { ef: 2.5, interval: 0, reps: 0, lapses: 0, due: Date.now() };
+    return { ef: 2.5, interval: 0, reps: 0, lapses: 0, due: Date.now(), views: 0 };
   }
 
   // 복습 간격에 소량의 무작위(±약 5%)를 더해 복습 부담을 분산한다.

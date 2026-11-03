@@ -103,6 +103,7 @@ const Store = (() => {
     }
     s.cards.forEach(c => {
       c.type ??= "basic";
+      c.views ??= (c.reps || 0) + (c.lapses || 0); // 반복 횟수 뱃지 — 기존 카드는 대략 시드
       // 시퀀스(순서 맞추기) 형식 폐지 — 기존 카드는 기본 Q&A로 변환(제목=앞면, 순서=뒷면 번호목록)
       if (c.type === "sequence") {
         const items = Array.isArray(c.seq) ? c.seq.map(x => String(x)) : [];
@@ -618,10 +619,11 @@ const Store = (() => {
   function applyReview(cardId, rating) {
     const c = state.cards.find(x => x.id === cardId);
     if (!c) return null;
-    const prev = { ef: c.ef, interval: c.interval, reps: c.reps, lapses: c.lapses, due: c.due, againCount: c.againCount || 0 };
+    const prev = { ef: c.ef, interval: c.interval, reps: c.reps, lapses: c.lapses, due: c.due, againCount: c.againCount || 0, views: c.views || 0 };
     const wasNew = SRS.isNew(c);
     Object.assign(c, SRS.schedule(c, rating, Date.now(), true)); // 실제 저장: 복습 부담 분산(fuzz) 적용
     if (rating === 0) c.againCount = (c.againCount || 0) + 1; // '다시' 누적 횟수 (자주 틀린 카드 찾기용)
+    c.views = (c.views || 0) + 1; // 이 카드를 복습한 총 횟수(반복 횟수 뱃지용)
     const key = todayKey();
     state.reviews[key] = (state.reviews[key] || 0) + 1;
     state.ratingCounts[rating] = (state.ratingCounts[rating] || 0) + 1;
