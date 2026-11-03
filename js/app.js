@@ -3334,51 +3334,63 @@
       <div class="stat-tile t4" style="--i:3"><span class="glyph">${icon("i-sparkle")}</span><div><b>${allReviews}</b><span>${t("stats.reviews")}</span></div></div>
       <div class="stat-tile t5" style="--i:4"><span class="glyph">${icon("i-target")}</span><div><b>${retention == null ? "—" : retention + "%"}</b><span>${t("stats.retention")}</span></div></div>`;
 
-    renderForecast();
     renderHeatmap();
-  }
-
-  function renderForecast() {
-    const data = Store.forecast(7);
-    const max = Math.max(1, ...data);
-    const fmt = new Intl.DateTimeFormat(I18N.lang === "ko" ? "ko-KR" : "en-US", { weekday: "short" });
-    $("#forecast").innerHTML = data.map((n, i) => {
-      const d = new Date(Date.now() + i * 24 * 60 * 60 * 1000);
-      const label = i === 0 ? t("fc.today") : fmt.format(d);
-      const h = Math.max(3, Math.round((n / max) * 88));
-      return `
-        <div class="fc-col ${i === 0 ? "today" : ""}">
-          <span class="fc-count">${n}</span>
-          <i class="fc-bar" style="height:${h}px"></i>
-          <span class="fc-day">${label}</span>
-        </div>`;
-    }).join("");
   }
 
   function renderHeatmap() {
     const hm = $("#heatmap");
+    const rev = Store.state.reviews;
     const cells = [];
     const now = new Date();
     const end = new Date(now);
-    end.setDate(end.getDate() + (6 - end.getDay()));
+    end.setDate(end.getDate() + (6 - end.getDay()));        // 이번 주 토요일까지(열 정렬)
+    const WEEKS = 53;                                        // 약 1년치
     const start = new Date(end);
-    start.setDate(start.getDate() - 7 * 12 + 1);
+    start.setDate(start.getDate() - 7 * WEEKS + 1);
 
     const todayStr = Store.todayKey();
+    const dateFmt = new Intl.DateTimeFormat(I18N.lang === "ko" ? "ko-KR" : "en-US",
+      { year: "numeric", month: "long", day: "numeric", weekday: "long" });
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       const key = Store.todayKey(d.getTime());
-      const count = Store.state.reviews[key] || 0;
+      const count = rev[key] || 0;
       const future = d > now;
       let lvl = 0;
       if (count >= 1) lvl = 1;
       if (count >= 5) lvl = 2;
       if (count >= 15) lvl = 3;
       if (count >= 30) lvl = 4;
+      const title = future ? "" : t("stats.hmTip", { n: count, date: dateFmt.format(d) });
       cells.push(`<i class="hm l${lvl} ${key === todayStr ? "today" : ""}"
         style="${future ? "visibility:hidden" : ""}"
-        title="${key} · ${count}"></i>`);
+        title="${title}"></i>`);
     }
     hm.innerHTML = cells.join("");
+    hm.scrollLeft = hm.scrollWidth;                          // 최근(오른쪽)이 보이게 스크롤
+
+    // 요약 통계 (Anki 스타일): 전체 기록 기준
+    const keys = Object.keys(rev).filter(k => (rev[k] || 0) > 0).sort();
+    let avg = 0, learnedPct = 0, longest = 0;
+    if (keys.length) {
+      const first = new Date(keys[0] + "T00:00:00");
+      let span = 0, learned = 0, run = 0, total = 0;
+      for (const k of keys) total += rev[k] || 0;
+      for (let d = new Date(first); d <= now; d.setDate(d.getDate() + 1)) {
+        span++;
+        if ((rev[Store.todayKey(d.getTime())] || 0) > 0) { run++; longest = Math.max(longest, run); learned++; }
+        else run = 0;
+      }
+      span = Math.max(1, span);
+      avg = Math.round(total / span);
+      learnedPct = Math.min(100, Math.round((learned / span) * 100));
+    }
+    const current = Store.streak();
+    const unit = t("stats.daysUnit");
+    $("#hmSummary").innerHTML = `
+      <div class="hm-stat"><b>${avg}</b><span>${t("stats.hmAvg")}</span></div>
+      <div class="hm-stat"><b>${learnedPct}%</b><span>${t("stats.hmLearned")}</span></div>
+      <div class="hm-stat"><b>${longest}${unit}</b><span>${t("stats.hmLongest")}</span></div>
+      <div class="hm-stat"><b>${current}${unit}</b><span>${t("stats.hmCurrent")}</span></div>`;
   }
 
   /* ══════════ 내보내기 / 가져오기 (백업) ══════════ */
