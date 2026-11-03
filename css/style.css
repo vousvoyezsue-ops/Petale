@@ -993,8 +993,13 @@ body[data-view="docreader"] #app { max-width: none; }
   font-size: 12px; font-weight: 500;
   color: var(--ink-3);
 }
+/* 카드 우측 상단 코너: 반복 횟수 뱃지 + 읽어주기 버튼 */
+.ac-corner {
+  position: absolute; top: 12px; right: 12px;
+  display: flex; align-items: center; gap: 8px;
+  z-index: 2;
+}
 .speak-btn {
-  position: absolute; top: 16px; right: 16px;
   display: grid; place-items: center;
   width: 38px; height: 38px;
   border: 1px solid var(--edge);
@@ -1002,8 +1007,22 @@ body[data-view="docreader"] #app { max-width: none; }
   background: color-mix(in srgb, var(--paper) 80%, transparent);
   color: var(--ink-2);
   transition: color .2s, transform .2s;
+  flex-shrink: 0;
 }
+.speak-btn[hidden] { display: none; }
 .speak-btn:hover { color: var(--rose-600); transform: scale(1.08); }
+/* 반복 횟수 캡슐 */
+.rep-badge {
+  display: inline-flex; align-items: center;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--sage-400) 16%, var(--paper));
+  border: 1px solid color-mix(in srgb, var(--sage-400) 38%, transparent);
+  color: var(--olive-700);
+  font-size: 12px; font-weight: 650; letter-spacing: -.01em;
+  white-space: nowrap; line-height: 1;
+}
+.rep-badge.hidden { display: none; }
 
 /* cloze */
 .cloze-blank {

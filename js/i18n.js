@@ -325,6 +325,7 @@ const I18N = (() => {
       "study.noStarred": "별표한 카드가 없어요",
       "study.noLeeches": "자주 틀린 카드가 아직 없어요",
       "study.speak": "읽어주기",
+      "study.rep": "{n}회째",
 
       // interval preview
       "iv.min": "{n}분",
@@ -823,6 +824,7 @@ const I18N = (() => {
       "study.noStarred": "No starred cards yet",
       "study.noLeeches": "No frequently-missed cards yet",
       "study.speak": "Read aloud",
+      "study.rep": "Rep {n}",
 
       "iv.min": "{n}m",
       "iv.hour": "{n}h",

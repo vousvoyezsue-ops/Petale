@@ -2883,6 +2883,16 @@
     showNotes(card, false);
     updateStudyStar();
     updateStudyRibbon();
+    updateRepBadge(card);
+  }
+
+  // 이 카드를 지금 몇 회째 보고 있는지 캡슐로 표시 (지난 복습 횟수 + 이번)
+  function updateRepBadge(card) {
+    const el = $("#repBadge");
+    if (!el) return;
+    const n = (card.views || 0) + 1;
+    el.textContent = t("study.rep", { n });
+    el.classList.remove("hidden");
   }
 
   // 학습 중인 카드의 질문/정답 면을 타입·공개상태에 맞게 다시 그린다.
