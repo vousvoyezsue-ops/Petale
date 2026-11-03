@@ -1218,8 +1218,9 @@
   /* ══════════ 토끼 마스코트 ══════════ */
   const BUNNY_OUTFITS = ["oatmeal", "sage-knit", "rose", "corduroy", "navy", "doctor"];
   const BUNNY_FACES = ["ivory", "cream", "caramel", "cocoa", "grey", "charcoal"];
+  const BUNNY_SPECIAL = ["skeleton"]; // 코스튬이 아닌 특별 토끼(해골 등)
   const BUNNY_DEFAULT = "oatmeal-ivory";
-  const bunnyValid = v => typeof v === "string" && /^[a-z]+(?:-[a-z]+)?-(?:ivory|cream|caramel|cocoa|grey|charcoal)$/.test(v);
+  const bunnyValid = v => typeof v === "string" && (BUNNY_SPECIAL.includes(v) || /^[a-z]+(?:-[a-z]+)?-(?:ivory|cream|caramel|cocoa|grey|charcoal)$/.test(v));
   function bunnyVariant() {
     const v = Store.settings && Store.settings.bunny;
     return bunnyValid(v) ? v : BUNNY_DEFAULT;
@@ -1240,12 +1241,11 @@
     const host = $("#bunnyPicker");
     if (!host) return;
     const cur = bunnyVariant();
+    const opt = v => `<button type="button" class="bunny-opt ${v === cur ? "active" : ""}" data-bunny="${v}" title="${v}">`
+      + `<span class="bunny-sprite static" style="background-image:url('${bunnyURL(v)}')"></span></button>`;
     let html = "";
-    for (const o of BUNNY_OUTFITS) for (const f of BUNNY_FACES) {
-      const v = `${o}-${f}`;
-      html += `<button type="button" class="bunny-opt ${v === cur ? "active" : ""}" data-bunny="${v}" title="${v}">`
-        + `<span class="bunny-sprite static" style="background-image:url('${bunnyURL(v)}')"></span></button>`;
-    }
+    for (const o of BUNNY_OUTFITS) for (const f of BUNNY_FACES) html += opt(`${o}-${f}`);
+    for (const v of BUNNY_SPECIAL) html += opt(v); // 특별 토끼(해골)를 맨 뒤에
     host.innerHTML = html;
   }
   // 홈 마스코트 말풍선 — 남은 복습량에 맞춘 멘트(누르면 랜덤으로 바뀜)
