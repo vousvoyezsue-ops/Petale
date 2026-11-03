@@ -267,13 +267,14 @@ input, textarea, select { font-family: inherit; }
 }
 .brand-mark {
   display: grid; place-items: center;
-  height: 38px; width: auto;
+  width: 34px; height: 34px;
 }
-.brand-iris {
-  height: 38px; width: 28px;
-  background-color: var(--ink);
-  -webkit-mask: url(../assets/logo-iris.webp) center / contain no-repeat;
-  mask: url(../assets/logo-iris.webp) center / contain no-repeat;
+.brand-photo {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  box-shadow: 0 1px 3px rgba(0,0,0,.14), inset 0 0 0 1px rgba(255,255,255,.25);
 }
 .brand-name {
   font-family: var(--font-brand);
@@ -2807,12 +2808,13 @@ body:not(.pre-auth) .auth-gate { display: none; }
   to   { opacity: 1; transform: none; }
 }
 .gate-brand { text-align: center; margin-bottom: 22px; }
-.gate-logo {
-  width: 104px; height: 154px;
+.gate-photo {
+  width: 104px; height: 104px;
   margin: 2px auto 14px;
-  background-color: var(--ink);
-  -webkit-mask: url(../assets/logo-iris.webp) center / contain no-repeat;
-  mask: url(../assets/logo-iris.webp) center / contain no-repeat;
+  display: block;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 3px 12px rgba(90,70,40,.20), inset 0 0 0 1px rgba(255,255,255,.3);
 }
 .brand-mark.xl { width: 58px; height: 58px; margin: 0 auto 14px; }
 .gate-title {
