@@ -381,7 +381,7 @@ input, textarea, select { font-family: inherit; }
   background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--sage-400) 70%, transparent));
 }
 .hero-eyebrow i:last-child { transform: scaleX(-1); }
-.hero-title:empty, .gate-subtitle:empty { display: none; }
+.hero-title:empty, .gate-subtitle:empty, #heroSummary:empty { display: none; }
 .hero-title {
   font-family: var(--font-brand);
   font-size: clamp(27px, 4.2vw, 40px);
