@@ -3142,6 +3142,14 @@
     updateStudyStar();
     updateStudyRibbon();
     updateRepBadge(card);
+    updateCardBunny();
+  }
+
+  // 카드 모서리에 앉아 있는 토끼 표시 여부
+  function updateCardBunny() {
+    const el = $("#cardBunny");
+    if (!el) return;
+    el.classList.toggle("hidden", Store.settings.cardBunny === false);
   }
 
   // 이 카드를 지금 몇 회째 보고 있는지 캡슐로 표시 (지난 복습 횟수 + 이번)
@@ -3742,6 +3750,7 @@
     $$("#themeGrid .theme-swatch").forEach(b => b.classList.toggle("active", b.dataset.theme === Store.settings.theme));
     $("#ttsToggle").checked = !!Store.settings.tts;
     $("#repBadgeToggle").checked = Store.settings.repBadge !== false;
+    $("#cardBunnyToggle").checked = Store.settings.cardBunny !== false;
     renderTtsVoiceOptions();
     $("#ttsVoiceRow").classList.toggle("hidden", !Store.settings.tts);
     renderBunnyPicker();
@@ -3790,6 +3799,11 @@
     Store.setSetting("repBadge", e.target.checked);
     // 학습 중이면 즉시 반영
     if (session && session.current) updateRepBadge(currentCard());
+  });
+
+  $("#cardBunnyToggle").addEventListener("change", (e) => {
+    Store.setSetting("cardBunny", e.target.checked);
+    updateCardBunny();
   });
 
   // 학습 알림 (망각곡선 기반)

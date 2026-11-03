@@ -269,11 +269,14 @@ input, textarea, select { font-family: inherit; }
   display: grid; place-items: center;
   width: 36px; height: 36px;
   border-radius: 50%;
-  color: #fff;
-  background:
-    radial-gradient(120% 120% at 25% 20%, rgba(255,255,255,.55) 0%, transparent 45%),
-    linear-gradient(140deg, var(--blush-300) 0%, var(--rose-500) 55%, var(--sage-400) 130%);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--rose-500) 35%, transparent), inset 0 1px 1px rgba(255,255,255,.5);
+  background: color-mix(in srgb, var(--olive-700) 9%, var(--paper));
+  box-shadow: inset 0 0 0 1px var(--edge), 0 1px 3px rgba(0,0,0,.08);
+}
+.brand-iris {
+  width: 80%; height: 80%;
+  background-color: var(--ink);
+  -webkit-mask: url(../assets/logo-iris-mark.webp) center / contain no-repeat;
+  mask: url(../assets/logo-iris-mark.webp) center / contain no-repeat;
 }
 .brand-name {
   font-family: var(--font-brand);
@@ -1244,6 +1247,17 @@ body[data-view="docreader"] #app { max-width: none; }
     linear-gradient(150deg, color-mix(in srgb, var(--blush-200) 85%, transparent), color-mix(in srgb, var(--lime-200) 65%, transparent)) border-box;
   box-shadow: var(--shadow-md);
 }
+.card-bunny {
+  --bs: 1.9;
+  position: absolute;
+  top: 0; left: 20px;
+  transform: translateY(-84%);
+  z-index: 3;
+  pointer-events: none;
+  filter: drop-shadow(0 3px 3px rgba(0,0,0,.16));
+}
+.answer-card.media-card .card-bunny { left: 14px; }
+@media (max-width: 560px) { .card-bunny { --bs: 1.6; left: 14px; } }
 .answer-card:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--sage-400) 40%, transparent), var(--shadow-md);
@@ -2785,6 +2799,13 @@ body:not(.pre-auth) .auth-gate { display: none; }
   to   { opacity: 1; transform: none; }
 }
 .gate-brand { text-align: center; margin-bottom: 22px; }
+.gate-logo {
+  width: 104px; height: 154px;
+  margin: 2px auto 14px;
+  background-color: var(--ink);
+  -webkit-mask: url(../assets/logo-iris.webp) center / contain no-repeat;
+  mask: url(../assets/logo-iris.webp) center / contain no-repeat;
+}
 .brand-mark.xl { width: 58px; height: 58px; margin: 0 auto 14px; }
 .gate-title {
   font-family: var(--font-brand);
