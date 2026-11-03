@@ -1705,6 +1705,12 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
 .rt-swatch:hover { transform: scale(1.12); }
 .rt-select { height:30px; border:1px solid var(--edge); border-radius:7px; background:var(--paper); color:var(--ink); padding:0 6px; font-size:12px; }
 
+/* 읽어주기 목소리 선택 행 */
+.tts-voice-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+.tts-voice-row.hidden { display: none; }
+.tts-voice-row #ttsVoiceSelect { flex: 1; min-width: 0; height: 34px; font-size: 13px; }
+.tts-voice-row #ttsVoicePreview { flex-shrink: 0; white-space: nowrap; }
+
 .rich-field {
   width: 100%;
   min-height: 68px;
