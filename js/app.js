@@ -1265,9 +1265,9 @@
     const el = $("#bunnyBubble");
     if (!el) return;
     const g = todayGoal();
-    // 숫자는 아래 요약이 보여주므로 말풍선은 응원만(중복 방지)
+    // 오늘 목표 or 응원을 말풍선에 (누르면 바뀜). 토끼 아래엔 따로 표시 안 함.
     const pool = g.total > 0
-      ? [t("bunny.cheer"), t("bunny.lets")]
+      ? [t("bunny.goalLeft", { n: g.total }), t("bunny.cheer"), t("bunny.lets")]
       : [t("bunny.done"), t("bunny.proud"), t("bunny.rest")];
     el.textContent = pool[cycle ? Math.floor(Math.random() * pool.length) : 0];
   }
@@ -1511,16 +1511,8 @@
     wireFolderCards(grid);
     wireDeckCards(grid);
 
-    // 히어로: 오늘의 학습 목표(남은 수) — 복습/새 학습 분리 표시
-    const g = todayGoal();
-    if (g.total > 0) {
-      const parts = [];
-      if (g.reviews) parts.push(t("home.goalReview", { n: g.reviews }));
-      if (g.neu) parts.push(t("home.goalNew", { n: g.neu }));
-      $("#heroSummary").innerHTML = `${t("home.goalLead", { n: g.total })}<span class="goal-split"> · ${parts.join(" · ")}</span>`;
-    } else {
-      $("#heroSummary").textContent = g.hasPlan ? t("home.goalDone") : (g.total === 0 ? t("home.goalDone") : "");
-    }
+    // 토끼 아래 요약 텍스트는 표시하지 않음 — 오늘 목표/응원은 말풍선(#bunnyBubble)으로만
+    $("#heroSummary").textContent = "";
     setBunnyBubble(false);
     applyBunnies();
     // "모두 학습"은 지금 할 수 있는(예정 복습+남은 새) 게 있을 때만
