@@ -1214,6 +1214,56 @@
     return out;
   }
 
+  /* ══════════ 토끼 마스코트 ══════════ */
+  const BUNNY_OUTFITS = ["oatmeal", "sage-knit", "rose", "corduroy", "navy", "doctor"];
+  const BUNNY_FACES = ["ivory", "cream", "caramel", "cocoa", "grey", "charcoal"];
+  const BUNNY_DEFAULT = "oatmeal-ivory";
+  const bunnyValid = v => typeof v === "string" && /^[a-z]+(?:-[a-z]+)?-(?:ivory|cream|caramel|cocoa|grey|charcoal)$/.test(v);
+  function bunnyVariant() {
+    const v = Store.settings && Store.settings.bunny;
+    return bunnyValid(v) ? v : BUNNY_DEFAULT;
+  }
+  const bunnyURL = v => `assets/bunnies/bunny-${v}-sheet.png`;
+  function applyBunnies() {
+    const url = `url('${bunnyURL(bunnyVariant())}')`;
+    document.querySelectorAll(".bunny-sprite.js-bunny").forEach(el => { el.style.backgroundImage = url; });
+  }
+  function setBunnyVariant(v) {
+    if (!bunnyValid(v)) return;
+    Store.setSetting("bunny", v);
+    applyBunnies();
+    renderBunnyPicker();
+  }
+  function renderBunnyPicker() {
+    const host = $("#bunnyPicker");
+    if (!host) return;
+    const cur = bunnyVariant();
+    let html = "";
+    for (const o of BUNNY_OUTFITS) for (const f of BUNNY_FACES) {
+      const v = `${o}-${f}`;
+      html += `<button type="button" class="bunny-opt ${v === cur ? "active" : ""}" data-bunny="${v}" title="${v}">`
+        + `<span class="bunny-sprite static" style="background-image:url('${bunnyURL(v)}')"></span></button>`;
+    }
+    host.innerHTML = html;
+  }
+  // 홈 마스코트 말풍선 — 남은 복습량에 맞춘 멘트(누르면 랜덤으로 바뀜)
+  function setBunnyBubble(cycle) {
+    const el = $("#bunnyBubble");
+    if (!el) return;
+    const all = aggCounts(Store.state.decks);
+    const waiting = all.due + all.neu;
+    const pool = waiting > 0
+      ? [t("bunny.due", { n: waiting }), t("bunny.cheer"), t("bunny.lets")]
+      : [t("bunny.done"), t("bunny.proud"), t("bunny.rest")];
+    el.textContent = pool[cycle ? Math.floor(Math.random() * pool.length) : 0];
+  }
+  $("#bunnyPicker")?.addEventListener("click", (e) => {
+    const b = e.target.closest(".bunny-opt");
+    if (b) setBunnyVariant(b.dataset.bunny);
+  });
+  $("#homeBunny")?.addEventListener("click", () => setBunnyBubble(true));
+  applyBunnies(); // 초기화 시 게이트(로딩/로그인) 등 정적 마스코트에 현재 토끼 적용
+
   function renderHome() {
     renderFolderBar();
     const grid = $("#deckGrid");
@@ -1244,13 +1294,13 @@
         if (subs.length) html += `<div class="home-divider">${t("folder.decksHere")}</div>`;
         html += decks.map(d => deckCardHTML(d, i++)).join("");
       } else if (!subs.length) {
-        html += `<div class="deck-empty"><span class="big">❀</span>${t("folder.empty")}</div>`;
+        html += `<div class="deck-empty"><span class="bunny-sprite js-bunny empty-bunny" aria-hidden="true"></span><p>${t("folder.empty")}</p></div>`;
       }
     } else { // starred | flat
       const decks = sortDecks(Store.state.decks.filter(d => mode === "starred" ? d.starred : true));
       html = decks.length
         ? decks.map((d, k) => deckCardHTML(d, k)).join("")
-        : `<div class="deck-empty"><span class="big">❀</span>${t("hero.empty")}</div>`;
+        : `<div class="deck-empty"><span class="bunny-sprite js-bunny empty-bunny" aria-hidden="true"></span><p>${t("hero.empty")}</p></div>`;
     }
 
     grid.innerHTML = html;
@@ -1261,6 +1311,8 @@
     const all = aggCounts(Store.state.decks);
     const waiting = all.due + all.neu;
     $("#heroSummary").innerHTML = waiting ? t("hero.waiting", { n: waiting }) : t("hero.done");
+    setBunnyBubble(false);
+    applyBunnies();
     $("#btnStudyAll").classList.toggle("hidden", !waiting || selectMode);
     $("#btnNewDeck").classList.toggle("hidden", selectMode);
 
@@ -3483,6 +3535,8 @@
     $("#ttsToggle").checked = !!Store.settings.tts;
     renderTtsVoiceOptions();
     $("#ttsVoiceRow").classList.toggle("hidden", !Store.settings.tts);
+    renderBunnyPicker();
+    applyBunnies();
     const remOn = !!Store.settings.reminders && Reminders.granted();
     $("#reminderToggle").checked = remOn;
     $("#reminderTime").value = Store.settings.reminderTime || "09:00";
