@@ -1596,6 +1596,47 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
 .bunny-opt.active { border-color: var(--sage-400); background: color-mix(in srgb, var(--sage-400) 12%, var(--paper)); }
 .bunny-opt .bunny-sprite { --bs: 1.6; }
 
+/* ══════════ 스터디룸 ══════════ */
+.room-floor {
+  margin-top: 8px;
+  padding: 30px 22px;
+  border-radius: var(--r-lg);
+  background:
+    radial-gradient(900px 220px at 50% -10%, color-mix(in srgb, var(--lime-200) 40%, transparent), transparent 70%),
+    linear-gradient(180deg, var(--paper-soft), color-mix(in srgb, var(--blush-50) 60%, var(--paper)));
+  border: 1px solid var(--edge);
+  display: flex; flex-wrap: wrap; gap: 20px 16px;
+  justify-content: center; align-items: flex-end;
+  min-height: 220px;
+}
+.room-floor.hidden { display: none; }
+.room-bunny {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  width: 92px; transition: transform .2s;
+}
+.room-bunny .bunny-sprite { --bs: 2.4; }
+.room-bunny.idle .bunny-sprite { opacity: .55; filter: saturate(.75); }
+.room-bunny.studying { transform: translateY(-2px); }
+.room-name {
+  font-size: 12.5px; font-weight: 640; color: var(--ink-2);
+  max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.room-bunny.me .room-name { color: var(--rose-600); }
+.room-status {
+  font-size: 10.5px; font-weight: 600; color: var(--ink-3);
+  padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+.room-bunny.studying .room-status {
+  color: var(--olive-700); background: color-mix(in srgb, var(--sage-400) 20%, transparent);
+}
+.room-empty { color: var(--ink-3); font-size: 14px; text-align: center; align-self: center; padding: 30px 10px; margin: 0 auto; }
+.room-signin {
+  text-align: center; padding: 30px 20px; margin-top: 8px;
+  border: 1px dashed var(--edge); border-radius: var(--r-lg); color: var(--ink-2);
+  display: flex; flex-direction: column; gap: 14px; align-items: center;
+}
+.room-signin.hidden { display: none; }
+
 .data-actions { display: flex; gap: 10px; justify-content: center; }
 
 /* ═══ friends ═══ */
