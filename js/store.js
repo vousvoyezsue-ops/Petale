@@ -734,8 +734,8 @@ const Store = (() => {
   }
 
   /* ── 학습 플랜 (마감/자동 분배) ── */
-  function addPlan({ name, date, deckIds }) {
-    const plan = { id: uid(), name: (name || "").slice(0, 60), date, deckIds: Array.isArray(deckIds) ? deckIds.slice() : [], created: Date.now() };
+  function addPlan({ name, date, deckIds, dailyNew }) {
+    const plan = { id: uid(), name: (name || "").slice(0, 60), date, deckIds: Array.isArray(deckIds) ? deckIds.slice() : [], dailyNew: Math.max(0, Number(dailyNew) || 0), created: Date.now() };
     state.plans.push(plan);
     save();
     return plan;
@@ -746,6 +746,7 @@ const Store = (() => {
     if (patch.name != null) p.name = String(patch.name).slice(0, 60);
     if (patch.date != null) p.date = patch.date;
     if (Array.isArray(patch.deckIds)) p.deckIds = patch.deckIds.slice();
+    if ("dailyNew" in patch) p.dailyNew = Math.max(0, Number(patch.dailyNew) || 0);
     save();
   }
   function deletePlan(id) { state.plans = state.plans.filter(p => p.id !== id); save(); }
@@ -754,23 +755,29 @@ const Store = (() => {
   const startOfDay = (ts) => { const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); };
   const planDateTs = (dateStr) => { const d = new Date(String(dateStr) + "T00:00:00"); return isNaN(d) ? NaN : d.getTime(); };
 
-  // 플랜 통계 — 남은 날, 새 카드 분배(하루 목표), 진행률, 오늘 할 일
+  // 플랜 통계 — 복습(dueToday) / 새 학습(todayNew)을 나눠서 계산.
+  // 하루 새 카드는 plan.dailyNew로 직접 정하거나(>0), 비우면 남은 날에 자동 분배.
   function planStats(plan, now = Date.now()) {
     const deckSet = new Set(plan.deckIds || []);
     const cards = state.cards.filter(c => deckSet.has(c.deckId) && !c.suspended);
     const total = cards.length;
     const learned = cards.filter(c => (c.views || 0) > 0).length;   // 한 번이라도 본 카드
-    const newCards = total - learned;                               // 아직 한 번도 안 본 카드
-    const dueToday = cards.filter(c => (c.views || 0) > 0 && c.due <= now).length;
+    const newCards = total - learned;                               // 아직 한 번도 안 본(남은) 새 카드
+    const dueToday = cards.filter(c => (c.views || 0) > 0 && c.due <= now).length; // 지금 복습 예정
     const today = startOfDay(now);
     const examTs = planDateTs(plan.date);
     const daysLeft = isNaN(examTs) ? null : Math.round((examTs - today) / SRS.DAY); // 0 = 오늘, 음수 = 지남
-    // 새 카드를 남은 날에 고르게 분배(오늘~시험일 포함). 지났으면 전부 오늘.
-    const studyDays = daysLeft == null ? 1 : Math.max(1, daysLeft + 1);
-    const perDay = newCards > 0 ? Math.ceil(newCards / studyDays) : 0;
-    const todayNew = Math.min(perDay, newCards);
-    const progress = total ? learned / total : (daysLeft != null ? 0 : 0);
-    return { total, newCards, learned, dueToday, daysLeft, perDay, todayNew, todayTotal: todayNew + dueToday, progress, examTs };
+    const studyDays = daysLeft == null ? 1 : Math.max(1, daysLeft + 1); // 오늘~시험일 포함
+    // 오늘 이미 시작한 새 카드(플랜 덱 합) — 하루 목표에서 차감
+    const key = todayKey(now);
+    const introducedToday = (plan.deckIds || []).reduce((a, id) => a + (state.newLog[`${id}|${key}`] || 0), 0);
+    const startNew = newCards + introducedToday;                    // 오늘 시작 시점의 남은 새 카드
+    const targetNew = (plan.dailyNew && plan.dailyNew > 0)
+      ? plan.dailyNew                                               // 사용자가 직접 지정한 하루 새 카드
+      : (startNew > 0 ? Math.ceil(startNew / studyDays) : 0);       // 자동 분배
+    const todayNew = Math.max(0, Math.min(targetNew - introducedToday, newCards));
+    const progress = total ? learned / total : 0;
+    return { total, newCards, learned, dueToday, daysLeft, perDay: targetNew, targetNew, todayNew, todayTotal: todayNew + dueToday, progress, examTs };
   }
 
   // 타임라인 — 오늘부터 시험일까지 각 날의 새 카드 배정량(난이도 한눈에)
@@ -779,10 +786,11 @@ const Store = (() => {
     const out = [];
     if (st.daysLeft == null) return out;
     const days = Math.max(1, st.daysLeft) + 1; // 오늘..시험일 (지났으면 오늘 1칸)
+    const fixed = plan.dailyNew && plan.dailyNew > 0 ? plan.dailyNew : 0;
     let remaining = st.newCards;
     for (let i = 0; i < days; i++) {
       const left = days - i;
-      const take = remaining > 0 ? Math.ceil(remaining / left) : 0;
+      const take = remaining <= 0 ? 0 : (fixed ? Math.min(fixed, remaining) : Math.ceil(remaining / left));
       remaining -= take;
       out.push({ offset: i, ts: startOfDay(now) + i * SRS.DAY, newCount: take, isExam: i === Math.max(0, st.daysLeft) });
     }
