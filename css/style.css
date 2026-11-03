@@ -996,7 +996,7 @@ body[data-view="docreader"] #app { max-width: none; }
 }
 /* 카드 우측 상단 코너: 반복 횟수 뱃지 + 읽어주기 버튼 */
 .ac-corner {
-  position: absolute; top: 12px; right: 12px;
+  position: absolute; top: 12px; left: 12px;
   display: flex; align-items: center; gap: 8px;
   z-index: 2;
 }
@@ -1251,7 +1251,7 @@ body[data-view="docreader"] #app { max-width: none; }
   --sc: 2.2;
   position: absolute;
   top: calc(-34px * var(--sc) + 8px);   /* 카드 윗변 기준 아주 살짝 아래로 */
-  left: 22px;                 /* ← 좌우 위치는 이 값(또는 right)만 바꾸면 됨 */
+  right: 22px;                /* ← 좌우 위치는 이 값(또는 left)만 바꾸면 됨 */
   width: calc(23px * var(--sc));
   height: calc(38px * var(--sc));
   background-repeat: no-repeat;
@@ -1265,7 +1265,7 @@ body[data-view="docreader"] #app { max-width: none; }
 }
 @keyframes bunny-swing { to { background-position: calc(-138px * var(--sc)) 0; } }
 @media (prefers-reduced-motion: reduce) { .card-bunny { animation: none; } }
-@media (max-width: 560px) { .card-bunny { --sc: 1.7; left: 12px; } }
+@media (max-width: 560px) { .card-bunny { --sc: 1.7; right: 12px; } }
 .answer-card:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--sage-400) 40%, transparent), var(--shadow-md);
