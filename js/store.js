@@ -68,6 +68,7 @@ const Store = (() => {
       reviews: {}, // { "YYYY-MM-DD": count }
       newLog: {},  // { "deckId|YYYY-MM-DD": 오늘 시작한 새 카드 수 }
       folders: [],
+      plans: [],   // 학습 플랜/마감 — { id, name, date:"YYYY-MM-DD", deckIds:[], created }
       ratingCounts: { 0: 0, 1: 0, 2: 0, 3: 0 },
       settings: { ...DEFAULT_SETTINGS },
       updatedAt: now, // 마지막 변경 시각 — 클라우드 동기화 충돌 판정용
@@ -85,6 +86,7 @@ const Store = (() => {
       reviews: data.reviews || {},
       newLog: data.newLog || {},
       folders: data.folders || [],
+      plans: Array.isArray(data.plans) ? data.plans : [],
       ratingCounts: data.ratingCounts || { 0: 0, 1: 0, 2: 0, 3: 0 },
       settings: { ...DEFAULT_SETTINGS, ...(data.settings || {}) },
       updatedAt: data.updatedAt || Date.now(),
@@ -731,6 +733,62 @@ const Store = (() => {
     return { deck, count };
   }
 
+  /* ── 학습 플랜 (마감/자동 분배) ── */
+  function addPlan({ name, date, deckIds }) {
+    const plan = { id: uid(), name: (name || "").slice(0, 60), date, deckIds: Array.isArray(deckIds) ? deckIds.slice() : [], created: Date.now() };
+    state.plans.push(plan);
+    save();
+    return plan;
+  }
+  function updatePlan(id, patch) {
+    const p = state.plans.find(x => x.id === id);
+    if (!p) return;
+    if (patch.name != null) p.name = String(patch.name).slice(0, 60);
+    if (patch.date != null) p.date = patch.date;
+    if (Array.isArray(patch.deckIds)) p.deckIds = patch.deckIds.slice();
+    save();
+  }
+  function deletePlan(id) { state.plans = state.plans.filter(p => p.id !== id); save(); }
+  function getPlan(id) { return state.plans.find(p => p.id === id); }
+
+  const startOfDay = (ts) => { const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); };
+  const planDateTs = (dateStr) => { const d = new Date(String(dateStr) + "T00:00:00"); return isNaN(d) ? NaN : d.getTime(); };
+
+  // 플랜 통계 — 남은 날, 새 카드 분배(하루 목표), 진행률, 오늘 할 일
+  function planStats(plan, now = Date.now()) {
+    const deckSet = new Set(plan.deckIds || []);
+    const cards = state.cards.filter(c => deckSet.has(c.deckId) && !c.suspended);
+    const total = cards.length;
+    const learned = cards.filter(c => (c.views || 0) > 0).length;   // 한 번이라도 본 카드
+    const newCards = total - learned;                               // 아직 한 번도 안 본 카드
+    const dueToday = cards.filter(c => (c.views || 0) > 0 && c.due <= now).length;
+    const today = startOfDay(now);
+    const examTs = planDateTs(plan.date);
+    const daysLeft = isNaN(examTs) ? null : Math.round((examTs - today) / SRS.DAY); // 0 = 오늘, 음수 = 지남
+    // 새 카드를 남은 날에 고르게 분배(오늘~시험일 포함). 지났으면 전부 오늘.
+    const studyDays = daysLeft == null ? 1 : Math.max(1, daysLeft + 1);
+    const perDay = newCards > 0 ? Math.ceil(newCards / studyDays) : 0;
+    const todayNew = Math.min(perDay, newCards);
+    const progress = total ? learned / total : (daysLeft != null ? 0 : 0);
+    return { total, newCards, learned, dueToday, daysLeft, perDay, todayNew, todayTotal: todayNew + dueToday, progress, examTs };
+  }
+
+  // 타임라인 — 오늘부터 시험일까지 각 날의 새 카드 배정량(난이도 한눈에)
+  function planTimeline(plan, now = Date.now()) {
+    const st = planStats(plan, now);
+    const out = [];
+    if (st.daysLeft == null) return out;
+    const days = Math.max(1, st.daysLeft) + 1; // 오늘..시험일 (지났으면 오늘 1칸)
+    let remaining = st.newCards;
+    for (let i = 0; i < days; i++) {
+      const left = days - i;
+      const take = remaining > 0 ? Math.ceil(remaining / left) : 0;
+      remaining -= take;
+      out.push({ offset: i, ts: startOfDay(now) + i * SRS.DAY, newCount: take, isExam: i === Math.max(0, st.daysLeft) });
+    }
+    return out;
+  }
+
   /* ── stats ── */
   function deckCounts(deckId, now = Date.now()) {
     const cards = cardsOf(deckId);
@@ -800,6 +858,7 @@ const Store = (() => {
     setSetting, setSteps,
     addDeck, updateDeck, deleteDeck, deleteDecks, getDeck, patchDeck,
     addFolder, updateFolder, deleteFolder, getFolder, childFolders, isDescendantFolder,
+    addPlan, updatePlan, deletePlan, getPlan, planStats, planTimeline,
     addMedia, getMedia, putMedia, referencedMedia, gcMedia,
     addCard, updateCard, deleteCard, deleteCards, cardsOf, moveCards, bulkAddCards, syncClozeSiblings, syncOcclusionSiblings, replaceDeckCards, mergeDeckCards,
     sectionsOf, setSection,
