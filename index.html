@@ -194,6 +194,8 @@
       </div>
     </div>
 
+    <div class="plan-section" id="planSection"></div>
+
     <div class="folder-bar-row">
       <div class="folder-bar" id="folderBar"></div>
       <button class="btn ghost sm select-toggle" id="btnSelectMode" data-i18n="home.select">선택</button>
@@ -783,6 +785,31 @@
     <div class="modal-actions">
       <button type="button" class="btn ghost" data-close data-i18n="common.cancel"></button>
       <button type="submit" class="btn primary" id="deckModalSubmit"></button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="modal" id="planModal">
+  <form method="dialog" class="modal-body" id="planForm">
+    <h3 id="planModalTitle"></h3>
+    <label class="field">
+      <span data-i18n="plan.name"></span>
+      <input type="text" id="planNameInput" required maxlength="60" data-i18n-placeholder="plan.namePh">
+    </label>
+    <label class="field">
+      <span data-i18n="plan.date"></span>
+      <input type="date" id="planDateInput" required>
+    </label>
+    <div class="field">
+      <span data-i18n="plan.decks"></span>
+      <p class="field-hint" data-i18n="plan.decksHint"></p>
+      <div class="plan-deck-pick" id="planDeckPick"></div>
+    </div>
+    <div class="plan-preview" id="planPreview"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn ghost danger hidden" id="planDelete" data-i18n="plan.delete"></button>
+      <button type="button" class="btn ghost" data-close data-i18n="common.cancel"></button>
+      <button type="submit" class="btn primary" id="planModalSubmit"></button>
     </div>
   </form>
 </dialog>

@@ -1637,6 +1637,62 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
 }
 .room-signin.hidden { display: none; }
 
+/* ══════════ 학습 플랜 ══════════ */
+.plan-section { margin: 4px 0 20px; }
+.plan-section:empty { display: none; }
+.plan-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.plan-head h3 { font-family: var(--font-display); font-size: 17px; }
+.plan-add { white-space: nowrap; }
+.plan-empty { color: var(--ink-3); font-size: 13.5px; padding: 6px 2px; }
+.plan-widget {
+  position: relative;
+  padding: 16px 18px; margin-bottom: 14px;
+  border-radius: var(--r-md);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--blush-200) 36%, var(--paper)), color-mix(in srgb, var(--lime-200) 40%, var(--paper)));
+  border: 1px solid var(--edge);
+}
+.pw-label { font-size: 11.5px; font-weight: 700; letter-spacing: .02em; color: var(--rose-600); text-transform: uppercase; }
+.pw-main { font-family: var(--font-display); font-size: 19px; margin: 3px 0 2px; color: var(--ink); }
+.pw-meta { font-size: 12.5px; color: var(--ink-2); }
+.pw-go { position: absolute; right: 16px; bottom: 16px; }
+.plan-bars { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.plan-bar {
+  padding: 13px 15px; border-radius: var(--r-md);
+  background: var(--paper-soft); border: 1px solid var(--edge);
+  cursor: pointer; transition: transform .15s, box-shadow .15s;
+}
+.plan-bar:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+.plan-bar.urgent { border-color: color-mix(in srgb, var(--rose-500) 50%, var(--edge)); }
+.plan-bar.past { opacity: .6; }
+.pb-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.pb-name { font-weight: 650; font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pb-dday { font-weight: 720; font-size: 14px; color: var(--olive-700); flex-shrink: 0; }
+.plan-bar.urgent .pb-dday { color: var(--rose-600); }
+.pb-track { height: 8px; border-radius: 99px; background: color-mix(in srgb, var(--ink) 8%, transparent); overflow: hidden; }
+.pb-fill { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--sage-400), var(--olive-600)); transition: width .4s; }
+.pb-foot { display: flex; justify-content: space-between; margin-top: 7px; font-size: 11.5px; color: var(--ink-3); }
+
+/* 플랜 모달: 덱 선택 + 타임라인 미리보기 */
+.plan-deck-pick { display: flex; flex-direction: column; gap: 4px; max-height: 190px; overflow-y: auto; margin-top: 6px; }
+.plan-deck-opt { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 9px; cursor: pointer; }
+.plan-deck-opt:hover { background: var(--paper-soft); }
+.plan-deck-opt input[type="checkbox"] { width: 17px; height: 17px; flex: 0 0 auto; accent-color: var(--sage-400); }
+.plan-deck-opt span { flex: 1; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plan-deck-opt em { font-size: 12px; color: var(--ink-3); font-style: normal; }
+.plan-preview:empty { display: none; }
+.plan-preview { margin-top: 6px; padding: 12px; border-radius: var(--r-sm); background: var(--paper-soft); border: 1px solid var(--edge); }
+.plan-stat-row { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--ink-2); margin-bottom: 10px; }
+.plan-chip { font-weight: 720; color: var(--olive-700); background: color-mix(in srgb, var(--sage-400) 18%, transparent); padding: 2px 10px; border-radius: 99px; }
+.tl-strip { display: flex; align-items: flex-end; gap: 4px; overflow-x: auto; padding-bottom: 4px; min-height: 86px; }
+.tl-col { display: flex; flex-direction: column; align-items: center; gap: 3px; flex-shrink: 0; width: 22px; }
+.tl-n { font-size: 9.5px; color: var(--ink-3); height: 12px; }
+.tl-bar { width: 14px; border-radius: 4px 4px 2px 2px; background: var(--lime-300); }
+.tl-col.heavy .tl-bar { background: var(--olive-600); }
+.tl-col.today .tl-bar { background: var(--rose-500); }
+.tl-col.exam .tl-bar { background: var(--blush-300); }
+.tl-d { font-size: 9px; color: var(--ink-3); height: 12px; white-space: nowrap; }
+.tl-col.today .tl-d { color: var(--rose-600); font-weight: 700; }
+
 .data-actions { display: flex; gap: 10px; justify-content: center; }
 
 /* ═══ friends ═══ */
