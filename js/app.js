@@ -3143,7 +3143,13 @@
   }
   if ("speechSynthesis" in window) {
     loadTtsVoices();
-    try { speechSynthesis.addEventListener("voiceschanged", loadTtsVoices); } catch {}
+    try { speechSynthesis.addEventListener("voiceschanged", () => { loadTtsVoices(); try { renderTtsVoiceOptions(); } catch {} }); } catch {}
+  }
+  const ttsNorm = s => (s || "").toLowerCase().replace(/_/g, "-");
+  function findVoiceById(id) {
+    if (!id) return null;
+    if (!ttsVoices.length) loadTtsVoices();
+    return ttsVoices.find(v => v.voiceURI === id || v.name === id) || null;
   }
 
   // 같은 언어의 음성 중 가장 자연스러운(신경망·고품질) 것을 고른다
@@ -3168,13 +3174,21 @@
     return cand.slice().sort((a, b) => score(b) - score(a))[0] || null;
   }
 
-  function speak(text) {
+  // 설정에서 고른 목소리가 이 언어와 맞으면 그걸, 아니면 자동 선택
+  function voiceForLang(lang) {
+    const base = lang.slice(0, 2).toLowerCase();
+    const pref = findVoiceById(Store.settings.ttsVoice);
+    if (pref && ttsNorm(pref.lang).startsWith(base)) return pref;
+    return pickTtsVoice(lang);
+  }
+
+  function speak(text, voiceOverride) {
     if (!("speechSynthesis" in window) || !text) return;
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = /[가-힣]/.test(text) ? "ko-KR" : "en-US";
-    const v = pickTtsVoice(u.lang);
-    if (v) u.voice = v;
+    const v = voiceOverride || voiceForLang(u.lang);
+    if (v) { u.voice = v; if (v.lang) u.lang = v.lang; }
     u.rate = 0.95;
     speechSynthesis.speak(u);
   }
@@ -3184,6 +3198,33 @@
     if (!card) return;
     if (card.type === "cloze") speak(clozeStrip(card.front));
     else speak(session.revealed ? card.back : card.front);
+  });
+
+  // ── 설정: 읽어주기 목소리 선택 ──
+  function ttsVoiceLabel(v) {
+    const base = (v.lang || "").slice(0, 2).toLowerCase();
+    const flag = base === "ko" ? "🇰🇷 " : base === "en" ? "🇬🇧 " : "";
+    return `${flag}${v.name} (${v.lang})`;
+  }
+  function renderTtsVoiceOptions() {
+    const sel = $("#ttsVoiceSelect");
+    if (!sel) return;
+    if (!ttsVoices.length) loadTtsVoices();
+    const list = ttsVoices
+      .filter(v => { const b = (v.lang || "").slice(0, 2).toLowerCase(); return b === "ko" || b === "en"; })
+      .sort((a, b) => (a.lang || "").localeCompare(b.lang || "") || (a.name || "").localeCompare(b.name || ""));
+    const cur = Store.settings.ttsVoice || "";
+    sel.innerHTML = `<option value="">${escapeHTML(t("tts.auto"))}</option>`
+      + list.map(v => `<option value="${escapeHTML(v.voiceURI || v.name)}">${escapeHTML(ttsVoiceLabel(v))}</option>`).join("");
+    sel.value = cur;
+    if (sel.value !== cur) sel.value = ""; // 저장된 음성이 이 기기에 없으면 표시만 '자동'(설정값은 유지)
+  }
+  $("#ttsVoiceSelect")?.addEventListener("change", (e) => Store.setSetting("ttsVoice", e.target.value || ""));
+  $("#ttsVoicePreview")?.addEventListener("click", () => {
+    const uri = $("#ttsVoiceSelect")?.value || "";
+    const v = uri ? findVoiceById(uri) : null;
+    const base = v ? (v.lang || "").slice(0, 2).toLowerCase() : (Store.settings.lang === "en" ? "en" : "ko");
+    speak(base === "en" ? t("tts.sampleEn") : t("tts.sampleKo"), v || undefined);
   });
 
   document.addEventListener("keydown", (e) => {
@@ -3385,6 +3426,8 @@
     $$("#appearanceSeg .seg-btn").forEach(b => b.classList.toggle("active", b.dataset.appearance === (Store.settings.appearance || "auto")));
     $$("#themeGrid .theme-swatch").forEach(b => b.classList.toggle("active", b.dataset.theme === Store.settings.theme));
     $("#ttsToggle").checked = !!Store.settings.tts;
+    renderTtsVoiceOptions();
+    $("#ttsVoiceRow").classList.toggle("hidden", !Store.settings.tts);
     const remOn = !!Store.settings.reminders && Reminders.granted();
     $("#reminderToggle").checked = remOn;
     $("#reminderTime").value = Store.settings.reminderTime || "09:00";
@@ -3420,7 +3463,10 @@
     refreshCurrentView();
   }));
 
-  $("#ttsToggle").addEventListener("change", (e) => Store.setSetting("tts", e.target.checked));
+  $("#ttsToggle").addEventListener("change", (e) => {
+    Store.setSetting("tts", e.target.checked);
+    $("#ttsVoiceRow").classList.toggle("hidden", !e.target.checked);
+  });
 
   // 학습 알림 (망각곡선 기반)
   $("#reminderToggle").addEventListener("change", async (e) => {
