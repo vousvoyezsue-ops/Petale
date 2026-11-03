@@ -102,8 +102,7 @@
 <div class="auth-gate" id="authGate">
   <div class="gate-panel">
     <div class="gate-brand">
-      <span class="bunny-sprite js-bunny gate-bunny" aria-hidden="true"></span>
-      <span class="brand-mark xl"><svg width="24" height="24"><use href="#i-flower"/></svg></span>
+      <div class="gate-logo" aria-hidden="true"></div>
       <h1 class="gate-title" data-i18n="gate.title"></h1>
       <p class="gate-subtitle" data-i18n="gate.subtitle"></p>
     </div>
@@ -157,7 +156,7 @@
 
 <header class="topbar">
   <button class="brand" id="brandHome" title="Petale">
-    <span class="brand-mark"><svg width="15" height="15"><use href="#i-flower"/></svg></span>
+    <span class="brand-mark"><span class="brand-iris" aria-hidden="true"></span></span>
     <span class="brand-name">Petale</span>
   </button>
   <div class="topbar-right">
@@ -426,6 +425,7 @@
 
     <div class="study-stage">
       <div class="answer-card" id="answerCard" tabindex="0" role="button">
+        <span class="card-bunny hidden" id="cardBunny" aria-hidden="true"></span>
         <div class="ac-corner">
           <button class="speak-btn" id="speakBtn" data-i18n-title="study.speak" hidden>
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
@@ -1111,6 +1111,14 @@
         <span data-i18n="set.repBadge"></span>
       </label>
       <p class="set-hint" data-i18n="set.repBadgeHint"></p>
+    </div>
+
+    <div class="set-group">
+      <label class="check-row">
+        <input type="checkbox" id="cardBunnyToggle">
+        <span data-i18n="set.cardBunny"></span>
+      </label>
+      <p class="set-hint" data-i18n="set.cardBunnyHint"></p>
     </div>
 
     <div class="set-group">
