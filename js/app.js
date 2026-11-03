@@ -3360,10 +3360,10 @@
       if (count >= 5) lvl = 2;
       if (count >= 15) lvl = 3;
       if (count >= 30) lvl = 4;
-      const title = future ? "" : t("stats.hmTip", { n: count, date: dateFmt.format(d) });
+      const tip = future ? "" : t("stats.hmTip", { n: count, date: dateFmt.format(d) });
       cells.push(`<i class="hm l${lvl} ${key === todayStr ? "today" : ""}"
         style="${future ? "visibility:hidden" : ""}"
-        title="${title}"></i>`);
+        data-tip="${tip}"></i>`);
     }
     hm.innerHTML = cells.join("");
     hm.scrollLeft = hm.scrollWidth;                          // 최근(오른쪽)이 보이게 스크롤
@@ -3392,6 +3392,39 @@
       <div class="hm-stat"><b>${longest}${unit}</b><span>${t("stats.hmLongest")}</span></div>
       <div class="hm-stat"><b>${current}${unit}</b><span>${t("stats.hmCurrent")}</span></div>`;
   }
+
+  // 히트맵 셀 호버 시 사진처럼 날짜·횟수가 뜨는 커스텀 툴팁
+  (function initHeatmapTip() {
+    const hm = $("#heatmap");
+    if (!hm) return;
+    let tipEl = null;
+    const ensure = () => {
+      if (!tipEl) { tipEl = document.createElement("div"); tipEl.className = "hm-tip"; tipEl.hidden = true; document.body.appendChild(tipEl); }
+      return tipEl;
+    };
+    const show = (cell) => {
+      const txt = cell.dataset.tip;
+      if (!txt) return;
+      const el = ensure();
+      el.textContent = txt;
+      el.hidden = false;
+      const r = cell.getBoundingClientRect();
+      const tr = el.getBoundingClientRect();
+      let left = r.left + r.width / 2 - tr.width / 2;
+      left = Math.max(8, Math.min(left, window.innerWidth - tr.width - 8));
+      let top = r.top - tr.height - 9;
+      if (top < 6) top = r.bottom + 9;           // 위 공간 부족하면 아래로
+      el.style.left = left + "px";
+      el.style.top = top + "px";
+    };
+    const hide = () => { if (tipEl) tipEl.hidden = true; };
+    hm.addEventListener("mouseover", (e) => { const c = e.target.closest(".hm[data-tip]"); if (c) show(c); });
+    hm.addEventListener("mouseout", (e) => { if (e.target.closest(".hm")) hide(); });
+    hm.addEventListener("mouseleave", hide);
+    hm.addEventListener("scroll", hide, { passive: true });
+    // 모바일 탭 지원
+    hm.addEventListener("click", (e) => { const c = e.target.closest(".hm[data-tip]"); if (c) { show(c); setTimeout(hide, 1600); } });
+  })();
 
   /* ══════════ 내보내기 / 가져오기 (백업) ══════════ */
   function doExport() {
