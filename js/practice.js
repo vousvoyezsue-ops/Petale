@@ -186,7 +186,15 @@ const Practice = (() => {
     return true;
   }
 
-  function writeMastered() { return write.total - write.queue.length; }
+  // 진행 수 = '통과(패스)' 횟수 기준 — 한번 통과한 것도 1로 세고, 복습(2번째 통과)까지 포함.
+  // 카드마다 WRITE_TARGET 패스 필요 → 전체 필요 패스 = total × TARGET, 완료 시 딱 꽉 참.
+  function writePasses() {
+    const mastered = write.total - write.queue.length;      // 2연속 끝난 카드 = TARGET 패스
+    let partial = 0;
+    for (const c of write.queue) partial += Math.min(c.hits || 0, WRITE_TARGET);
+    return mastered * WRITE_TARGET + partial;
+  }
+  function writeNeeded() { return write.total * WRITE_TARGET; }
 
   // 연속 정답 진행 동그라미 — 현재 카드의 hits 만큼 녹색으로 채움
   function paintDots() {
@@ -211,9 +219,9 @@ const Practice = (() => {
     write.lastOk = false;
     write.markedCorrect = false;
     write.retyping = false;
-    const done = writeMastered();
-    $("#writeProgress").textContent = `${done} / ${write.total}`;
-    $("#writeBar").style.width = `${(done / write.total) * 100}%`;
+    const done = writePasses(), need = writeNeeded();
+    $("#writeProgress").textContent = `${done} / ${need}`;
+    $("#writeBar").style.width = `${(done / need) * 100}%`;
     $("#writeQuestion").textContent = write.current.q;
     $("#writeFeedback").innerHTML = "";
     $("#writeWrong").innerHTML = "";
@@ -314,6 +322,8 @@ const Practice = (() => {
     }
     saveWrite();   // 진행 상황 저장 (큐가 비면 자동 삭제)
     if (write.queue.length === 0) {
+      const need = writeNeeded();
+      $("#writeProgress").textContent = `${need} / ${need}`;
       $("#writeBar").style.width = "100%";
       $("#writeBody").classList.add("hidden");
       $("#writeDone").classList.remove("hidden");
