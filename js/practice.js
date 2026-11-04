@@ -145,13 +145,41 @@ const Practice = (() => {
   // 틀린 카드는 큐 뒤쪽에 다시 들어가 반드시 다시 풀게 되고, 전부 맞혀야(큐가 비어야) 완료.
   const WRITE_TARGET = 2; // 통과하려면 '연속' 정답 횟수 (동그라미 개수와 동일)
 
-  function startWrite(deckId, exit) {
+  // ── 진행 상황 저장/이어하기 (덱별, 로컬 전용) ──
+  let writeDeckId = null;
+  const WKEY = id => "petale.write." + id;
+  function saveWrite() {
+    if (!write || !writeDeckId) return;
+    try {
+      if (!write.queue.length) { localStorage.removeItem(WKEY(writeDeckId)); return; }
+      localStorage.setItem(WKEY(writeDeckId), JSON.stringify({
+        total: write.total, misses: write.misses,
+        queue: write.queue.map(c => ({ q: c.q, a: c.a, hits: c.hits || 0 })),
+      }));
+    } catch { /* 저장소 접근 불가 시 무시 */ }
+  }
+  function loadWrite(deckId) {
+    try {
+      const d = JSON.parse(localStorage.getItem(WKEY(deckId)) || "null");
+      return (d && Array.isArray(d.queue) && d.queue.length) ? d : null;
+    } catch { return null; }
+  }
+  function clearWrite(deckId) { try { localStorage.removeItem(WKEY(deckId)); } catch {} }
+
+  function startWrite(deckId, exit, { fresh = false } = {}) {
     const p = pool(deckId);
     if (p.length < 1) return false;
     onExit = exit;
-    const items = shuffle(p);
-    items.forEach(it => it.hits = 0);  // 카드별 연속 정답 수
-    write = { queue: items.slice(), total: items.length, misses: 0, current: null, revealed: false, lastOk: false, markedCorrect: false };
+    writeDeckId = deckId;
+    const saved = fresh ? null : loadWrite(deckId);
+    if (saved) {   // 이어하기
+      const queue = saved.queue.map(c => ({ q: c.q, a: c.a, hits: c.hits || 0 }));
+      write = { queue, total: saved.total || queue.length, misses: saved.misses || 0, current: null, revealed: false, lastOk: false, markedCorrect: false };
+    } else {       // 새로 시작
+      const items = shuffle(p);
+      items.forEach(it => it.hits = 0);  // 카드별 연속 정답 수
+      write = { queue: items.slice(), total: items.length, misses: 0, current: null, revealed: false, lastOk: false, markedCorrect: false };
+    }
     $("#writeDone").classList.add("hidden");
     $("#writeBody").classList.remove("hidden");
     renderWrite();
@@ -188,6 +216,7 @@ const Practice = (() => {
     $("#writeBar").style.width = `${(done / write.total) * 100}%`;
     $("#writeQuestion").textContent = write.current.q;
     $("#writeFeedback").innerHTML = "";
+    $("#writeWrong").innerHTML = "";
     $("#writeInput").value = "";
     $("#writeInput").disabled = false;
     $("#writeCheck").classList.remove("hidden");
@@ -202,7 +231,8 @@ const Practice = (() => {
     if (write.revealed) return;
     write.revealed = true;
     const item = write.current;
-    const ok = !gaveUp && normalize($("#writeInput").value) === normalize(item.a);
+    const typed = $("#writeInput").value;   // 사용자가 쓴 답
+    const ok = !gaveUp && normalize(typed) === normalize(item.a);
     write.lastOk = ok;
     $("#writeCheck").classList.add("hidden");
     $("#writeDontKnow").classList.add("hidden");
@@ -210,6 +240,7 @@ const Practice = (() => {
       dotsCorrect();
       write.retyping = false;
       $("#writeInput").disabled = true;
+      $("#writeWrong").innerHTML = "";
       $("#writeFeedback").innerHTML = `<span class="wf ok">${t("write.correct")}</span>`;
       $("#writeMarkCorrect").classList.add("hidden");
       $("#writeNext").classList.add("hidden");
@@ -222,6 +253,10 @@ const Practice = (() => {
       $("#writeFeedback").innerHTML =
         `<span class="wf no">${t("write.wrongWas", { a: esc(item.a) })}</span>` +
         `<span class="wf retype">${t("write.retypeHint")}</span>`;
+      // 내가 틀리게 쓴 답을 입력창 위에 연하게 보여준다
+      $("#writeWrong").innerHTML = typed.trim()
+        ? `${t("write.youWrote")} <s>${esc(typed.trim())}</s>`
+        : "";
       $("#writeInput").value = "";
       $("#writeInput").disabled = false;
       $("#writeMarkCorrect").classList.remove("hidden"); // 오탐 구제(동의어·오타)
@@ -236,6 +271,7 @@ const Practice = (() => {
     if (normalize($("#writeInput").value) === normalize(write.current.a)) {
       write.retyping = false;
       $("#writeInput").disabled = true;
+      $("#writeWrong").innerHTML = "";
       $("#writeMarkCorrect").classList.add("hidden");
       $("#writeFeedback").innerHTML = `<span class="wf ok">${t("write.retypeOk")}</span>`;
       $("#writeNext").classList.remove("hidden");
@@ -251,6 +287,7 @@ const Practice = (() => {
     write.retyping = false;
     if (write.misses > 0) write.misses--; // 방금 집계한 오답 취소
     $("#writeInput").disabled = true;
+    $("#writeWrong").innerHTML = "";
     $("#writeFeedback").innerHTML = `<span class="wf ok">${t("write.correct")}</span>`;
     dotsCorrect();
     $("#writeMarkCorrect").classList.add("hidden");
@@ -275,6 +312,7 @@ const Practice = (() => {
       const pos = write.lastOk ? write.queue.length : Math.min(write.queue.length, 1);
       write.queue.splice(pos, 0, cur);
     }
+    saveWrite();   // 진행 상황 저장 (큐가 비면 자동 삭제)
     if (write.queue.length === 0) {
       $("#writeBar").style.width = "100%";
       $("#writeBody").classList.add("hidden");
@@ -361,6 +399,7 @@ const Practice = (() => {
 
   function exit() {
     stopMatchTimer();
+    saveWrite();   // 나가도 Write 진행 상황 유지 (다음에 이어하기)
     quiz = write = match = null;
     onExit?.();
   }
@@ -384,7 +423,7 @@ const Practice = (() => {
       const deckId = currentPracticeDeck;
       startQuiz(deckId, onExit);
     });
-    $("#writeRetry").addEventListener("click", () => startWrite(currentPracticeDeck, onExit));
+    $("#writeRetry").addEventListener("click", () => { clearWrite(currentPracticeDeck); startWrite(currentPracticeDeck, onExit, { fresh: true }); });
     $("#matchRetry").addEventListener("click", () => startMatch(currentPracticeDeck, onExit));
   }
 
