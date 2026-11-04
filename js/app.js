@@ -4367,6 +4367,20 @@
 
   // PWA: 오프라인 지원 + 홈 화면 설치 (https 또는 localhost에서만 동작)
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("sw.js").catch(() => {});
+    // 새 배포가 뜨면 자동으로 최신 버전으로 갱신한다.
+    // 이미 SW가 제어 중이던 페이지에서만(= 재방문/업데이트) 새 SW 활성화 시 새로고침 → 첫 방문엔 불필요한 리로드 없음.
+    const hadController = !!navigator.serviceWorker.controller;
+    let swRefreshing = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (swRefreshing || !hadController) return;
+      swRefreshing = true;
+      location.reload();
+    });
+    navigator.serviceWorker.register("sw.js").then(reg => {
+      reg.update?.();
+      // 주기적으로 + 앱이 다시 보일 때 새 버전 확인 (설치형 PWA가 재개될 때도 갱신)
+      setInterval(() => reg.update?.(), 120 * 1000);
+      document.addEventListener("visibilitychange", () => { if (!document.hidden) reg.update?.(); });
+    }).catch(() => {});
   }
 })();
