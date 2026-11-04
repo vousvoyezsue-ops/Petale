@@ -3129,3 +3129,50 @@ body:not(.pre-auth) .auth-gate { display: none; }
   .ctbl { font-size: .72em; }
   .ctbl th, .ctbl td { padding: 6px 8px; }
 }
+
+/* ══════════════ Bunny Café 포커스 독 ══════════════ */
+.cafe-slot { aspect-ratio: 16 / 9; width: 100%; border-radius: 14px; margin: 6px 0 14px; background: #3b2e27; }
+body.pre-auth .cafe-dock { display: none; }
+
+.cafe-dock { position: fixed; z-index: 60; }
+.cafe-dock.collapsed { right: 16px; bottom: 16px; }
+.cafe-dock.mini { right: 16px; bottom: 16px; width: min(340px, calc(100vw - 32px)); }
+/* room 모드 geometry(top/left/width/height)는 JS가 #cafeSlot에 맞춰 인라인 설정 */
+body[data-view="study"] .cafe-dock.collapsed,
+body[data-view="study"] .cafe-dock.mini { bottom: 80px; }
+
+.cafe-dock.collapsed .cafe-panel,
+.cafe-dock.mini .cafe-bar,
+.cafe-dock.room .cafe-bar { display: none; }
+.cafe-dock.collapsed .cafe-bar { display: inline-flex; }
+.cafe-dock.mini .cafe-panel,
+.cafe-dock.room .cafe-panel { display: flex; }
+.cafe-dock.room .cafe-panel-head { display: none; }
+
+.cafe-bar {
+  align-items: center; gap: 7px; font: inherit; cursor: pointer;
+  background: var(--paper); color: var(--ink);
+  border: 1px solid var(--edge); border-radius: 999px;
+  padding: 8px 14px 8px 12px; box-shadow: var(--shadow-sm);
+  transition: background .15s, transform .15s;
+}
+.cafe-bar:hover { background: color-mix(in srgb, var(--olive-700) 9%, var(--paper)); transform: translateY(-1px); }
+.cafe-bar-label { font-size: 13px; font-weight: 600; letter-spacing: .01em; }
+
+.cafe-panel {
+  flex-direction: column; width: 100%; height: 100%;
+  background: #3b2e27; border: 1px solid var(--edge);
+  border-radius: 14px; overflow: hidden; box-shadow: var(--shadow-lg);
+}
+.cafe-dock.mini .cafe-panel { height: auto; }
+.cafe-panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 7px 5px 12px; background: var(--paper); color: var(--ink);
+  border-bottom: 1px solid var(--edge);
+}
+.cafe-panel-title { font-size: 12.5px; font-weight: 600; }
+.cafe-icon-btn { display: grid; place-items: center; width: 26px; height: 26px; border: 0; background: transparent; color: var(--ink-2); border-radius: 8px; cursor: pointer; }
+.cafe-icon-btn:hover { background: color-mix(in srgb, var(--ink) 9%, transparent); color: var(--ink); }
+.cafe-frame-wrap { position: relative; width: 100%; aspect-ratio: 16 / 9; }
+.cafe-dock.room .cafe-frame-wrap { flex: 1; aspect-ratio: auto; height: 100%; }
+.cafe-frame-wrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
