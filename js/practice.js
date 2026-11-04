@@ -182,6 +182,7 @@ const Practice = (() => {
     write.revealed = false;
     write.lastOk = false;
     write.markedCorrect = false;
+    write.retyping = false;
     const done = writeMastered();
     $("#writeProgress").textContent = `${done} / ${write.total}`;
     $("#writeBar").style.width = `${(done / write.total) * 100}%`;
@@ -203,18 +204,43 @@ const Practice = (() => {
     const item = write.current;
     const ok = !gaveUp && normalize($("#writeInput").value) === normalize(item.a);
     write.lastOk = ok;
-    if (!ok) write.misses++;
-    $("#writeInput").disabled = true;
-    $("#writeFeedback").innerHTML = ok
-      ? `<span class="wf ok">${t("write.correct")}</span>`
-      : `<span class="wf no">${t("write.wrongWas", { a: esc(item.a) })}</span>`;
-    ok ? dotsCorrect() : dotsMiss();
     $("#writeCheck").classList.add("hidden");
     $("#writeDontKnow").classList.add("hidden");
-    $("#writeNext").classList.remove("hidden");
-    // 자동 채점이 틀림으로 봤을 때만 수동 정답 처리 버튼 노출(오타·동의어·서식 차이 구제)
-    $("#writeMarkCorrect").classList.toggle("hidden", ok);
-    $("#writeNext").focus();
+    if (ok) {
+      dotsCorrect();
+      write.retyping = false;
+      $("#writeInput").disabled = true;
+      $("#writeFeedback").innerHTML = `<span class="wf ok">${t("write.correct")}</span>`;
+      $("#writeMarkCorrect").classList.add("hidden");
+      $("#writeNext").classList.remove("hidden");
+      $("#writeNext").focus();
+    } else {
+      // 틀리면 정답을 직접 입력(그대로 쓰기)해야 넘어갈 수 있다
+      write.misses++;
+      dotsMiss();
+      write.retyping = true;
+      $("#writeFeedback").innerHTML =
+        `<span class="wf no">${t("write.wrongWas", { a: esc(item.a) })}</span>` +
+        `<span class="wf retype">${t("write.retypeHint")}</span>`;
+      $("#writeInput").value = "";
+      $("#writeInput").disabled = false;
+      $("#writeMarkCorrect").classList.remove("hidden"); // 오탐 구제(동의어·오타)
+      $("#writeNext").classList.add("hidden");           // 정답을 쓰기 전엔 숨김
+      $("#writeInput").focus();
+    }
+  }
+
+  // 틀린 뒤 정답을 그대로 입력하면 통과시켜 '다음'을 연다 (맞을 때까지 쓰기)
+  function onWriteInput() {
+    if (!write || !write.revealed || !write.retyping) return;
+    if (normalize($("#writeInput").value) === normalize(write.current.a)) {
+      write.retyping = false;
+      $("#writeInput").disabled = true;
+      $("#writeMarkCorrect").classList.add("hidden");
+      $("#writeFeedback").innerHTML = `<span class="wf ok">${t("write.retypeOk")}</span>`;
+      $("#writeNext").classList.remove("hidden");
+      $("#writeNext").focus();
+    }
   }
 
   // 사용자가 직접 정답으로 인정 (자동 채점 오탐 구제). 한 문항당 한 번만 반영
@@ -222,18 +248,22 @@ const Practice = (() => {
     if (!write || !write.revealed || write.markedCorrect) return;
     write.markedCorrect = true;
     write.lastOk = true;
+    write.retyping = false;
     if (write.misses > 0) write.misses--; // 방금 집계한 오답 취소
+    $("#writeInput").disabled = true;
     $("#writeFeedback").innerHTML = `<span class="wf ok">${t("write.correct")}</span>`;
     dotsCorrect();
     $("#writeMarkCorrect").classList.add("hidden");
+    $("#writeNext").classList.remove("hidden");
     $("#writeNext").focus();
   }
 
   function nextWrite() {
     const cur = write.queue.shift();          // 현재 카드 큐에서 빼기
     cur.hits = write.lastOk ? (cur.hits || 0) + 1 : 0;   // 연속: 틀리면 0으로 리셋
-    if (cur.hits < WRITE_TARGET) {            // 연속 목표 미달 → 뒤쪽에 다시 넣어 재출제
-      const pos = Math.min(write.queue.length, 3);
+    if (cur.hits < WRITE_TARGET) {            // 연속 목표 미달 → 다시 넣어 재출제
+      // 틀린 카드는 금방 다시(바로 다음다음), 1번 맞힌 카드는 약간 간격 두고
+      const pos = write.lastOk ? Math.min(write.queue.length, 3) : Math.min(write.queue.length, 1);
       write.queue.splice(pos, 0, cur);
     }
     if (write.queue.length === 0) {
@@ -333,8 +363,13 @@ const Practice = (() => {
     $("#writeDontKnow").addEventListener("click", () => checkWrite(true));
     $("#writeMarkCorrect").addEventListener("click", markCorrect);
     $("#writeNext").addEventListener("click", nextWrite);
+    $("#writeInput").addEventListener("input", onWriteInput);
     $("#writeInput").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { e.preventDefault(); write?.revealed ? nextWrite() : checkWrite(false); }
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      if (!write) return;
+      if (!write.revealed) checkWrite(false);        // 채점
+      else if (!write.retyping) nextWrite();          // 다음 (정답 쓰기 중엔 Enter 무시)
     });
     $("#quizRetry").addEventListener("click", () => {
       const deckId = currentPracticeDeck;
