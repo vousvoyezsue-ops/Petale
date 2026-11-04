@@ -1427,37 +1427,66 @@
       return;
     }
     const now = Date.now();
+    const ddayCls = d => d == null ? "" : d < 0 ? "past" : d <= 3 ? "soon" : d <= 7 ? "near" : "";
     const rows = plans.map(p => ({ p, s: Store.planStats(p, now) }))
       .sort((a, b) => ((a.s.daysLeft == null ? 1e9 : a.s.daysLeft) - (b.s.daysLeft == null ? 1e9 : b.s.daysLeft)));
     const focus = rows.find(x => (x.s.daysLeft == null || x.s.daysLeft >= 0) && x.s.todayTotal > 0) || rows[0];
-    let widget = "";
+
+    // ── 오늘의 집중 (hero) ──
+    let hero = "";
     if (focus) {
-      const fd = planFocusDeck(focus.p);
-      const s = focus.s;
-      const sub = fd ? t("plan.focusDeck", { deck: escapeHTML(fd.name) }) : escapeHTML(focus.p.name);
-      widget = `<div class="plan-widget" data-plan="${focus.p.id}">
-        <div class="pw-label">${t("plan.todayFocus")}</div>
-        <div class="pw-main">${sub}</div>
-        <div class="pw-meta">${planTodayLabel(s)} · ${escapeHTML(focus.p.name)} ${ddayLabel(s.daysLeft)}</div>
-        <button class="btn primary sm pw-go" data-plan="${focus.p.id}">${t("plan.studyNow")}</button>
+      const s = focus.s, fd = planFocusDeck(focus.p);
+      const deckName = fd ? escapeHTML(fd.name) : escapeHTML(focus.p.name);
+      const pct = Math.round(s.progress * 100);
+      const chips = [];
+      if (s.dueToday) chips.push(`<span class="pf-chip review">${t("plan.splitReview", { n: s.dueToday })}</span>`);
+      if (s.todayNew) chips.push(`<span class="pf-chip new">${t("plan.splitNew", { n: s.todayNew })}</span>`);
+      if (!chips.length) chips.push(`<span class="pf-chip done">${t("plan.todayDone")}</span>`);
+      const ringIn = s.todayTotal > 0
+        ? `<b>${s.todayTotal}</b><span>${t("plan.leftUnit")}</span>`
+        : `<b class="done">✓</b>`;
+      hero = `<div class="plan-focus" data-plan="${focus.p.id}" role="button" tabindex="0">
+        <div class="pf-ring" style="--pct:${pct}"><div class="pf-ring-in">${ringIn}</div></div>
+        <div class="pf-body">
+          <div class="pf-label">${t("plan.todayFocus")} · ${escapeHTML(focus.p.name)} <span class="pf-dday ${ddayCls(s.daysLeft)}">${ddayLabel(s.daysLeft)}</span></div>
+          <div class="pf-deck">${deckName}</div>
+          <div class="pf-chips">${chips.join("")}</div>
+        </div>
+        <button class="btn primary pf-go" data-plan="${focus.p.id}">${t("plan.studyNow")}</button>
       </div>`;
     }
-    const bars = rows.map(({ p, s }) => {
+
+    // ── 플랜 카드 ──
+    const cards = rows.map(({ p, s }) => {
       const pct = Math.round(s.progress * 100);
-      const urgent = s.daysLeft != null && s.daysLeft <= 3 && s.daysLeft >= 0;
-      return `<div class="plan-bar ${urgent ? "urgent" : ""} ${s.daysLeft != null && s.daysLeft < 0 ? "past" : ""}" data-plan="${p.id}" role="button" tabindex="0">
-        <div class="pb-top"><span class="pb-name">${escapeHTML(p.name)}</span><span class="pb-dday">${ddayLabel(s.daysLeft)}</span></div>
-        <div class="pb-track"><i class="pb-fill" style="width:${pct}%"></i></div>
-        <div class="pb-foot"><span>${t("plan.progressN", { n: pct })}</span><span>${planTodayLabel(s)}</span></div>
+      const dcls = ddayCls(s.daysLeft);
+      let spark = "";
+      try {
+        const tl = Store.planTimeline(p, now).slice(0, 16);
+        if (tl.length > 1) {
+          const mx = Math.max(1, ...tl.map(d => d.newCount));
+          spark = `<div class="pc-spark">` + tl.map((d, i) =>
+            `<i class="${d.isExam ? "exam" : i === 0 ? "today" : ""}" style="height:${d.newCount ? Math.max(3, Math.round(d.newCount / mx * 22)) : 2}px"></i>`
+          ).join("") + `</div>`;
+        }
+      } catch { /* 타임라인 없으면 생략 */ }
+      return `<div class="plan-card ${dcls}" data-plan="${p.id}" role="button" tabindex="0">
+        <div class="pc-top"><span class="pc-name">${escapeHTML(p.name)}</span><span class="pc-dday ${dcls}">${ddayLabel(s.daysLeft)}</span></div>
+        <div class="pc-today">${planTodayLabel(s)}</div>
+        <div class="pc-bar"><i style="width:${pct}%"></i></div>
+        <div class="pc-foot"><span>${t("plan.progressN", { n: pct })}</span><span>${t("plan.totalN", { n: s.total })}</span></div>
+        ${spark}
       </div>`;
     }).join("");
-    host.innerHTML = `<div class="plan-head"><h3>${t("plan.title")}</h3>${addBtn}</div>${widget}<div class="plan-bars">${bars}</div>`;
+
+    host.innerHTML = `<div class="plan-head"><h3>${t("plan.title")}</h3>${addBtn}</div>${hero}<div class="plan-grid">${cards}</div>`;
     $("#btnAddPlan")?.addEventListener("click", () => openPlanModal(null));
-    host.querySelectorAll(".plan-bar").forEach(el => {
-      el.addEventListener("click", () => openPlanModal(el.dataset.plan));
-      el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPlanModal(el.dataset.plan); } });
+    const openEdit = el => openPlanModal(el.dataset.plan);
+    host.querySelectorAll(".plan-card, .plan-focus").forEach(el => {
+      el.addEventListener("click", () => openEdit(el));
+      el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEdit(el); } });
     });
-    host.querySelectorAll(".pw-go").forEach(el => el.addEventListener("click", (e) => {
+    host.querySelectorAll(".pf-go").forEach(el => el.addEventListener("click", (e) => {
       e.stopPropagation();
       const p = Store.getPlan(el.dataset.plan); if (p) startPlanSession(p);
     }));
