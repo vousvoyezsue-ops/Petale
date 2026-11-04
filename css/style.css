@@ -2298,6 +2298,7 @@ mark, mark.hl, .hl {
 .write-feedback { min-height: 24px; margin-top: 14px; font-size: 14.5px; }
 .wf.ok { color: var(--sage-500); font-weight: 660; }
 .wf.no { color: var(--danger); font-weight: 560; }
+.wf.retype { display: block; margin-top: 5px; font-size: 12.5px; font-weight: 500; color: var(--ink-3); }
 
 .match-meta { display: flex; align-items: center; gap: 14px; }
 .match-timer {
@@ -3178,20 +3179,23 @@ body[data-view="study"] .cafe-dock.mini { bottom: 84px; }
 .cafe-dock.room .cafe-frame-wrap { flex: 1; aspect-ratio: auto; height: 100%; }
 .cafe-frame-wrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
 
-/* ══════════ Write 모드 연속 정답 동그라미 ══════════ */
-.write-dots { display: flex; gap: 10px; justify-content: center; margin: 14px 0 2px; }
+/* ══════════ Write 모드 연속 정답 동그라미 (카드 우측 상단, 페탈 팔레트) ══════════ */
+.write-dots {
+  position: absolute; top: 14px; right: 16px;
+  display: flex; gap: 7px; z-index: 2;
+}
 .wd {
-  width: 15px; height: 15px; border-radius: 50%;
-  border: 2px solid var(--ink-3); background: transparent;
+  width: 13px; height: 13px; border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--ink-3) 70%, transparent); background: transparent;
   transition: background .2s, border-color .2s, transform .2s;
 }
-.wd.on { background: #6faa5a; border-color: #6faa5a; }
+.wd.on { background: var(--olive-700); border-color: var(--olive-700); }
 .wd.pop { animation: wd-pop .34s ease; }
 .wd.miss { animation: wd-miss .64s ease; }
-@keyframes wd-pop { 0% { transform: scale(1); } 42% { transform: scale(1.45); } 100% { transform: scale(1); } }
+@keyframes wd-pop { 0% { transform: scale(1); } 42% { transform: scale(1.5); } 100% { transform: scale(1); } }
 @keyframes wd-miss {
-  0%, 100% { background: transparent; border-color: var(--ink-3); }
-  15%, 48%, 80% { background: #e591b5; border-color: #e591b5; }
-  32%, 64% { background: transparent; border-color: #e591b5; }
+  0%, 100% { background: transparent; border-color: color-mix(in srgb, var(--ink-3) 70%, transparent); }
+  15%, 48%, 80% { background: var(--rose-500); border-color: var(--rose-500); }
+  32%, 64% { background: transparent; border-color: var(--rose-500); }
 }
 @media (prefers-reduced-motion: reduce) { .wd.pop, .wd.miss { animation: none; } }
