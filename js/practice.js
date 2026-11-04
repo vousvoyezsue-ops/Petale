@@ -143,11 +143,14 @@ const Practice = (() => {
 
   // 퀴즐렛 Write 방식: 덱의 모든 카드를 직접 입력해 맞혀야 끝난다.
   // 틀린 카드는 큐 뒤쪽에 다시 들어가 반드시 다시 풀게 되고, 전부 맞혀야(큐가 비어야) 완료.
+  const WRITE_TARGET = 2; // 통과하려면 '연속' 정답 횟수 (동그라미 개수와 동일)
+
   function startWrite(deckId, exit) {
     const p = pool(deckId);
     if (p.length < 1) return false;
     onExit = exit;
     const items = shuffle(p);
+    items.forEach(it => it.hits = 0);  // 카드별 연속 정답 수
     write = { queue: items.slice(), total: items.length, misses: 0, current: null, revealed: false, lastOk: false, markedCorrect: false };
     $("#writeDone").classList.add("hidden");
     $("#writeBody").classList.remove("hidden");
@@ -156,6 +159,23 @@ const Practice = (() => {
   }
 
   function writeMastered() { return write.total - write.queue.length; }
+
+  // 연속 정답 진행 동그라미 — 현재 카드의 hits 만큼 녹색으로 채움
+  function paintDots() {
+    const n = write.current.hits || 0;
+    $$("#writeDots .wd").forEach((d, i) => { d.classList.remove("miss", "pop"); d.classList.toggle("on", i < n); });
+  }
+  function dotsCorrect() {   // 정답: hits(증가 전) 인덱스까지 채우고 마지막 동그라미 팝
+    const n = write.current.hits || 0, dots = $$("#writeDots .wd");
+    dots.forEach((d, i) => { d.classList.remove("miss"); d.classList.toggle("on", i <= n); });
+    const last = dots[Math.min(n, dots.length - 1)];
+    if (last) { last.classList.add("pop"); setTimeout(() => last.classList.remove("pop"), 340); }
+  }
+  function dotsMiss() {      // 오답: 분홍으로 깜빡였다가 빈 동그라미로
+    const dots = $$("#writeDots .wd");
+    dots.forEach(d => { d.classList.remove("on"); d.classList.add("miss"); });
+    setTimeout(() => dots.forEach(d => d.classList.remove("miss")), 640);
+  }
 
   function renderWrite() {
     write.current = write.queue[0];
@@ -173,6 +193,7 @@ const Practice = (() => {
     $("#writeDontKnow").classList.remove("hidden");
     $("#writeNext").classList.add("hidden");
     $("#writeMarkCorrect").classList.add("hidden");
+    paintDots();
     $("#writeInput").focus();
   }
 
@@ -187,6 +208,7 @@ const Practice = (() => {
     $("#writeFeedback").innerHTML = ok
       ? `<span class="wf ok">${t("write.correct")}</span>`
       : `<span class="wf no">${t("write.wrongWas", { a: esc(item.a) })}</span>`;
+    ok ? dotsCorrect() : dotsMiss();
     $("#writeCheck").classList.add("hidden");
     $("#writeDontKnow").classList.add("hidden");
     $("#writeNext").classList.remove("hidden");
@@ -202,14 +224,15 @@ const Practice = (() => {
     write.lastOk = true;
     if (write.misses > 0) write.misses--; // 방금 집계한 오답 취소
     $("#writeFeedback").innerHTML = `<span class="wf ok">${t("write.correct")}</span>`;
+    dotsCorrect();
     $("#writeMarkCorrect").classList.add("hidden");
     $("#writeNext").focus();
   }
 
   function nextWrite() {
     const cur = write.queue.shift();          // 현재 카드 큐에서 빼기
-    if (!write.lastOk) {
-      // 틀렸으면 몇 장 뒤에 다시 넣어 반드시 다시 풀게 한다 (마지막 한 장이면 바로 재출제)
+    cur.hits = write.lastOk ? (cur.hits || 0) + 1 : 0;   // 연속: 틀리면 0으로 리셋
+    if (cur.hits < WRITE_TARGET) {            // 연속 목표 미달 → 뒤쪽에 다시 넣어 재출제
       const pos = Math.min(write.queue.length, 3);
       write.queue.splice(pos, 0, cur);
     }
