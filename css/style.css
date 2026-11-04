@@ -3177,3 +3177,21 @@ body[data-view="study"] .cafe-dock.mini { bottom: 84px; }
 .cafe-frame-wrap { position: relative; width: 100%; aspect-ratio: 16 / 9; }
 .cafe-dock.room .cafe-frame-wrap { flex: 1; aspect-ratio: auto; height: 100%; }
 .cafe-frame-wrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+
+/* ══════════ Write 모드 연속 정답 동그라미 ══════════ */
+.write-dots { display: flex; gap: 10px; justify-content: center; margin: 14px 0 2px; }
+.wd {
+  width: 15px; height: 15px; border-radius: 50%;
+  border: 2px solid var(--ink-3); background: transparent;
+  transition: background .2s, border-color .2s, transform .2s;
+}
+.wd.on { background: #6faa5a; border-color: #6faa5a; }
+.wd.pop { animation: wd-pop .34s ease; }
+.wd.miss { animation: wd-miss .64s ease; }
+@keyframes wd-pop { 0% { transform: scale(1); } 42% { transform: scale(1.45); } 100% { transform: scale(1); } }
+@keyframes wd-miss {
+  0%, 100% { background: transparent; border-color: var(--ink-3); }
+  15%, 48%, 80% { background: #e591b5; border-color: #e591b5; }
+  32%, 64% { background: transparent; border-color: #e591b5; }
+}
+@media (prefers-reduced-motion: reduce) { .wd.pop, .wd.miss { animation: none; } }
