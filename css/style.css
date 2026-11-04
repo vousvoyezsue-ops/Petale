@@ -3243,3 +3243,24 @@ body[data-view="study"] .cafe-dock.mini { bottom: 84px; }
   32%, 64% { background: transparent; border-color: var(--rose-500); }
 }
 @media (prefers-reduced-motion: reduce) { .wd.pop, .wd.miss { animation: none; } }
+
+/* ══════════════ 모바일 보정 ══════════════ */
+/* 플랜 '오늘의 집중' — 좁은 화면에선 버튼을 아래로 내려 덱 이름이 안 잘리게 */
+@media (max-width: 480px) {
+  .plan-focus { flex-wrap: wrap; gap: 12px 14px; padding: 14px 16px; }
+  .pf-ring { width: 56px; height: 56px; }
+  .pf-ring-in { width: 44px; height: 44px; }
+  .pf-go { width: 100%; order: 3; }
+  .pf-deck { font-size: 18px; }
+}
+/* 상단 탭이 6개라 좁은 폰에서 '친구'가 잘리던 문제 — 간격·폰트 줄여 모두 보이게 */
+@media (max-width: 400px) {
+  .topbar { padding-left: 10px; padding-right: 10px; gap: 6px; }
+  .topbar-right { gap: 6px; }
+  .topnav { gap: 1px; padding: 3px; }
+  .nav-link { padding: 6px 8px; font-size: 12px; }
+  .icon-btn.gear { width: 34px; height: 34px; }
+}
+@media (max-width: 345px) {
+  .nav-link { padding: 6px 6px; font-size: 11.5px; }
+}
