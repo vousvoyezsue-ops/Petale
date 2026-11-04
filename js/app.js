@@ -1278,8 +1278,13 @@
     const friends = (roomUsers || [])
       .filter(u => u && u.studying && u.id !== meId)
       .slice(0, 5)
-      .map(u => variantToCafe(bunnyValid(u.bunny) ? u.bunny : BUNNY_DEFAULT));
-    try { cafeFrame.contentWindow.postMessage({ type: "petale-cafe", friends }, location.origin); } catch { /* 베스트에포트 */ }
+      .map(u => {
+        const c = variantToCafe(bunnyValid(u.bunny) ? u.bunny : BUNNY_DEFAULT);
+        c.name = String(u.username || "").slice(0, 12);
+        return c;
+      });
+    const meName = (Social.profile && Social.profile.username) || "";
+    try { cafeFrame.contentWindow.postMessage({ type: "petale-cafe", friends, meName }, location.origin); } catch { /* 베스트에포트 */ }
   }
   function ensureCafeFrame() {
     if (cafeFrame) return;
