@@ -1259,14 +1259,27 @@
   /* ══════════ Bunny Café 포커스 독 (전역 iframe 1개) ══════════ */
   let cafeFrame = null;          // iframe (지연 생성)
   let cafeState = "collapsed";   // collapsed | mini | room
-  // 선택한 마스코트(옷+색)를 카페 토끼로 전달
-  function cafeSrc() {
-    const v = bunnyVariant();
-    const OUT = { oatmeal: "Oatmeal", "sage-knit": "Sage knit", rose: "Rose", corduroy: "Corduroy", navy: "Navy", doctor: "Doctor" };
+  // 마스코트 변형(outfit-face) → 카페 파라미터(옷·색)
+  const CAFE_OUT = { oatmeal: "Oatmeal", "sage-knit": "Sage knit", rose: "Rose", corduroy: "Corduroy", navy: "Navy", doctor: "Doctor" };
+  function variantToCafe(v) {
     let fur = "ivory", outfit = "Sage knit";
-    const m = v.match(/^(.*)-(ivory|cream|caramel|cocoa|grey|charcoal)$/);
-    if (m && OUT[m[1]]) { outfit = OUT[m[1]]; fur = m[2]; }
+    const m = String(v || "").match(/^(.*)-(ivory|cream|caramel|cocoa|grey|charcoal)$/);
+    if (m && CAFE_OUT[m[1]]) { outfit = CAFE_OUT[m[1]]; fur = m[2]; }
+    return { fur, outfit };
+  }
+  function cafeSrc() {
+    const { fur, outfit } = variantToCafe(bunnyVariant());
     return `cafe.html?${new URLSearchParams({ fur, outfit, seat: "5" })}`;
+  }
+  // 지금 공부 중인 친구(나 제외)를 카페 자리에 앉히도록 iframe에 전달
+  function syncCafeFriends() {
+    if (!cafeFrame || !cafeFrame.contentWindow) return;
+    const meId = Social.profile && Social.profile.id;
+    const friends = (roomUsers || [])
+      .filter(u => u && u.studying && u.id !== meId)
+      .slice(0, 5)
+      .map(u => variantToCafe(bunnyValid(u.bunny) ? u.bunny : BUNNY_DEFAULT));
+    try { cafeFrame.contentWindow.postMessage({ type: "petale-cafe", friends }, location.origin); } catch { /* 베스트에포트 */ }
   }
   function ensureCafeFrame() {
     if (cafeFrame) return;
@@ -1274,6 +1287,7 @@
     cafeFrame.src = cafeSrc();
     cafeFrame.title = "Bunny Café";
     cafeFrame.allow = "autoplay";
+    cafeFrame.addEventListener("load", syncCafeFriends); // 로드 후 현재 친구 전달
     $("#cafeFrameWrap").appendChild(cafeFrame);
   }
   function layoutCafe() {
@@ -1344,6 +1358,7 @@
   Social.setOnRoomState((users) => {
     roomUsers = Array.isArray(users) ? users : [];
     if (!$("#view-room").classList.contains("hidden")) renderRoom();
+    syncCafeFriends(); // 카페에도 지금 공부 중인 친구 반영
   });
   $("#roomSignin")?.querySelector("button")?.addEventListener("click", () => show("friends"));
   function renderRoom() {

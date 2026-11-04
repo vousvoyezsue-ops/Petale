@@ -277,9 +277,28 @@ const OUTFITS={
   'Doctor':{K:'#f2efe9',k:'#dbd6cc',j:'#fbfaf6',q:'#c9c3b8',M:'#8fa9a0',m:'#7a948b',n:'#a9bfb7'},
   'Corduroy':{K:'#9b7a5c',k:'#85674c',j:'#ad8e70',q:'#7a5d44',M:'#eadfca',m:'#d4c6ac',n:'#f3ebdc'},
 };
-const npcs={1:{fur:'cocoa',outfit:'Oatmeal',item:'laptop',phase:3},3:{fur:'grey',outfit:'Navy',item:'book',phase:11},4:{fur:'caramel',outfit:'Rose',item:'book',phase:19}};
+let npcs={1:{fur:'cocoa',outfit:'Oatmeal',item:'laptop',phase:3},3:{fur:'grey',outfit:'Navy',item:'book',phase:11},4:{fur:'caramel',outfit:'Rose',item:'book',phase:19}};
 const me={fur:FURS[CFG.fur]?CFG.fur:'ivory', outfit:OUTFITS[CFG.outfit]?CFG.outfit:'Sage knit', item:'book', phase:0, seat:null};
 const qsSeat=parseInt(qs.get('seat'),10); if(!isNaN(qsSeat)&&SEATS[qsSeat]&&!npcs[qsSeat]) me.seat=qsSeat;
+
+// 부모(앱)에서 '지금 공부 중인 친구' 목록을 받아 카페 자리에 앉힌다.
+// 메시지를 한 번이라도 받으면 기본 NPC는 실제 친구로 대체된다(단독 실행 시엔 기본 NPC 유지).
+let cafeFriends=null;
+function applyFriends(list){
+  npcs={};
+  const order=[2,4,0,3,1,5]; let k=0;
+  for(const f of (list||[])){
+    while(k<order.length && order[k]===me.seat) k++;
+    if(k>=order.length) break;
+    const seat=order[k++];
+    npcs[seat]={ fur:FURS[f.fur]?f.fur:'ivory', outfit:OUTFITS[f.outfit]?f.outfit:'Sage knit', item:(f.item==='laptop'?'laptop':'book'), phase:(seat*9+5)%40 };
+  }
+}
+function reflowFriends(){ if(cafeFriends) applyFriends(cafeFriends); }
+window.addEventListener('message',(e)=>{
+  const d=e.data; if(!d||d.type!=='petale-cafe'||!Array.isArray(d.friends)) return;
+  cafeFriends=d.friends; applyFriends(d.friends);
+});
 
 function drawBunny(x0,y0,o,blink,dip){
   const pal=Object.assign({},OUTFITS[o.outfit],FURS[o.fur]);
@@ -365,8 +384,8 @@ function seatAt(e){ const p=toScene(e); return SEATS.findIndex(s=>p.x>s.cx-24&&p
 cv.addEventListener('mousemove',e=>{ const i=seatAt(e); hover=(i>=0&&!npcs[i]&&me.seat===null)?i:null; cv.style.cursor=hover!==null?'pointer':'default'; });
 cv.addEventListener('mouseleave',()=>hover=null);
 cv.addEventListener('click',e=>{ const i=seatAt(e); if(i<0||npcs[i]) return;
-  if(me.seat===i){ if(!timer.running){ me.seat=null; hint.classList.remove('hide'); syncHud(); } return; }
-  if(me.seat!==null) return; me.seat=i; hover=null; hint.classList.add('hide'); syncHud(); });
+  if(me.seat===i){ if(!timer.running){ me.seat=null; reflowFriends(); hint.classList.remove('hide'); syncHud(); } return; }
+  if(me.seat!==null) return; me.seat=i; reflowFriends(); hover=null; hint.classList.add('hide'); syncHud(); });
 if(me.seat!==null) hint.classList.add('hide');
 
 // ---------- timer ----------
@@ -399,10 +418,10 @@ function initAudio(){
   const lp=A.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=2100; lp.Q.value=.6;
   const comp=A.createDynamicsCompressor(); out=A.createGain(); out.gain.value=0;
   lp.connect(comp); comp.connect(out); out.connect(A.destination); A._in=lp;
-  // vinyl crackle
+  // vinyl crackle (은은하게 — 치직거림을 약하게)
   const b=A.createBuffer(1,A.sampleRate*4,A.sampleRate), d=b.getChannelData(0);
-  for(let i=0;i<d.length;i++){ d[i]=(Math.random()*2-1)*0.04 + (Math.random()<0.0006?(Math.random()*2-1)*0.9:0); }
-  crackle=A.createBufferSource(); crackle.buffer=b; crackle.loop=true; const cg=A.createGain(); cg.gain.value=.35; const cf=A.createBiquadFilter(); cf.type='highpass'; cf.frequency.value=900;
+  for(let i=0;i<d.length;i++){ d[i]=(Math.random()*2-1)*0.018 + (Math.random()<0.00028?(Math.random()*2-1)*0.5:0); }
+  crackle=A.createBufferSource(); crackle.buffer=b; crackle.loop=true; const cg=A.createGain(); cg.gain.value=.14; const cf=A.createBiquadFilter(); cf.type='highpass'; cf.frequency.value=1000;
   crackle.connect(cf); cf.connect(cg); cg.connect(lp); crackle.start();
   // rain bed (only audible when it rains outside)
   rainSrc=A.createBufferSource(); rainSrc.buffer=noiseBuf(3); rainSrc.loop=true; const rf=A.createBiquadFilter(); rf.type='lowpass'; rf.frequency.value=1100; A._rainG=A.createGain(); A._rainG.gain.value=0;
