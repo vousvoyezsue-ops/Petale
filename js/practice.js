@@ -212,8 +212,8 @@ const Practice = (() => {
       $("#writeInput").disabled = true;
       $("#writeFeedback").innerHTML = `<span class="wf ok">${t("write.correct")}</span>`;
       $("#writeMarkCorrect").classList.add("hidden");
-      $("#writeNext").classList.remove("hidden");
-      $("#writeNext").focus();
+      $("#writeNext").classList.add("hidden");
+      scheduleAutoNext();   // 맞으면 자동으로 다음 카드
     } else {
       // 틀리면 정답을 직접 입력(그대로 쓰기)해야 넘어갈 수 있다
       write.misses++;
@@ -254,16 +254,25 @@ const Practice = (() => {
     $("#writeFeedback").innerHTML = `<span class="wf ok">${t("write.correct")}</span>`;
     dotsCorrect();
     $("#writeMarkCorrect").classList.add("hidden");
-    $("#writeNext").classList.remove("hidden");
-    $("#writeNext").focus();
+    $("#writeNext").classList.add("hidden");
+    scheduleAutoNext();
+  }
+
+  // 정답이면 잠깐 보여주고 자동으로 다음 카드로 (Enter로 더 빨리 넘길 수도 있음)
+  function scheduleAutoNext() {
+    clearTimeout(write._auto);
+    write._auto = setTimeout(() => {
+      if (write && write.revealed && write.lastOk && !write.retyping) nextWrite();
+    }, 600);
   }
 
   function nextWrite() {
+    clearTimeout(write._auto);
     const cur = write.queue.shift();          // 현재 카드 큐에서 빼기
     cur.hits = write.lastOk ? (cur.hits || 0) + 1 : 0;   // 연속: 틀리면 0으로 리셋
     if (cur.hits < WRITE_TARGET) {            // 연속 목표 미달 → 다시 넣어 재출제
-      // 틀린 카드는 금방 다시(바로 다음다음), 1번 맞힌 카드는 약간 간격 두고
-      const pos = write.lastOk ? Math.min(write.queue.length, 3) : Math.min(write.queue.length, 1);
+      // 틀린 카드는 금방 다시(한 장 뒤), 1번 맞힌 카드는 덱 맨 뒤로
+      const pos = write.lastOk ? write.queue.length : Math.min(write.queue.length, 1);
       write.queue.splice(pos, 0, cur);
     }
     if (write.queue.length === 0) {
