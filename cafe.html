@@ -22,7 +22,10 @@ html,body{ margin:0; background:transparent; }
 .hud .on{ color:#6f7d68; }
 .hint{ position:absolute; left:2%; bottom:3.5%; font-size:12px; color:var(--pill-ink); background:var(--pill); border:1px solid var(--pill-line); border-radius:999px; padding:6px 12px; transition:opacity .4s; pointer-events:none; }
 .hint.hide{ opacity:0; }
-@media (max-width:480px){ .hud button{ height:26px; min-width:26px; padding:0 6px; } .hud .time{ font-size:13px; min-width:44px; } .hud .mode{ font-size:11px; } .hint{ font-size:11px; } }
+.names{ position:absolute; inset:0; pointer-events:none; }
+.name{ position:absolute; transform:translate(-50%,-100%); font-family:Inter,"Noto Sans KR",system-ui,sans-serif; font-size:9px; font-weight:500; line-height:1; white-space:nowrap; max-width:72px; overflow:hidden; text-overflow:ellipsis; padding:2px 6px; border-radius:999px; background:var(--pill); color:var(--pill-ink); border:1px solid var(--pill-line); box-shadow:0 1px 3px rgba(40,25,15,.2); }
+.name.me{ background:#6f7d68; color:#fffdf6; border-color:rgba(255,255,255,.2); }
+@media (max-width:480px){ .hud button{ height:26px; min-width:26px; padding:0 6px; } .hud .time{ font-size:13px; min-width:44px; } .hud .mode{ font-size:11px; } .hint{ font-size:11px; } .name{ font-size:8px; max-width:56px; } }
 </style>
 </head>
 <body>
@@ -35,6 +38,7 @@ html,body{ margin:0; background:transparent; }
     <button id="reset" title="Reset" aria-label="Reset timer"><svg viewBox="0 0 16 16"><path d="M8 3a5 5 0 1 1-4.6 3H1.5L4.5 2.8 7.5 6H5.6A3.2 3.2 0 1 0 8 4.8z"/></svg></button>
     <button id="music" title="Lo-fi music" aria-label="Toggle lo-fi music" aria-pressed="false"><svg viewBox="0 0 16 16"><path d="M6 2.5l8-1.5v9.2a2.2 2.2 0 1 1-1.5-2.1V4.2L7.5 5.1v6.6A2.2 2.2 0 1 1 6 9.6z"/></svg></button>
   </div>
+  <div class="names" id="names"></div>
   <div class="hint" id="hint">Tap an empty table to sit</div>
 </div>
 
@@ -283,7 +287,8 @@ const qsSeat=parseInt(qs.get('seat'),10); if(!isNaN(qsSeat)&&SEATS[qsSeat]&&!npc
 
 // 부모(앱)에서 '지금 공부 중인 친구' 목록을 받아 카페 자리에 앉힌다.
 // 메시지를 한 번이라도 받으면 기본 NPC는 실제 친구로 대체된다(단독 실행 시엔 기본 NPC 유지).
-let cafeFriends=null;
+let cafeFriends=null, meName='';
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function applyFriends(list){
   npcs={};
   const order=[2,4,0,3,1,5]; let k=0;
@@ -291,13 +296,30 @@ function applyFriends(list){
     while(k<order.length && order[k]===me.seat) k++;
     if(k>=order.length) break;
     const seat=order[k++];
-    npcs[seat]={ fur:FURS[f.fur]?f.fur:'ivory', outfit:OUTFITS[f.outfit]?f.outfit:'Sage knit', item:(f.item==='laptop'?'laptop':'book'), phase:(seat*9+5)%40 };
+    npcs[seat]={ fur:FURS[f.fur]?f.fur:'ivory', outfit:OUTFITS[f.outfit]?f.outfit:'Sage knit', item:(f.item==='laptop'?'laptop':'book'), phase:(seat*9+5)%40, name:f.name||'' };
   }
+  renderNames();
 }
-function reflowFriends(){ if(cafeFriends) applyFriends(cafeFriends); }
+function reflowFriends(){ if(cafeFriends) applyFriends(cafeFriends); else renderNames(); }
+// 카페 토끼 위 이름표 (친구 + 나). 좌표는 320x180 씬 기준 %라 창 크기에 맞춰 자동 스케일.
+function renderNames(){
+  const host=document.getElementById('names'); if(!host) return;
+  let html='';
+  SEATS.forEach((s,i)=>{
+    let nm=null, cls='';
+    if(npcs[i]&&npcs[i].name) nm=npcs[i].name;
+    else if(me.seat===i&&meName){ nm=meName; cls=' me'; }
+    if(!nm) return;
+    const x=s.cx/320*100, y=(s.cy-36)/180*100;
+    html+=`<div class="name${cls}" style="left:${x}%;top:${y}%">${esc(nm)}</div>`;
+  });
+  host.innerHTML=html;
+}
 window.addEventListener('message',(e)=>{
-  const d=e.data; if(!d||d.type!=='petale-cafe'||!Array.isArray(d.friends)) return;
-  cafeFriends=d.friends; applyFriends(d.friends);
+  const d=e.data; if(!d||d.type!=='petale-cafe') return;
+  if(typeof d.meName==='string') meName=d.meName;
+  if(Array.isArray(d.friends)){ cafeFriends=d.friends; applyFriends(d.friends); }
+  else renderNames();
 });
 
 function drawBunny(x0,y0,o,blink,dip){
@@ -410,29 +432,43 @@ syncHud();
 // ---------- lo-fi (generated live, no external files) ----------
 let A=null, out=null, playing=false, sched=null, nextT=0, step=0, crackle=null, rainSrc=null, ext=null;
 const BPM=72, SPB=60/BPM, E8=SPB/2;
-const CH=[[53,57,60,64],[52,55,59,62],[50,53,57,60],[48,52,55,59]];
+// 재즈풍 lofi 진행 — maj9/m9 보이싱(루트는 베이스가 따로) + 펜타토닉 멜로디 모티프
+const PROG=[
+  {ch:[53,57,60,64,67], bass:41}, // Fmaj9
+  {ch:[52,55,59,62,66], bass:40}, // Em9
+  {ch:[50,53,57,60,64], bass:38}, // Dm9
+  {ch:[48,52,55,59,62], bass:36}, // Cmaj9
+];
+const PENT=[67,69,72,74,76,79,81];
+const MOTIFS=[
+  [[4,79,1.5],[6,76,1.0]],
+  [[2,72,1.0],[3,74,0.5],[4,76,1.5]],
+  [[0,81,1.0],[2,79,1.0],[5,76,1.25]],
+  [[6,74,2.0]],
+  [], [],
+];
+let motif=[];
 const mtf=m=>440*Math.pow(2,(m-69)/12);
 function noiseBuf(sec){ const b=A.createBuffer(1,A.sampleRate*sec,A.sampleRate), d=b.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1; return b; }
 function initAudio(){
   A=new (window.AudioContext||window.webkitAudioContext)();
-  const lp=A.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=2100; lp.Q.value=.6;
+  const lp=A.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1950; lp.Q.value=.6;
   const comp=A.createDynamicsCompressor(); out=A.createGain(); out.gain.value=0;
   lp.connect(comp); comp.connect(out); out.connect(A.destination); A._in=lp;
-  // vinyl crackle (은은하게 — 치직거림을 약하게)
-  const b=A.createBuffer(1,A.sampleRate*4,A.sampleRate), d=b.getChannelData(0);
-  for(let i=0;i<d.length;i++){ d[i]=(Math.random()*2-1)*0.018 + (Math.random()<0.00028?(Math.random()*2-1)*0.5:0); }
-  crackle=A.createBufferSource(); crackle.buffer=b; crackle.loop=true; const cg=A.createGain(); cg.gain.value=.14; const cf=A.createBiquadFilter(); cf.type='highpass'; cf.frequency.value=1000;
-  crackle.connect(cf); cf.connect(cg); cg.connect(lp); crackle.start();
   // rain bed (only audible when it rains outside)
   rainSrc=A.createBufferSource(); rainSrc.buffer=noiseBuf(3); rainSrc.loop=true; const rf=A.createBiquadFilter(); rf.type='lowpass'; rf.frequency.value=1100; A._rainG=A.createGain(); A._rainG.gain.value=0;
   rainSrc.connect(rf); rf.connect(A._rainG); A._rainG.connect(lp); rainSrc.start();
   A._nb=noiseBuf(1);
 }
 function keys(t,midi,dur,vel){
-  const f=mtf(midi), g=A.createGain(); g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(vel,t+0.015); g.gain.exponentialRampToValueAtTime(vel*0.35,t+0.5); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
-  const o1=A.createOscillator(); o1.type='sine'; o1.frequency.value=f; o1.detune.value=-4;
-  const o2=A.createOscillator(); o2.type='triangle'; o2.frequency.value=f*2; o2.detune.value=5; const g2=A.createGain(); g2.gain.value=.12;
-  o1.connect(g); o2.connect(g2); g2.connect(g); g.connect(A._in); o1.start(t); o2.start(t); o1.stop(t+dur+.05); o2.stop(t+dur+.05);
+  const f=mtf(midi), g=A.createGain();
+  g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(vel,t+0.02);
+  g.gain.exponentialRampToValueAtTime(vel*0.3,t+0.6); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  const o1=A.createOscillator(); o1.type='sine'; o1.frequency.value=f; o1.detune.value=-3;
+  const o2=A.createOscillator(); o2.type='triangle'; o2.frequency.value=f*2; o2.detune.value=4; const g2=A.createGain(); g2.gain.value=.10;
+  const o3=A.createOscillator(); o3.type='sine'; o3.frequency.value=f*3; const g3=A.createGain(); g3.gain.value=.028; // EP 벨 배음
+  o1.connect(g); o2.connect(g2); g2.connect(g); o3.connect(g3); g3.connect(g); g.connect(A._in);
+  o1.start(t); o2.start(t); o3.start(t); o1.stop(t+dur+.05); o2.stop(t+dur+.05); o3.stop(t+dur+.05);
 }
 function bass(t,midi,dur){ const o=A.createOscillator(), g=A.createGain(); o.type='sine'; o.frequency.value=mtf(midi);
   g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(.28,t+.02); g.gain.exponentialRampToValueAtTime(.0001,t+dur); o.connect(g); g.connect(A._in); o.start(t); o.stop(t+dur+.05); }
@@ -440,20 +476,27 @@ function kick(t){ const o=A.createOscillator(), g=A.createGain(); o.frequency.se
   g.gain.setValueAtTime(.55,t); g.gain.exponentialRampToValueAtTime(.0001,t+.25); o.connect(g); g.connect(A._in); o.start(t); o.stop(t+.3); }
 function hit(t,type,freq,vel,dec){ const s=A.createBufferSource(); s.buffer=A._nb; const f=A.createBiquadFilter(); f.type=type; f.frequency.value=freq; const g=A.createGain();
   g.gain.setValueAtTime(vel,t); g.gain.exponentialRampToValueAtTime(.0001,t+dec); s.connect(f); f.connect(g); g.connect(A._in); s.start(t); s.stop(t+dec+.02); }
-const MEL=[72,74,76,79,81,84];
 function schedule(){
-  while(nextT < A.currentTime+0.15){
-    const s=step%32, bar=Math.floor(step/8)%4, beat8=step%8;
-    const swing = (beat8%2) ? E8*0.18 : 0, t=nextT+swing;
-    if(beat8===0){ CH[bar].forEach((n,i)=>keys(t+i*0.018,n,SPB*3.6,.09)); bass(t,CH[bar][0]-12,SPB*1.6); }
-    if(beat8===5) bass(t,CH[bar][0]-12,SPB*1.2);
-    if(beat8===0||beat8===5) kick(t);
-    if(beat8===2||beat8===6) hit(t,'bandpass',1700,.16,.16);
-    hit(t,'highpass',7000,beat8%2?.035:.05,.045);
-    if(Math.random()<.16 && beat8%2===0) keys(t,MEL[Math.floor(Math.random()*MEL.length)],SPB*1.5,.05);
+  while(nextT < A.currentTime+0.2){
+    const bar=Math.floor(step/8)%4, beat8=step%8;
+    const swing = (beat8%2) ? E8*0.2 : 0, t=nextT+swing;
+    const P=PROG[bar];
+    if(beat8===0){
+      P.ch.forEach((n,i)=>keys(t+i*0.022, n, SPB*2.4, .07));   // Rhodes 9th 코드
+      bass(t, P.bass, SPB*1.5); kick(t);
+      motif = MOTIFS[Math.floor(Math.random()*MOTIFS.length)];  // 마디마다 모티프(쉼표 포함)
+    }
+    if(beat8===3) kick(t);                                        // 당김 킥 (boom-bap)
+    if(beat8===4){                                                // 오프비트 컴핑 + 5도 베이스
+      P.ch.slice(1,4).forEach((n,i)=>keys(t+i*0.018, n, SPB*1.0, .042));
+      bass(t, P.bass+7, SPB*0.6);
+    }
+    if(beat8===2||beat8===6){ hit(t,'bandpass',1900,.13,.13); hit(t,'highpass',3200,.045,.09); } // 스네어/림(2·4박)
+    hit(t,'highpass', beat8%4===0?6500:8200, beat8%2?.028:.044, beat8%4===2?.07:.035);            // 하이햇(살짝 변주)
+    for(const m of motif){ if(m[0]===beat8) keys(t, m[1], SPB*m[2], .055); }                        // 멜로디
     nextT+=E8; step++;
   }
-  A._rainG.gain.setTargetAtTime((env.weather==='rain'||env.weather==='storm')?.06:0, A.currentTime, 1);
+  A._rainG.gain.setTargetAtTime((env.weather==='rain'||env.weather==='storm')?.05:0, A.currentTime, 1);
 }
 function chime(){ if(!A) return; const t=A.currentTime+.05; [76,81,88].forEach((n,i)=>keys(t+i*.18,n,1.6,.08)); if(!playing){ out.gain.setTargetAtTime(.7,A.currentTime,.05); setTimeout(()=>{ if(!playing) out.gain.setTargetAtTime(0,A.currentTime,.3); },2200); } }
 $('music').onclick=async()=>{

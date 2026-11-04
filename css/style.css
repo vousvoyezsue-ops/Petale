@@ -3135,11 +3135,11 @@ body:not(.pre-auth) .auth-gate { display: none; }
 body.pre-auth .cafe-dock { display: none; }
 
 .cafe-dock { position: fixed; z-index: 60; }
-.cafe-dock.collapsed { right: 16px; bottom: 16px; }
-.cafe-dock.mini { right: 16px; bottom: 16px; width: min(340px, calc(100vw - 32px)); }
+.cafe-dock.collapsed { right: 30px; bottom: 22px; }
+.cafe-dock.mini { right: 30px; bottom: 22px; width: min(340px, calc(100vw - 44px)); }
 /* room 모드 geometry(top/left/width/height)는 JS가 #cafeSlot에 맞춰 인라인 설정 */
 body[data-view="study"] .cafe-dock.collapsed,
-body[data-view="study"] .cafe-dock.mini { bottom: 80px; }
+body[data-view="study"] .cafe-dock.mini { bottom: 84px; }
 
 .cafe-dock.collapsed .cafe-panel,
 .cafe-dock.mini .cafe-bar,
@@ -3161,8 +3161,9 @@ body[data-view="study"] .cafe-dock.mini { bottom: 80px; }
 
 .cafe-panel {
   flex-direction: column; width: 100%; height: 100%;
-  background: #3b2e27; border: 1px solid var(--edge);
-  border-radius: 14px; overflow: hidden; box-shadow: var(--shadow-lg);
+  background: #3b2e27; border: 0;
+  border-radius: 14px; overflow: hidden;
+  box-shadow: 0 14px 40px rgba(40,25,15,.32), 0 4px 14px rgba(40,25,15,.22);
 }
 .cafe-dock.mini .cafe-panel { height: auto; }
 .cafe-panel-head {
