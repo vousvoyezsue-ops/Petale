@@ -134,31 +134,38 @@ const Practice = (() => {
   }
 
   /* ══════════ 쓰기 (주관식) ══════════ */
-  let write = null; // { items, i, correct, revealed }
+  let write = null; // { queue, total, misses, current, revealed, lastOk, markedCorrect }
 
   const normalize = (s) => s.toLowerCase()
     .replace(/[.,!?;:'"“”‘’()\[\]{}~\-–—·]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 
+  // 퀴즐렛 Write 방식: 덱의 모든 카드를 직접 입력해 맞혀야 끝난다.
+  // 틀린 카드는 큐 뒤쪽에 다시 들어가 반드시 다시 풀게 되고, 전부 맞혀야(큐가 비어야) 완료.
   function startWrite(deckId, exit) {
     const p = pool(deckId);
     if (p.length < 1) return false;
     onExit = exit;
-    write = { items: shuffle(p).slice(0, 20), i: 0, correct: 0, revealed: false };
+    const items = shuffle(p);
+    write = { queue: items.slice(), total: items.length, misses: 0, current: null, revealed: false, lastOk: false, markedCorrect: false };
     $("#writeDone").classList.add("hidden");
     $("#writeBody").classList.remove("hidden");
     renderWrite();
     return true;
   }
 
+  function writeMastered() { return write.total - write.queue.length; }
+
   function renderWrite() {
-    const { items, i } = write;
+    write.current = write.queue[0];
     write.revealed = false;
+    write.lastOk = false;
     write.markedCorrect = false;
-    $("#writeProgress").textContent = `${i + 1} / ${items.length}`;
-    $("#writeBar").style.width = `${(i / items.length) * 100}%`;
-    $("#writeQuestion").textContent = items[i].q;
+    const done = writeMastered();
+    $("#writeProgress").textContent = `${done} / ${write.total}`;
+    $("#writeBar").style.width = `${(done / write.total) * 100}%`;
+    $("#writeQuestion").textContent = write.current.q;
     $("#writeFeedback").innerHTML = "";
     $("#writeInput").value = "";
     $("#writeInput").disabled = false;
@@ -172,9 +179,10 @@ const Practice = (() => {
   function checkWrite(gaveUp = false) {
     if (write.revealed) return;
     write.revealed = true;
-    const item = write.items[write.i];
+    const item = write.current;
     const ok = !gaveUp && normalize($("#writeInput").value) === normalize(item.a);
-    if (ok) write.correct++;
+    write.lastOk = ok;
+    if (!ok) write.misses++;
     $("#writeInput").disabled = true;
     $("#writeFeedback").innerHTML = ok
       ? `<span class="wf ok">${t("write.correct")}</span>`
@@ -191,20 +199,25 @@ const Practice = (() => {
   function markCorrect() {
     if (!write || !write.revealed || write.markedCorrect) return;
     write.markedCorrect = true;
-    write.correct++;
+    write.lastOk = true;
+    if (write.misses > 0) write.misses--; // 방금 집계한 오답 취소
     $("#writeFeedback").innerHTML = `<span class="wf ok">${t("write.correct")}</span>`;
     $("#writeMarkCorrect").classList.add("hidden");
     $("#writeNext").focus();
   }
 
   function nextWrite() {
-    write.i++;
-    if (write.i >= write.items.length) {
-      const pct = Math.round((write.correct / write.items.length) * 100);
+    const cur = write.queue.shift();          // 현재 카드 큐에서 빼기
+    if (!write.lastOk) {
+      // 틀렸으면 몇 장 뒤에 다시 넣어 반드시 다시 풀게 한다 (마지막 한 장이면 바로 재출제)
+      const pos = Math.min(write.queue.length, 3);
+      write.queue.splice(pos, 0, cur);
+    }
+    if (write.queue.length === 0) {
       $("#writeBar").style.width = "100%";
       $("#writeBody").classList.add("hidden");
       $("#writeDone").classList.remove("hidden");
-      $("#writeScore").textContent = t("quiz.score", { c: write.correct, n: write.items.length, pct });
+      $("#writeScore").textContent = t("write.doneSummary", { n: write.total, m: write.misses });
     } else {
       renderWrite();
     }
