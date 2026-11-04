@@ -494,6 +494,9 @@
     if (view === "overview") renderOverview();
     if (view === "recall") renderRecall();
     window.scrollTo({ top: 0 });
+    // Bunny Café: 룸에선 크게, 그 외 화면으로 나가면 바로 접기 (오디오·타이머는 유지)
+    if (view === "room") setCafeState("room");
+    else if (cafeState === "room") setCafeState("collapsed");
   }
 
   $("#brandHome").addEventListener("click", () => show("home"));
@@ -1252,6 +1255,60 @@
     for (const v of BUNNY_SPECIAL) html += opt(v); // 특별 토끼(해골)를 맨 뒤에
     host.innerHTML = html;
   }
+
+  /* ══════════ Bunny Café 포커스 독 (전역 iframe 1개) ══════════ */
+  let cafeFrame = null;          // iframe (지연 생성)
+  let cafeState = "collapsed";   // collapsed | mini | room
+  // 선택한 마스코트(옷+색)를 카페 토끼로 전달
+  function cafeSrc() {
+    const v = bunnyVariant();
+    const OUT = { oatmeal: "Oatmeal", "sage-knit": "Sage knit", rose: "Rose", corduroy: "Corduroy", navy: "Navy", doctor: "Doctor" };
+    let fur = "ivory", outfit = "Sage knit";
+    const m = v.match(/^(.*)-(ivory|cream|caramel|cocoa|grey|charcoal)$/);
+    if (m && OUT[m[1]]) { outfit = OUT[m[1]]; fur = m[2]; }
+    return `cafe.html?${new URLSearchParams({ fur, outfit, seat: "5" })}`;
+  }
+  function ensureCafeFrame() {
+    if (cafeFrame) return;
+    cafeFrame = document.createElement("iframe");
+    cafeFrame.src = cafeSrc();
+    cafeFrame.title = "Bunny Café";
+    cafeFrame.allow = "autoplay";
+    $("#cafeFrameWrap").appendChild(cafeFrame);
+  }
+  function layoutCafe() {
+    const dock = $("#cafeDock");
+    if (!dock) return;
+    if (cafeState === "room") {
+      const slot = $("#cafeSlot");
+      if (slot) {
+        const r = slot.getBoundingClientRect();
+        dock.style.left = `${Math.round(r.left)}px`;
+        dock.style.top = `${Math.round(r.top)}px`;
+        dock.style.width = `${Math.round(r.width)}px`;
+        dock.style.height = `${Math.round(r.height)}px`;
+        dock.style.right = "auto"; dock.style.bottom = "auto";
+      }
+    } else {
+      dock.style.left = dock.style.top = dock.style.width = dock.style.height = "";
+      dock.style.right = dock.style.bottom = "";
+    }
+  }
+  function setCafeState(s) {
+    cafeState = s;
+    if (s !== "collapsed") ensureCafeFrame();
+    const dock = $("#cafeDock");
+    if (dock) dock.className = `cafe-dock ${s}`;
+    layoutCafe();
+    if (s === "room") requestAnimationFrame(layoutCafe); // 렌더 후 재측정
+  }
+  (function bindCafe() {
+    const bar = $("#cafeBar"), min = $("#cafeMin");
+    if (bar) bar.addEventListener("click", () => setCafeState("mini"));
+    if (min) min.addEventListener("click", () => setCafeState("collapsed"));
+    window.addEventListener("resize", layoutCafe);
+    window.addEventListener("scroll", () => { if (cafeState === "room") layoutCafe(); }, { passive: true });
+  })();
   // 홈 마스코트 말풍선 — 남은 복습량에 맞춘 멘트(누르면 랜덤으로 바뀜)
   // 오늘의 학습 목표(남은 수) — 복습(예정된 복습) + 새 학습(플랜 페이스)
   function todayGoal(now = Date.now()) {
