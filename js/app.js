@@ -1526,7 +1526,7 @@
 
   function renderPlanDeckPick(selected) {
     const host = $("#planDeckPick");
-    const decks = Store.state.decks;
+    const decks = sortDecks(Store.state.decks);
     if (!decks.length) { host.innerHTML = `<p class="plan-empty">${t("plan.noDecks")}</p>`; return; }
     host.innerHTML = decks.map(d => {
       const n = planNewCount(d.id);
@@ -1948,7 +1948,7 @@
   $("#cardBulkMove").addEventListener("click", () => {
     const n = selectedCards.size;
     if (!n) return;
-    const others = Store.state.decks.filter(d => d.id !== currentDeckId);
+    const others = sortDecks(Store.state.decks.filter(d => d.id !== currentDeckId));
     if (!others.length) { toast(t("move.noTarget")); return; }
     $("#moveSub").textContent = t("move.sub", { n });
     $("#moveDeckSel").innerHTML = others
