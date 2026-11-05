@@ -1055,10 +1055,32 @@
   }
 
   // 덱 정렬: 별표 먼저, 그다음 이름 자연 정렬(숫자 인식) → "1 · 2 · 3 · 10 · 13"
+  // 로마 숫자(I, II … IX, X, XI)까지 자연스럽게 정렬 — localeCompare의 numeric은
+  // 아라비아 숫자만 다뤄서, "Splanchnology I/II/…/IX/X" 같은 로마 숫자 번호가 뒤섞인다.
+  // 대문자 로마 숫자 토큰을 숫자 값으로 바꿔 정렬 키를 만든다.
+  const ROMAN_RE = /^M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$/;
+  function romanToInt(s) {
+    const m = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
+    let n = 0, prev = 0;
+    for (let i = s.length - 1; i >= 0; i--) {
+      const v = m[s[i]]; if (v < prev) n -= v; else { n += v; prev = v; }
+    }
+    return n;
+  }
+  function nameSortKey(name) {
+    return (name || "").split(/(\s+)/).map(tok =>
+      tok && tok === tok.toUpperCase() && ROMAN_RE.test(tok)
+        ? "\u0001" + String(romanToInt(tok)).padStart(6, "0")
+        : tok
+    ).join("");
+  }
+  function nameCompare(a, b) {
+    return nameSortKey(a).localeCompare(nameSortKey(b), undefined, { numeric: true, sensitivity: "base" });
+  }
   function sortDecks(arr) {
     return arr.slice().sort((a, b) =>
       (b.starred ? 1 : 0) - (a.starred ? 1 : 0) ||
-      a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
+      nameCompare(a.name, b.name));
   }
   // 여러 덱의 복습·새 카드·전체 수를 합산
   function aggCounts(list) {
@@ -1205,8 +1227,7 @@
 
   // 폴더 이름 자연 정렬
   function sortFolders(arr) {
-    return arr.slice().sort((a, b) =>
-      a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
+    return arr.slice().sort((a, b) => nameCompare(a.name, b.name));
   }
   // 트리 순서(부모→자식)로 펼친 폴더 목록 [{f, depth}]
   function foldersInTreeOrder() {
