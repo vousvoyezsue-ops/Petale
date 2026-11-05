@@ -173,12 +173,17 @@ const Practice = (() => {
     writeDeckId = deckId;
     // 저장된 진행을 '현재 카드 내용' 기준으로 복원 — 카드 id로 최신 q/a를 다시 읽어
     // 수정·삭제가 바로 반영된다 (삭제된 카드는 제외, 진행 수 hits는 유지).
+    // id가 없는 구버전 저장은 질문 텍스트로 매칭해 이어가서 기존 진행을 잃지 않는다.
     const byId = new Map(p.map(it => [it.id, it]));
+    const byQ = new Map(p.map(it => [it.q, it]));
     const saved = fresh ? null : loadWrite(deckId);
     let queue = null;
     if (saved) {
       const restored = saved.queue
-        .map(c => { const cur = byId.get(c.id); return cur ? { id: cur.id, q: cur.q, a: cur.a, hits: c.hits || 0 } : null; })
+        .map(c => {
+          const cur = (c.id != null && byId.get(c.id)) || byQ.get(c.q);
+          return cur ? { id: cur.id, q: cur.q, a: cur.a, hits: c.hits || 0 } : null;
+        })
         .filter(Boolean);
       if (restored.length) queue = restored;  // 복원할 게 남아있을 때만 이어하기
     }
