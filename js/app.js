@@ -2802,6 +2802,7 @@
   const CSV_FRONT = ["front", "question", "term", "word", "앞면", "질문", "단어"];
   const CSV_BACK = ["back", "answer", "definition", "meaning", "뒷면", "답", "뜻", "정의"];
   const CSV_SECTION = ["section", "chapter", "장", "챕터", "단원", "섹션"];
+  const CSV_NOTE = ["note", "notes", "memo", "메모", "노트", "설명"];
   async function runCsvImport(file) {
     $("#importError").textContent = "";
     try {
@@ -2810,19 +2811,26 @@
       const parsed = parseCSV(text, detectDelim(text));
       const header = (parsed[0] || []).map(c => c.trim().toLowerCase());
       const find = names => header.findIndex(h => names.includes(h));
-      const si = find(CSV_SECTION);
+      const si = find(CSV_SECTION), ni = find(CSV_NOTE);
+      let fi = find(CSV_FRONT), bi = find(CSV_BACK);
 
       const rows = [];
-      if (si >= 0) {
-        // 장(chapter/장) 열이 있는 헤더 CSV → 열 이름으로 매핑
-        let fi = find(CSV_FRONT), bi = find(CSV_BACK);
-        if (fi < 0) fi = si === 0 ? 1 : 0;
-        if (bi < 0) bi = [si, fi].includes(0) ? ([si, fi].includes(1) ? 2 : 1) : 0;
+      if (si >= 0 || ni >= 0 || fi >= 0 || bi >= 0) {
+        // 헤더 CSV → 열 이름으로 매핑 (front/back/장/메모). front·back 열 이름이 없으면
+        // 장·메모 열을 피해 앞에서부터 순서대로 채운다.
+        const taken = new Set([si, ni].filter(x => x >= 0));
+        if (fi < 0) { fi = 0; while (taken.has(fi)) fi++; }
+        taken.add(fi);
+        if (bi < 0) { bi = 0; while (taken.has(bi)) bi++; }
         for (const cols of parsed.slice(1)) {
           const front = inlineMd((cols[fi] || "").trim());
           const back = inlineMd((cols[bi] || "").trim());
-          const section = (cols[si] || "").trim();
-          if (front && back) rows.push({ type: "basic", front, back, section });
+          const section = si >= 0 ? (cols[si] || "").trim() : "";
+          const noteRaw = ni >= 0 ? (cols[ni] || "").trim() : "";
+          if (!front || !back) continue;
+          const row = { type: "basic", front, back, section };
+          if (noteRaw) row.notes = inlineMd(noteRaw).replace(/\n/g, "<br>");
+          rows.push(row);
         }
       } else {
         // 기존 방식: 앞면 = 첫 열, 뒷면 = 나머지 열들
@@ -2898,8 +2906,19 @@
           if (!block) continue; // 제목만 있는 블록
         }
       }
+      // 메모(노트): 블록 안에서 "> "로 시작하는 줄은 카드 메모로 떼어낸다
+      let blkLines = block.split("\n");
+      const noteLines = [];
+      blkLines = blkLines.filter(l => {
+        const m = /^\s*>\s?(.*)$/.exec(l);
+        if (m) { noteLines.push(m[1]); return false; }
+        return true;
+      });
+      if (noteLines.length) block = blkLines.join("\n").trim();
+      const notes = noteLines.length ? inlineMd(escapeHTML(noteLines.join("\n"))).replace(/\n/g, "<br>") : "";
+      if (!block) continue; // 메모만 있고 카드 내용이 없으면 건너뜀
+
       // 마크다운 표: "|...|" 줄이 2줄 이상이면 표 카드로 변환
-      const blkLines = block.split("\n");
       const tLines = blkLines.filter(isMdTableLine);
       if (tLines.length >= 2) {
         const tableHtml = mdTableToHtml(tLines);
@@ -2908,10 +2927,10 @@
         if (/\{\{c\d+::/.test(block)) {
           // 표 안에 빈칸이 있으면 cloze 카드 (표 + 위쪽 설명)
           const front = (frontHtml ? frontHtml + "<br>" : "") + tableHtml;
-          for (const idx of clozeIndices(front)) rows.push({ type: "cloze", front, back: "", clozeIndex: idx, section });
+          for (const idx of clozeIndices(front)) rows.push({ type: "cloze", front, back: "", clozeIndex: idx, section, notes });
         } else {
           // 기본 카드: 설명이 있으면 앞=설명·뒤=표, 없으면 앞=표
-          rows.push({ type: "basic", front: frontHtml || tableHtml, back: frontHtml ? tableHtml : "", section });
+          rows.push({ type: "basic", front: frontHtml || tableHtml, back: frontHtml ? tableHtml : "", section, notes });
         }
         continue;
       }
@@ -2919,7 +2938,7 @@
       if (/\{\{c\d+::/.test(block)) {
         const front = formatNote(block); // 소제목 가운데·본문 좌측·초록 불릿 + **굵게**·==형광== 서식
         const indices = clozeIndices(block);
-        for (const idx of indices) rows.push({ type: "cloze", front, back: "", clozeIndex: idx, section });
+        for (const idx of indices) rows.push({ type: "cloze", front, back: "", clozeIndex: idx, section, notes });
         continue;
       }
       let front, back;
@@ -2939,7 +2958,7 @@
       }
       front = linesToHtml(front.trim().split("\n")); // 불릿/번호 줄은 <ul>/<ol>로
       back = linesToHtml(String(back || "").split("\n"));
-      if (front && back) rows.push({ type: "basic", front, back, section });
+      if (front && back) rows.push({ type: "basic", front, back, section, notes });
     }
     if (!rows.length) { $("#importError").textContent = t("imp.empty"); return; }
     const ok = Store.bulkAddCards(currentDeckId, rows);
