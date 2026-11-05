@@ -29,14 +29,14 @@ const Practice = (() => {
     return Store.cardsOf(deckId)
       .filter(c => !c.suspended)
       .map(c => {
-        if (c.type === "basic") return { q: htmlToText(c.front), a: htmlToText(c.back) };
+        if (c.type === "basic") return { id: c.id, q: htmlToText(c.front), a: htmlToText(c.back) };
         if (c.type === "cloze") {
           let answer = null;
           const q = c.front.replace(CLOZE_RE, (_, i, ans) => {
             if (Number(i) === c.clozeIndex) { answer = ans; return "＿＿＿"; }
             return ans;
           });
-          return answer ? { q: htmlToText(q), a: htmlToText(answer) } : null;
+          return answer ? { id: c.id, q: htmlToText(q), a: htmlToText(answer) } : null;
         }
         return null; // occlusion은 연습 모드 제외
       })
@@ -154,7 +154,7 @@ const Practice = (() => {
       if (!write.queue.length) { localStorage.removeItem(WKEY(writeDeckId)); return; }
       localStorage.setItem(WKEY(writeDeckId), JSON.stringify({
         total: write.total, misses: write.misses,
-        queue: write.queue.map(c => ({ q: c.q, a: c.a, hits: c.hits || 0 })),
+        queue: write.queue.map(c => ({ id: c.id, q: c.q, a: c.a, hits: c.hits || 0 })),
       }));
     } catch { /* 저장소 접근 불가 시 무시 */ }
   }
@@ -171,9 +171,18 @@ const Practice = (() => {
     if (p.length < 1) return false;
     onExit = exit;
     writeDeckId = deckId;
+    // 저장된 진행을 '현재 카드 내용' 기준으로 복원 — 카드 id로 최신 q/a를 다시 읽어
+    // 수정·삭제가 바로 반영된다 (삭제된 카드는 제외, 진행 수 hits는 유지).
+    const byId = new Map(p.map(it => [it.id, it]));
     const saved = fresh ? null : loadWrite(deckId);
-    if (saved) {   // 이어하기
-      const queue = saved.queue.map(c => ({ q: c.q, a: c.a, hits: c.hits || 0 }));
+    let queue = null;
+    if (saved) {
+      const restored = saved.queue
+        .map(c => { const cur = byId.get(c.id); return cur ? { id: cur.id, q: cur.q, a: cur.a, hits: c.hits || 0 } : null; })
+        .filter(Boolean);
+      if (restored.length) queue = restored;  // 복원할 게 남아있을 때만 이어하기
+    }
+    if (queue) {   // 이어하기
       write = { queue, total: saved.total || queue.length, misses: saved.misses || 0, current: null, revealed: false, lastOk: false, markedCorrect: false };
     } else {       // 새로 시작
       const items = shuffle(p);
