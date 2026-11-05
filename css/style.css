@@ -2854,7 +2854,7 @@ body:not(.pre-auth) .auth-gate { display: none; }
 }
 .gate-brand { text-align: center; margin-bottom: 22px; }
 .gate-photo {
-  width: 104px; height: 104px;
+  width: 84px; height: 84px;
   margin: 2px auto 14px;
   display: block;
   border-radius: 50%;
