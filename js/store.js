@@ -55,7 +55,7 @@ const Store = (() => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   }
 
-  const DEFAULT_SETTINGS = { lang: "ko", theme: "pearl", appearance: "auto", tts: true, ttsVoice: "", bunny: "oatmeal-ivory", repBadge: true, cardBunny: true, reminders: false, reminderTime: "09:00", steps: SRS.defaultSteps() };
+  const DEFAULT_SETTINGS = { lang: "ko", theme: "pearl", appearance: "auto", tts: true, ttsVoice: "", bunny: "oatmeal-ivory", repBadge: true, cardBunny: true, autoStar: false, autoStarCount: 5, reminders: false, reminderTime: "09:00", steps: SRS.defaultSteps() };
 
   // 첫 실행 시 빈 상태로 시작한다 (예시 덱을 자동으로 만들지 않음).
   function seed() {
@@ -621,11 +621,17 @@ const Store = (() => {
   function applyReview(cardId, rating) {
     const c = state.cards.find(x => x.id === cardId);
     if (!c) return null;
-    const prev = { ef: c.ef, interval: c.interval, reps: c.reps, lapses: c.lapses, due: c.due, againCount: c.againCount || 0, views: c.views || 0 };
+    const prev = { ef: c.ef, interval: c.interval, reps: c.reps, lapses: c.lapses, due: c.due, againCount: c.againCount || 0, views: c.views || 0, starred: c.starred, autoStarred: c.autoStarred };
     const wasNew = SRS.isNew(c);
     Object.assign(c, SRS.schedule(c, rating, Date.now(), true)); // 실제 저장: 복습 부담 분산(fuzz) 적용
     if (rating === 0) c.againCount = (c.againCount || 0) + 1; // '다시' 누적 횟수 (자주 틀린 카드 찾기용)
     c.views = (c.views || 0) + 1; // 이 카드를 복습한 총 횟수(반복 횟수 뱃지용)
+    // 자동 별표: 정해진 횟수만큼 복습하면 별표 표시 (한 번만 — 수동으로 해제하면 다시 붙지 않음)
+    let autoStarred = false;
+    const asN = state.settings.autoStar ? Number(state.settings.autoStarCount) || 0 : 0;
+    if (asN > 0 && !c.starred && !c.autoStarred && (c.views || 0) >= asN) {
+      c.starred = true; c.autoStarred = true; autoStarred = true;
+    }
     const key = todayKey();
     state.reviews[key] = (state.reviews[key] || 0) + 1;
     state.ratingCounts[rating] = (state.ratingCounts[rating] || 0) + 1;
@@ -634,7 +640,7 @@ const Store = (() => {
       state.newLog[nk] = (state.newLog[nk] || 0) + 1;
     }
     save();
-    return { cardId, deckId: c.deckId, prev, rating, wasNew };
+    return { cardId, deckId: c.deckId, prev, rating, wasNew, autoStarred };
   }
 
   // applyReview의 반환값으로 마지막 평가를 되돌린다
