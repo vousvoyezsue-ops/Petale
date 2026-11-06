@@ -1127,6 +1127,19 @@
     </div>
 
     <div class="set-group">
+      <label class="check-row">
+        <input type="checkbox" id="autoStarToggle">
+        <span data-i18n="set.autoStar"></span>
+      </label>
+      <p class="set-hint" data-i18n="set.autoStarHint"></p>
+      <div class="auto-star-row hidden" id="autoStarCountRow">
+        <span data-i18n="set.autoStarCountLabel"></span>
+        <input type="number" id="autoStarCount" min="1" max="99" step="1" value="5">
+        <span data-i18n="set.autoStarCountUnit"></span>
+      </div>
+    </div>
+
+    <div class="set-group">
       <span class="set-label" data-i18n="set.steps"></span>
       <p class="set-hint" data-i18n="set.stepsHint"></p>
       <div class="step-rows" id="stepRows">
