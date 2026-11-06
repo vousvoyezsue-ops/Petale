@@ -347,84 +347,141 @@ const Practice = (() => {
     }
   }
 
-  /* ══════════ 매치 (짝 맞추기) ══════════ */
-  let match = null; // { deckId, tiles, chosen, remaining, timer, t0 }
+  /* ══════════ Learn (적응형: 객관식 → 타이핑) ══════════ */
+  // 카드마다 숙련도 단계(stage): 0 새 단어(객관식) → 1 익히는 중(타이핑) → 2 완료.
+  // 라운드로 나눠 돌리고, 맞히면 다음 단계로, 틀리면 같은 단계로 다시. 전부 완료하면 끝.
+  let learn = null;
+  const LEARN_ROUND = 7;
 
-  function startMatch(deckId, exit) {
+  function learnMastered() { return learn.terms.filter(t => t.stage >= 2).length; }
+
+  function startLearn(deckId, exit) {
     const p = pool(deckId);
-    if (p.length < 3) return false;
+    if (p.length < 1) return false;
     onExit = exit;
-    const pairs = shuffle(p).slice(0, 6);
-    const tiles = shuffle(pairs.flatMap((pair, i) => [
-      { id: i, text: pair.q },
-      { id: i, text: pair.a },
-    ]));
-    match = { deckId, tiles, chosen: null, remaining: pairs.length, t0: performance.now(), timer: null };
-    $("#matchDone").classList.add("hidden");
-    $("#matchBody").classList.remove("hidden");
-    renderMatchGrid();
-    clearInterval(match.timer);
-    match.timer = setInterval(() => {
-      $("#matchTime").textContent = t("match.time", { s: ((performance.now() - match.t0) / 1000).toFixed(1) });
-    }, 100);
-    const best = Store.getDeck(deckId)?.matchBest;
-    $("#matchBest").textContent = best ? t("match.best", { s: best.toFixed(1) }) : "";
+    const answers = [...new Set(p.map(x => x.a))];
+    const terms = shuffle(p).map(it => ({ q: it.q, a: it.a, stage: 0 }));
+    learn = { terms, answers, queue: [], round: 0, current: null, phase: "mc", misses: 0, locked: false, revealed: false, wrongPending: false, _auto: null };
+    $("#learnDone").classList.add("hidden");
+    $("#learnBody").classList.remove("hidden");
+    buildLearnRound();
+    nextLearn();
     return true;
   }
 
-  function renderMatchGrid() {
-    $("#matchGrid").innerHTML = match.tiles.map((tile, idx) =>
-      `<button class="match-tile" data-idx="${idx}">${esc(tile.text)}</button>`).join("");
-    $("#matchGrid").querySelectorAll(".match-tile").forEach(el =>
-      el.addEventListener("click", () => pickTile(el)));
+  function buildLearnRound() {
+    const unmastered = learn.terms.filter(t => t.stage < 2);
+    learn.queue = shuffle(unmastered).sort((a, b) => a.stage - b.stage).slice(0, LEARN_ROUND);
+    learn.round++;
   }
 
-  function pickTile(el) {
-    if (el.classList.contains("cleared") || el.classList.contains("selected")) return;
-    const idx = Number(el.dataset.idx);
-    if (match.chosen == null) {
-      match.chosen = idx;
-      el.classList.add("selected");
-      return;
+  function nextLearn() {
+    clearTimeout(learn._auto);
+    learn.wrongPending = false;
+    if (!learn.queue.length) {
+      if (learn.terms.every(t => t.stage >= 2)) { finishLearn(); return; }
+      buildLearnRound();
     }
-    const prevEl = $(`#matchGrid .match-tile[data-idx="${match.chosen}"]`);
-    const a = match.tiles[match.chosen];
-    const b = match.tiles[idx];
-    match.chosen = null;
-    if (a.id === b.id) {
-      [prevEl, el].forEach(x => { x.classList.remove("selected"); x.classList.add("cleared"); });
-      match.remaining--;
-      if (!match.remaining) finishMatch();
+    learn.current = learn.queue[0];
+    // 새 단어(stage 0)는 객관식, 한 번 맞힌 뒤(stage 1)는 타이핑. 보기 부족한 작은 덱은 바로 타이핑.
+    learn.phase = (learn.current.stage === 0 && learn.answers.length >= 3) ? "mc" : "typed";
+    learn.locked = false;
+    learn.revealed = false;
+    renderLearn();
+  }
+
+  function renderLearn() {
+    const total = learn.terms.length, done = learnMastered();
+    $("#learnProgress").textContent = `${done} / ${total}`;
+    $("#learnBar").style.width = `${(done / total) * 100}%`;
+    $("#learnRound").textContent = t("learn.round", { n: learn.round });
+    const cur = learn.current;
+    $("#learnStage").textContent = t(cur.stage === 0 ? "learn.stageNew" : "learn.stageSeen");
+    $("#learnStage").className = "learn-stage " + (cur.stage === 0 ? "s-new" : "s-seen");
+    $("#learnQuestion").textContent = cur.q;
+    $("#learnFeedback").innerHTML = "";
+    if (learn.phase === "mc") {
+      $("#learnType").classList.add("hidden");
+      $("#learnChoices").classList.remove("hidden");
+      const opts = shuffle([cur.a, ...pickDistractors(cur.a, learn.answers)]);
+      $("#learnChoices").innerHTML = opts.map(o => `<button class="quiz-opt" data-a="${esc(o)}">${esc(o)}</button>`).join("");
+      $("#learnChoices").querySelectorAll(".quiz-opt").forEach(btn => btn.addEventListener("click", () => pickLearn(btn)));
     } else {
-      el.classList.add("shake");
-      prevEl.classList.add("shake");
-      prevEl.classList.remove("selected");
-      setTimeout(() => $$("#matchGrid .shake").forEach(x => x.classList.remove("shake")), 450);
+      $("#learnChoices").classList.add("hidden");
+      $("#learnType").classList.remove("hidden");
+      $("#learnInput").value = "";
+      $("#learnInput").disabled = false;
+      $("#learnCheck").classList.remove("hidden");
+      $("#learnDontKnow").classList.remove("hidden");
+      $("#learnMarkCorrect").classList.add("hidden");
+      $("#learnNext").classList.add("hidden");
+      $("#learnInput").focus();
     }
   }
 
-  function finishMatch() {
-    clearInterval(match.timer);
-    const secs = (performance.now() - match.t0) / 1000;
-    const deck = Store.getDeck(match.deckId);
-    let isBest = false;
-    if (deck && (!deck.matchBest || secs < deck.matchBest)) {
-      deck.matchBest = Math.round(secs * 10) / 10;
-      Store.save();
-      isBest = true;
-    }
-    $("#matchBody").classList.add("hidden");
-    $("#matchDone").classList.remove("hidden");
-    $("#matchResult").textContent = t("match.time", { s: secs.toFixed(1) });
-    $("#matchNewBest").textContent = isBest ? t("match.newBest") : "";
+  function applyLearn(ok) {
+    const cur = learn.current;
+    learn.queue.shift();
+    if (ok) cur.stage = Math.min(2, cur.stage + 1);
+    else { learn.misses++; learn.queue.push(cur); }  // 틀리면 같은 단계로 큐 뒤에 다시
   }
 
-  function stopMatchTimer() { if (match) clearInterval(match.timer); }
+  function pickLearn(btn) {
+    if (learn.locked) return;
+    learn.locked = true;
+    const cur = learn.current;
+    const ok = btn.dataset.a === cur.a;
+    btn.classList.add(ok ? "correct" : "wrong");
+    if (!ok) $$("#learnChoices .quiz-opt").forEach(b => { if (b.dataset.a === cur.a) b.classList.add("correct"); });
+    applyLearn(ok);
+    learn._auto = setTimeout(nextLearn, ok ? 650 : 1250);
+  }
+
+  function checkLearn(gaveUp = false) {
+    if (!learn || learn.revealed) return;
+    learn.revealed = true;
+    const cur = learn.current;
+    const typed = $("#learnInput").value;
+    const ok = !gaveUp && normalize(typed) === normalize(cur.a);
+    $("#learnInput").disabled = true;
+    $("#learnCheck").classList.add("hidden");
+    $("#learnDontKnow").classList.add("hidden");
+    if (ok) {
+      $("#learnFeedback").innerHTML = `<span class="wf ok">${t("write.correct")}</span>`;
+      applyLearn(true);
+      learn._auto = setTimeout(nextLearn, 700);
+    } else {
+      $("#learnFeedback").innerHTML = `<span class="wf no">${t("write.wrongWas", { a: esc(cur.a) })}</span>`;
+      learn.wrongPending = true;
+      $("#learnMarkCorrect").classList.remove("hidden");  // 동의어·오타 구제
+      $("#learnNext").classList.remove("hidden");
+      $("#learnNext").focus();
+    }
+  }
+
+  function learnMark() {   // 틀렸지만 사실 정답(동의어/오타)으로 인정
+    if (!learn || !learn.wrongPending) return;
+    learn.wrongPending = false;
+    applyLearn(true);
+    nextLearn();
+  }
+
+  function learnNextManual() {
+    if (learn && learn.wrongPending) { learn.wrongPending = false; applyLearn(false); }
+    nextLearn();
+  }
+
+  function finishLearn() {
+    $("#learnBar").style.width = "100%";
+    $("#learnBody").classList.add("hidden");
+    $("#learnDone").classList.remove("hidden");
+    $("#learnScore").textContent = t("learn.doneSummary", { n: learn.terms.length, m: learn.misses });
+  }
 
   function exit() {
-    stopMatchTimer();
+    if (learn) clearTimeout(learn._auto);
     saveWrite();   // 나가도 Write 진행 상황 유지 (다음에 이어하기)
-    quiz = write = match = null;
+    quiz = write = learn = null;
     onExit?.();
   }
 
@@ -448,11 +505,21 @@ const Practice = (() => {
       startQuiz(deckId, onExit);
     });
     $("#writeRetry").addEventListener("click", () => { clearWrite(currentPracticeDeck); startWrite(currentPracticeDeck, onExit, { fresh: true }); });
-    $("#matchRetry").addEventListener("click", () => startMatch(currentPracticeDeck, onExit));
+    $("#learnCheck").addEventListener("click", () => checkLearn(false));
+    $("#learnDontKnow").addEventListener("click", () => checkLearn(true));
+    $("#learnMarkCorrect").addEventListener("click", learnMark);
+    $("#learnNext").addEventListener("click", learnNextManual);
+    $("#learnInput").addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      if (!learn) return;
+      if (!learn.revealed) checkLearn(false); else learnNextManual();
+    });
+    $("#learnRetry").addEventListener("click", () => startLearn(currentPracticeDeck, onExit));
   }
 
   let currentPracticeDeck = null;
   function setDeck(id) { currentPracticeDeck = id; }
 
-  return { startQuiz, startWrite, startMatch, bind, setDeck, exit, stopMatchTimer };
+  return { startQuiz, startWrite, startLearn, bind, setDeck, exit };
 })();
