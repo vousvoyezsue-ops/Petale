@@ -305,6 +305,10 @@
         <span class="mode-ic"><svg width="19" height="19"><use href="#i-book"/></svg></span>
         <span class="mode-txt"><b data-i18n="mode.overview"></b><small data-i18n="mode.overviewDesc"></small></span>
       </button>
+      <button class="mode-card mode-learn" id="btnLearn">
+        <span class="mode-ic"><svg width="19" height="19"><use href="#i-sparkle"/></svg></span>
+        <span class="mode-txt"><b data-i18n="mode.learn"></b><small data-i18n="mode.learnDesc"></small></span>
+      </button>
       <button class="mode-card" id="btnFlash">
         <span class="mode-ic"><svg width="19" height="19"><use href="#i-layers"/></svg></span>
         <span class="mode-txt"><b data-i18n="mode.flash"></b><small data-i18n="mode.flashDesc"></small></span>
@@ -316,10 +320,6 @@
       <button class="mode-card" id="btnWrite">
         <span class="mode-ic"><svg width="19" height="19"><use href="#i-pencil"/></svg></span>
         <span class="mode-txt"><b data-i18n="mode.write"></b><small data-i18n="mode.writeDesc"></small></span>
-      </button>
-      <button class="mode-card" id="btnMatch">
-        <span class="mode-ic"><svg width="19" height="19"><use href="#i-grid"/></svg></span>
-        <span class="mode-txt"><b data-i18n="mode.match"></b><small data-i18n="mode.matchDesc"></small></span>
       </button>
     </div>
 
@@ -584,30 +584,42 @@
     </div>
   </section>
 
-  <!-- ═══════════ 매치 (짝 맞추기) ═══════════ -->
-  <section class="view hidden" id="view-match">
+  <!-- ═══════════ Learn (적응형 학습) ═══════════ -->
+  <section class="view hidden" id="view-learn">
     <div class="study-top">
       <button class="back-link" data-practice-exit>
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
         <span data-i18n="study.quit"></span>
       </button>
-      <div class="match-meta">
-        <span class="match-timer"><svg width="14" height="14"><use href="#i-timer"/></svg> <span id="matchTime">0.0</span></span>
-        <span class="match-best" id="matchBest"></span>
+      <div class="learn-meta">
+        <span class="learn-round" id="learnRound"></span>
+        <span class="study-progress-label" id="learnProgress"></span>
+      </div>
+    </div>
+    <div class="study-progress"><div class="study-progress-bar"><i id="learnBar"></i></div></div>
+
+    <div id="learnBody">
+      <div class="practice-card">
+        <span class="learn-stage" id="learnStage"></span>
+        <div class="practice-q" id="learnQuestion"></div>
+        <p class="write-feedback" id="learnFeedback"></p>
+      </div>
+      <div class="quiz-options" id="learnChoices"></div>
+      <div class="write-row hidden" id="learnType">
+        <input type="text" id="learnInput" class="write-input" data-i18n-placeholder="write.placeholder" autocomplete="off">
+        <button class="btn primary" id="learnCheck" data-i18n="write.check"></button>
+        <button class="btn ghost" id="learnDontKnow" data-i18n="write.dontKnow"></button>
+        <button class="btn ghost hidden" id="learnMarkCorrect" data-i18n="write.markCorrect"></button>
+        <button class="btn primary hidden" id="learnNext" data-i18n="write.next"></button>
       </div>
     </div>
 
-    <div id="matchBody">
-      <p class="match-hint" data-i18n="match.hint"></p>
-      <div class="match-grid" id="matchGrid"></div>
-    </div>
-
-    <div class="study-done hidden" id="matchDone">
+    <div class="study-done hidden" id="learnDone">
       <div class="done-flower"><svg width="54" height="54"><use href="#i-flower"/></svg></div>
-      <h2 data-i18n="match.doneTitle"></h2>
-      <p class="done-sub"><span id="matchResult"></span> <b id="matchNewBest" class="new-best"></b></p>
+      <h2 data-i18n="learn.doneTitle"></h2>
+      <p class="done-sub" id="learnScore"></p>
       <div class="done-actions">
-        <button class="btn primary large" id="matchRetry" data-i18n="practice.retry"></button>
+        <button class="btn primary large" id="learnRetry" data-i18n="practice.retry"></button>
         <button class="btn ghost large" data-practice-exit data-i18n="study.backToDeck"></button>
       </div>
     </div>

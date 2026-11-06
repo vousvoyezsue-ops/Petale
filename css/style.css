@@ -2351,6 +2351,16 @@ mark, mark.hl, .hl {
 .write-wrong:empty { display: none; }
 .write-wrong s { color: var(--danger); opacity: .7; text-decoration-thickness: 1px; margin-left: 3px; }
 
+/* ── Learn (적응형 학습) ── */
+.mode-learn { border-color: color-mix(in srgb, var(--sage-400) 50%, var(--edge)); background: linear-gradient(180deg, color-mix(in srgb, var(--sage-400) 9%, var(--paper)), var(--paper)); }
+.mode-learn .mode-ic { background: var(--sage-400); color: #fff; }
+.learn-meta { display: flex; align-items: center; gap: 10px; }
+.learn-round { font-size: 12px; font-weight: 640; color: var(--olive-700); background: color-mix(in srgb, var(--sage-400) 16%, transparent); padding: 3px 10px; border-radius: 99px; }
+.learn-stage { display: inline-block; font-size: 11px; font-weight: 640; padding: 3px 10px; border-radius: 99px; margin-bottom: 12px; }
+.learn-stage.s-new { color: var(--ink-3); background: var(--ivory-deep); }
+.learn-stage.s-seen { color: var(--olive-700); background: color-mix(in srgb, var(--sage-400) 18%, transparent); }
+#learnChoices.hidden, #learnType.hidden { display: none; }
+
 .match-meta { display: flex; align-items: center; gap: 14px; }
 .match-timer {
   display: inline-flex; align-items: center; gap: 6px;
