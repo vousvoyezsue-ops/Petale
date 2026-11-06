@@ -3484,6 +3484,7 @@
     if (!session || !session.revealed || !session.current) return;
     const id = session.current;
     const snapshot = Store.applyReview(id, rating);
+    if (snapshot?.autoStarred) toast(t("study.autoStarred"));
     Social.pushStatsQuiet();
     if (rating === 0) session.again++; // 이번 세션 '다시' 누른 횟수 (완료 요약용)
     session.current = null;
@@ -3905,6 +3906,9 @@
     $("#ttsToggle").checked = !!Store.settings.tts;
     $("#repBadgeToggle").checked = Store.settings.repBadge !== false;
     $("#cardBunnyToggle").checked = Store.settings.cardBunny !== false;
+    $("#autoStarToggle").checked = !!Store.settings.autoStar;
+    $("#autoStarCount").value = Store.settings.autoStarCount || 5;
+    $("#autoStarCountRow").classList.toggle("hidden", !Store.settings.autoStar);
     renderTtsVoiceOptions();
     $("#ttsVoiceRow").classList.toggle("hidden", !Store.settings.tts);
     renderBunnyPicker();
@@ -3958,6 +3962,16 @@
   $("#cardBunnyToggle").addEventListener("change", (e) => {
     Store.setSetting("cardBunny", e.target.checked);
     updateCardBunny();
+  });
+
+  $("#autoStarToggle").addEventListener("change", (e) => {
+    Store.setSetting("autoStar", e.target.checked);
+    $("#autoStarCountRow").classList.toggle("hidden", !e.target.checked);
+  });
+  $("#autoStarCount").addEventListener("change", (e) => {
+    const n = Math.max(1, Math.min(99, Math.round(Number(e.target.value) || 0)));
+    e.target.value = n;
+    Store.setSetting("autoStarCount", n);
   });
 
   // 학습 알림 (망각곡선 기반)
