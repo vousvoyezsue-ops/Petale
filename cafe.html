@@ -25,6 +25,7 @@ html,body{ margin:0; background:transparent; }
 .names{ position:absolute; inset:0; pointer-events:none; }
 .name{ position:absolute; transform:translate(-50%,-100%); font-family:Inter,"Noto Sans KR",system-ui,sans-serif; font-size:9px; font-weight:500; line-height:1; white-space:nowrap; max-width:72px; overflow:hidden; text-overflow:ellipsis; padding:2px 6px; border-radius:999px; background:var(--pill); color:var(--pill-ink); border:1px solid var(--pill-line); box-shadow:0 1px 3px rgba(40,25,15,.2); }
 .name.me{ background:#6f7d68; color:#fffdf6; border-color:rgba(255,255,255,.2); }
+.name.npc{ opacity:.6; font-weight:400; box-shadow:none; }
 @media (max-width:480px){ .hud button{ height:26px; min-width:26px; padding:0 6px; } .hud .time{ font-size:13px; min-width:44px; } .hud .mode{ font-size:11px; } .hint{ font-size:11px; } .name{ font-size:8px; max-width:56px; } }
 </style>
 </head>
@@ -289,14 +290,31 @@ const qsSeat=parseInt(qs.get('seat'),10); if(!isNaN(qsSeat)&&SEATS[qsSeat]&&!npc
 // 메시지를 한 번이라도 받으면 기본 NPC는 실제 친구로 대체된다(단독 실행 시엔 기본 NPC 유지).
 let cafeFriends=null, meName='';
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// 접속한 친구가 없거나 적을 때 카페가 휑하지 않게 채워 넣는 단골 NPC들.
+const NPC_POOL=[
+  {name:'모카', fur:'cocoa',    outfit:'Oatmeal',   item:'laptop'},
+  {name:'라테', fur:'ivory',    outfit:'Sage knit', item:'book'},
+  {name:'보리', fur:'caramel',  outfit:'Rose',      item:'book'},
+  {name:'쑥',   fur:'grey',     outfit:'Navy',      item:'laptop'},
+  {name:'콩',   fur:'charcoal', outfit:'Corduroy',  item:'book'},
+  {name:'별',   fur:'cream',    outfit:'Doctor',    item:'book'},
+];
+const MIN_CAFE=3; // 나를 제외하고 카페에 늘 보일 최소 토끼 수 (친구가 적으면 NPC로 채움)
 function applyFriends(list){
   npcs={};
   const order=[2,4,0,3,1,5]; let k=0;
+  const nextSeat=()=>{ while(k<order.length && order[k]===me.seat) k++; return k<order.length?order[k++]:-1; };
+  // 1) 실제 공부 중인 친구 먼저 앉힌다 (이름표 표시)
   for(const f of (list||[])){
-    while(k<order.length && order[k]===me.seat) k++;
-    if(k>=order.length) break;
-    const seat=order[k++];
+    const seat=nextSeat(); if(seat<0) break;
     npcs[seat]={ fur:FURS[f.fur]?f.fur:'ivory', outfit:OUTFITS[f.outfit]?f.outfit:'Sage knit', item:(f.item==='laptop'?'laptop':'book'), phase:(seat*9+5)%40, name:f.name||'' };
+  }
+  // 2) 남은 빈 자리를 단골 NPC로 채운다 (카페가 비어 보이지 않게)
+  let p=0;
+  while(Object.keys(npcs).length < MIN_CAFE){
+    const seat=nextSeat(); if(seat<0) break;
+    const n=NPC_POOL[p++ % NPC_POOL.length];
+    npcs[seat]={ fur:n.fur, outfit:n.outfit, item:n.item, phase:(seat*9+5)%40, name:n.name, npc:true };
   }
   renderNames();
 }
@@ -307,7 +325,7 @@ function renderNames(){
   let html='';
   SEATS.forEach((s,i)=>{
     let nm=null, cls='';
-    if(npcs[i]&&npcs[i].name) nm=npcs[i].name;
+    if(npcs[i]&&npcs[i].name){ nm=npcs[i].name; if(npcs[i].npc) cls=' npc'; }
     else if(me.seat===i&&meName){ nm=meName; cls=' me'; }
     if(!nm) return;
     const x=s.cx/320*100, y=(s.cy-36)/180*100;
