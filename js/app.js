@@ -477,10 +477,9 @@
   }
 
   /* ══════════ 화면 전환 ══════════ */
-  const views = ["home", "deck", "study", "stats", "friends", "room", "quiz", "write", "match", "flash", "explore", "docs", "docreader", "overview", "recall"];
+  const views = ["home", "deck", "study", "stats", "friends", "room", "quiz", "write", "learn", "flash", "explore", "docs", "docreader", "overview", "recall"];
 
   function show(view) {
-    Practice.stopMatchTimer(); // 매치 중 다른 화면으로 이탈 시 타이머 정리
     document.body.dataset.view = view;
     views.forEach(v => $(`#view-${v}`).classList.toggle("hidden", v !== view));
     $$(".nav-link").forEach(b => b.classList.toggle("active", b.dataset.view === view));
@@ -3056,9 +3055,9 @@
     if (!started) { toast(t("practice.needCards")); return; }
     show(view);
   }
+  $("#btnLearn").addEventListener("click", () => startPractice(Practice.startLearn, "learn"));
   $("#btnQuiz").addEventListener("click", () => startPractice(Practice.startQuiz, "quiz"));
   $("#btnWrite").addEventListener("click", () => startPractice(Practice.startWrite, "write"));
-  $("#btnMatch").addEventListener("click", () => startPractice(Practice.startMatch, "match"));
 
   /* ── 개요(흐름 보기): 덱 전체를 장(섹션)별로 이어지는 한 편의 글처럼 읽기 ── */
   $("#btnOverview").addEventListener("click", () => show("overview"));
