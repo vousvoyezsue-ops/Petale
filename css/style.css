@@ -2288,6 +2288,8 @@ mark, mark.hl, .hl {
   white-space: pre-wrap;
   word-break: break-word;
 }
+/* 표·불렛 등 구조가 있는(여러 줄) 질문/선지는 왼쪽 정렬 + 적당한 크기로 */
+.practice-q.rich { text-align: left; font-size: clamp(15px, 2vw, 18px); font-weight: 500; line-height: 1.7; }
 
 .quiz-options {
   display: grid;
@@ -2303,10 +2305,12 @@ mark, mark.hl, .hl {
   background: var(--paper);
   font-size: 15px; font-weight: 540;
   line-height: 1.5;
+  white-space: pre-wrap;
   word-break: break-word;
   box-shadow: var(--shadow-xs);
   transition: transform .2s var(--ease-spring), border-color .2s, box-shadow .2s;
 }
+.quiz-opt.rich { text-align: left; font-size: 13.5px; line-height: 1.6; }
 .quiz-opt:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--sage-400) 55%, transparent); }
 .quiz-opt.correct {
   border-color: var(--sage-500);

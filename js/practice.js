@@ -15,11 +15,21 @@ const Practice = (() => {
 
   // 카드 앞/뒷면은 서식이 들어간 리치 HTML로 저장된다. 연습 모드(쓰기·퀴즈·매치)는
   // 평문으로 다뤄야 화면에 태그가 그대로 노출되지 않고, 정답 대조도 정확해진다.
+  // HTML을 '구조를 살린' 텍스트로 변환 — 표는 「셀 | 셀」 줄로, 리스트는 「• 항목」 줄로,
+  // 문단·줄바꿈은 개행으로 유지한다. (pre-wrap으로 그대로 보여주면 표·불렛이 안 깨진다)
   const htmlToText = (html) => {
-    const tmp = String(html || "").replace(/<(?:br|\/p|\/div|\/li)\s*\/?>/gi, " ");
+    const s = String(html || "")
+      .replace(/<\s*(br|hr)\s*\/?>/gi, "\n")
+      .replace(/<\s*li[^>]*>/gi, "\n• ")
+      .replace(/<\/\s*(td|th)\s*>\s*<\s*(td|th)[^>]*>/gi, " | ")
+      .replace(/<\/\s*(p|div|h[1-6]|tr|li|blockquote|ul|ol|table|thead|tbody)\s*>/gi, "\n");
     const d = document.createElement("div");
-    d.innerHTML = tmp;
-    return (d.textContent || "").replace(/\s+/g, " ").trim();
+    d.innerHTML = s;
+    return (d.textContent || "")
+      .replace(/[ \t ]+/g, " ")   // 가로 공백만 정리(개행은 보존)
+      .replace(/ *\n */g, "\n")
+      .replace(/\n{2,}/g, "\n")
+      .trim();
   };
 
   const CLOZE_RE = /\{\{c(\d+)::([\s\S]*?)(?:::([\s\S]*?))?\}\}/g;
@@ -97,9 +107,10 @@ const Practice = (() => {
     $("#quizProgress").textContent = `${i + 1} / ${items.length}`;
     $("#quizBar").style.width = `${(i / items.length) * 100}%`;
     $("#quizQuestion").textContent = items[i].q;
+    $("#quizQuestion").classList.toggle("rich", items[i].q.includes("\n"));
     quiz.locked = false;
     $("#quizOptions").innerHTML = items[i].options.map(o =>
-      `<button class="quiz-opt" data-a="${esc(o)}">${esc(o)}</button>`).join("");
+      `<button class="quiz-opt${o.includes("\n") ? " rich" : ""}" data-a="${esc(o)}">${esc(o)}</button>`).join("");
     $("#quizOptions").querySelectorAll(".quiz-opt").forEach(btn =>
       btn.addEventListener("click", () => pickOption(btn)));
   }
@@ -237,6 +248,7 @@ const Practice = (() => {
     $("#writeProgress").textContent = `${done} / ${need}`;
     $("#writeBar").style.width = `${(done / need) * 100}%`;
     $("#writeQuestion").textContent = write.current.q;
+    $("#writeQuestion").classList.toggle("rich", write.current.q.includes("\n"));
     $("#writeFeedback").innerHTML = "";
     $("#writeWrong").innerHTML = "";
     $("#writeInput").value = "";
@@ -399,12 +411,13 @@ const Practice = (() => {
     $("#learnStage").textContent = t(cur.stage === 0 ? "learn.stageNew" : "learn.stageSeen");
     $("#learnStage").className = "learn-stage " + (cur.stage === 0 ? "s-new" : "s-seen");
     $("#learnQuestion").textContent = cur.q;
+    $("#learnQuestion").classList.toggle("rich", cur.q.includes("\n"));
     $("#learnFeedback").innerHTML = "";
     if (learn.phase === "mc") {
       $("#learnType").classList.add("hidden");
       $("#learnChoices").classList.remove("hidden");
       const opts = shuffle([cur.a, ...pickDistractors(cur.a, learn.answers)]);
-      $("#learnChoices").innerHTML = opts.map(o => `<button class="quiz-opt" data-a="${esc(o)}">${esc(o)}</button>`).join("");
+      $("#learnChoices").innerHTML = opts.map(o => `<button class="quiz-opt${o.includes("\n") ? " rich" : ""}" data-a="${esc(o)}">${esc(o)}</button>`).join("");
       $("#learnChoices").querySelectorAll(".quiz-opt").forEach(btn => btn.addEventListener("click", () => pickLearn(btn)));
     } else {
       $("#learnChoices").classList.add("hidden");
