@@ -1452,54 +1452,81 @@
       .sort((a, b) => ((a.s.daysLeft == null ? 1e9 : a.s.daysLeft) - (b.s.daysLeft == null ? 1e9 : b.s.daysLeft)));
     const focus = rows.find(x => (x.s.daysLeft == null || x.s.daysLeft >= 0) && x.s.todayTotal > 0) || rows[0];
 
+    const fmtDate = ts => new Intl.DateTimeFormat(I18N.lang === "ko" ? "ko-KR" : "en-US", { month: "short", day: "numeric" }).format(new Date(ts));
+    // 시험일까지 '하루 새 카드' 막대그래프 (오늘·시험일 강조)
+    const schedBars = (p, max) => {
+      let tl; try { tl = Store.planTimeline(p, now); } catch { return ""; }
+      if (!tl || tl.length < 2) return "";
+      tl = tl.slice(0, max);
+      const mx = Math.max(1, ...tl.map(d => d.newCount));
+      return tl.map((d, i) => {
+        const h = d.newCount ? Math.max(9, Math.round(d.newCount / mx * 100)) : 4;
+        const cls = d.isExam ? "exam" : i === 0 ? "today" : "";
+        return `<i class="${cls}" style="--h:${h}%" title="${d.newCount}"></i>`;
+      }).join("");
+    };
+
     // ── 오늘의 집중 (hero) ──
     let hero = "";
     if (focus) {
       const s = focus.s, fd = planFocusDeck(focus.p);
-      const deckName = fd ? escapeHTML(fd.name) : escapeHTML(focus.p.name);
       const pct = Math.round(s.progress * 100);
+      const dcls = ddayCls(s.daysLeft);
       const chips = [];
       if (s.dueToday) chips.push(`<span class="pf-chip review">${t("plan.splitReview", { n: s.dueToday })}</span>`);
       if (s.todayNew) chips.push(`<span class="pf-chip new">${t("plan.splitNew", { n: s.todayNew })}</span>`);
       if (!chips.length) chips.push(`<span class="pf-chip done">${t("plan.todayDone")}</span>`);
-      const ringIn = s.todayTotal > 0
-        ? `<b>${s.todayTotal}</b><span>${t("plan.leftUnit")}</span>`
-        : `<b class="done">✓</b>`;
-      hero = `<div class="plan-focus" data-plan="${focus.p.id}" role="button" tabindex="0">
-        <div class="pf-ring" style="--pct:${pct}"><div class="pf-ring-in">${ringIn}</div></div>
-        <div class="pf-body">
-          <div class="pf-label">${t("plan.todayFocus")} · ${escapeHTML(focus.p.name)} <span class="pf-dday ${ddayCls(s.daysLeft)}">${ddayLabel(s.daysLeft)}</span></div>
-          <div class="pf-deck">${deckName}</div>
-          <div class="pf-chips">${chips.join("")}</div>
+      const workNum = s.todayTotal > 0
+        ? `<b>${s.todayTotal}</b><span>${t("plan.todayWork")}</span>`
+        : `<b class="done">✓</b><span>${t("plan.todayDone")}</span>`;
+      const dday = s.daysLeft != null
+        ? `<div class="pf-dday ${dcls}"><b>${ddayLabel(s.daysLeft)}</b><span>${fmtDate(s.examTs)}</span></div>` : "";
+      const bars = schedBars(focus.p, 30);
+      const sched = (s.daysLeft != null && bars) ? `<div class="pf-sched">
+          <div class="pf-sched-head"><span>${t("plan.schedule")}</span><span>${s.perDay ? t("plan.perDayN", { n: s.perDay }) : ""}</span></div>
+          <div class="pf-sched-bars">${bars}</div>
+          <div class="pf-sched-axis"><span>${t("plan.axisToday")}</span><span class="pf-sched-exam">${t("plan.examMark", { d: fmtDate(s.examTs) })}</span></div>
+        </div>` : "";
+      const goLabel = s.todayTotal > 0 ? t("plan.goNowN", { n: s.todayTotal }) : t("plan.studyNow");
+      hero = `<div class="plan-focus ${dcls}" data-plan="${focus.p.id}" role="button" tabindex="0">
+        <div class="pf-top">
+          <div class="pf-id">
+            <span class="pf-kicker">${t("plan.todayFocus")}</span>
+            <span class="pf-plan">${escapeHTML(focus.p.name)}</span>
+            ${fd ? `<span class="pf-deck">${t("plan.focusWeight", { deck: escapeHTML(fd.name) })}</span>` : ""}
+          </div>
+          ${dday}
         </div>
-        <button class="btn primary pf-go" data-plan="${focus.p.id}">${t("plan.studyNow")}</button>
+        <div class="pf-mid">
+          <div class="pf-ring" style="--pct:${pct}"><div class="pf-ring-in"><b>${pct}<i>%</i></b><span>${t("plan.ringProgress")}</span></div></div>
+          <div class="pf-work">
+            <div class="pf-work-num">${workNum}</div>
+            <div class="pf-chips">${chips.join("")}</div>
+            <div class="pf-learned">${t("plan.learnedN", { a: s.learned, b: s.total })}</div>
+          </div>
+        </div>
+        ${sched}
+        <button class="btn primary pf-go" data-plan="${focus.p.id}">${goLabel}</button>
       </div>`;
     }
 
-    // ── 플랜 카드 ──
-    const cards = rows.map(({ p, s }) => {
+    // ── 나머지 플랜 카드 ──
+    const others = rows.filter(x => !focus || x.p.id !== focus.p.id);
+    const cards = others.map(({ p, s }) => {
       const pct = Math.round(s.progress * 100);
       const dcls = ddayCls(s.daysLeft);
-      let spark = "";
-      try {
-        const tl = Store.planTimeline(p, now).slice(0, 16);
-        if (tl.length > 1) {
-          const mx = Math.max(1, ...tl.map(d => d.newCount));
-          spark = `<div class="pc-spark">` + tl.map((d, i) =>
-            `<i class="${d.isExam ? "exam" : i === 0 ? "today" : ""}" style="height:${d.newCount ? Math.max(3, Math.round(d.newCount / mx * 22)) : 2}px"></i>`
-          ).join("") + `</div>`;
-        }
-      } catch { /* 타임라인 없으면 생략 */ }
+      const bars = schedBars(p, 22);
       return `<div class="plan-card ${dcls}" data-plan="${p.id}" role="button" tabindex="0">
         <div class="pc-top"><span class="pc-name">${escapeHTML(p.name)}</span><span class="pc-dday ${dcls}">${ddayLabel(s.daysLeft)}</span></div>
         <div class="pc-today">${planTodayLabel(s)}</div>
         <div class="pc-bar"><i style="width:${pct}%"></i></div>
         <div class="pc-foot"><span>${t("plan.progressN", { n: pct })}</span><span>${t("plan.totalN", { n: s.total })}</span></div>
-        ${spark}
+        ${bars ? `<div class="pc-spark">${bars}</div>` : ""}
       </div>`;
     }).join("");
+    const grid = cards ? `<div class="plan-grid">${cards}</div>` : "";
 
-    host.innerHTML = `<div class="plan-head"><h3>${t("plan.title")}</h3>${addBtn}</div>${hero}<div class="plan-grid">${cards}</div>`;
+    host.innerHTML = `<div class="plan-head"><h3>${t("plan.title")}</h3>${addBtn}</div>${hero}${grid}`;
     $("#btnAddPlan")?.addEventListener("click", () => openPlanModal(null));
     const openEdit = el => openPlanModal(el.dataset.plan);
     host.querySelectorAll(".plan-card, .plan-focus").forEach(el => {
