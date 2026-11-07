@@ -753,6 +753,7 @@ const Store = (() => {
     if (patch.date != null) p.date = patch.date;
     if (Array.isArray(patch.deckIds)) p.deckIds = patch.deckIds.slice();
     if ("dailyNew" in patch) p.dailyNew = Math.max(0, Number(patch.dailyNew) || 0);
+    if ("completed" in patch) p.completed = !!patch.completed;
     save();
   }
   function deletePlan(id) { state.plans = state.plans.filter(p => p.id !== id); save(); }
