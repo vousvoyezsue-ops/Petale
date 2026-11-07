@@ -1668,105 +1668,48 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
 .plan-add { white-space: nowrap; }
 .plan-empty { color: var(--ink-3); font-size: 13.5px; padding: 6px 2px; }
 /* ── 오늘의 집중 (hero) ── */
+/* 오늘의 집중 — 담백한 카드 (여백·얇은 선·포인트 컬러 하나) */
 .plan-focus {
-  position: relative; overflow: hidden;
-  display: flex; flex-direction: column; gap: 15px;
-  padding: 20px 20px 18px 22px; margin-bottom: 14px;
-  border-radius: var(--r-xl);
-  background:
-    radial-gradient(520px 210px at 100% -12%, color-mix(in srgb, var(--lime-200) 60%, transparent), transparent 70%),
-    linear-gradient(158deg, color-mix(in srgb, var(--blush-50) 68%, var(--paper)) 0%, var(--paper) 52%);
+  padding: 24px 24px 20px; margin-bottom: 18px;
+  border-radius: var(--r-lg);
+  background: var(--paper);
   border: 1px solid var(--edge);
-  box-shadow: var(--shadow-md);
-  cursor: pointer; transition: transform .15s, box-shadow .15s;
+  cursor: pointer; transition: border-color .18s, box-shadow .18s;
 }
-.plan-focus::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: linear-gradient(var(--sage-400), var(--olive-600)); }
-.plan-focus.near::before { background: var(--amber); }
-.plan-focus.soon::before { background: linear-gradient(var(--rose-500), var(--rose-600)); }
-.plan-focus.past::before { background: var(--ink-3); }
-.plan-focus:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
-
-/* 상단: 플랜 이름 + D-day */
-.pf-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
-.pf-id { min-width: 0; }
-.pf-kicker { display: block; font-size: 10.5px; font-weight: 740; letter-spacing: .09em; text-transform: uppercase; color: var(--sage-500); }
-.pf-plan { display: block; font-family: var(--font-display); font-size: 21px; line-height: 1.2; color: var(--ink); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pf-deck { font-size: 12.5px; color: var(--ink-3); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pf-dday { flex: 0 0 auto; text-align: right; line-height: 1.05; }
-.pf-dday b { display: block; font-size: 26px; font-weight: 820; color: var(--olive-700); letter-spacing: -.01em; }
-.pf-dday span { font-size: 11px; color: var(--ink-3); }
-.pf-dday.near b { color: var(--amber); }
-.pf-dday.soon b { color: var(--rose-600); }
-.pf-dday.past b { color: var(--ink-3); }
-
-/* 가운데: 진도 링 + 오늘 할 일 */
-.pf-mid { display: flex; align-items: center; gap: 18px; }
-.pf-ring {
-  --pct: 0; flex: 0 0 auto; width: 76px; height: 76px; border-radius: 50%;
-  background: conic-gradient(var(--olive-600) calc(var(--pct) * 1%), color-mix(in srgb, var(--ink) 10%, transparent) 0);
-  display: grid; place-items: center;
+.plan-focus:hover { border-color: color-mix(in srgb, var(--olive-700) 26%, var(--edge)); box-shadow: var(--shadow-xs); }
+.pf-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.pf-kicker { font-size: 10px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-3); }
+.pf-dday { flex: 0 0 auto; font-size: 13px; font-weight: 640; color: var(--olive-700); display: inline-flex; align-items: baseline; gap: 6px; }
+.pf-dday em { font-style: normal; font-weight: 500; font-size: 11.5px; color: var(--ink-3); }
+.pf-dday.soon { color: var(--rose-600); }
+.pf-dday.past { color: var(--ink-3); }
+.pf-plan { font-family: var(--font-display); font-size: 24px; font-weight: 500; color: var(--ink); margin-top: 11px; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-deck { font-size: 13px; color: var(--ink-3); margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-prog { display: flex; align-items: center; gap: 12px; margin-top: 22px; }
+.pf-track { flex: 1; height: 3px; border-radius: 99px; background: color-mix(in srgb, var(--ink) 9%, transparent); overflow: hidden; }
+.pf-track i { display: block; height: 100%; border-radius: 99px; background: var(--olive-600); transition: width .6s; }
+.pf-pct { flex: 0 0 auto; font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.pf-bottom { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
+.pf-task { font-size: 13.5px; color: var(--ink-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-go {
+  flex: 0 0 auto; border: 0; background: none; cursor: pointer; font-family: inherit;
+  font-size: 13.5px; font-weight: 640; color: var(--olive-700);
+  padding: 4px 0 4px 10px; transition: color .15s, transform .15s;
 }
-.pf-ring-in {
-  width: 60px; height: 60px; border-radius: 50%; background: var(--paper);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 5%, transparent);
-}
-.pf-ring-in b { font-size: 22px; font-weight: 800; color: var(--olive-700); }
-.pf-ring-in b i { font-size: 12px; font-weight: 700; font-style: normal; margin-left: 1px; }
-.pf-ring-in span { font-size: 9.5px; color: var(--ink-3); margin-top: 3px; letter-spacing: .02em; }
-.pf-work { flex: 1; min-width: 0; }
-.pf-work-num { display: flex; align-items: baseline; gap: 7px; }
-.pf-work-num b { font-size: 30px; font-weight: 800; color: var(--ink); line-height: 1; }
-.pf-work-num b.done { color: var(--sage-500); }
-.pf-work-num span { font-size: 12.5px; color: var(--ink-3); }
-.pf-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
-.pf-chip { font-size: 12px; font-weight: 680; padding: 4px 11px; border-radius: 99px; }
-.pf-chip.review { color: var(--olive-700); background: color-mix(in srgb, var(--sage-400) 26%, transparent); }
-.pf-chip.new { color: var(--rose-600); background: color-mix(in srgb, var(--rose-500) 18%, transparent); }
-.pf-chip.done { color: var(--sage-500); background: color-mix(in srgb, var(--sage-400) 18%, transparent); }
-.pf-learned { font-size: 11.5px; color: var(--ink-3); margin-top: 8px; }
+.pf-go:hover { color: var(--ink); transform: translateX(2px); }
 
-/* 학습 일정 막대그래프 */
-.pf-sched { border-top: 1px dashed color-mix(in srgb, var(--ink) 12%, transparent); padding-top: 12px; }
-.pf-sched-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; color: var(--ink-3); margin-bottom: 7px; }
-.pf-sched-head span:first-child { font-weight: 720; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
-.pf-sched-bars { display: flex; align-items: flex-end; gap: 2px; height: 42px; }
-.pf-sched-bars i { flex: 1; min-width: 2px; height: var(--h, 4%); border-radius: 2px 2px 1px 1px; background: color-mix(in srgb, var(--sage-400) 60%, transparent); transition: height .4s; }
-.pf-sched-bars i.today { background: linear-gradient(var(--olive-600), var(--sage-400)); }
-.pf-sched-bars i.exam { background: var(--rose-500); }
-.pf-sched-axis { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--ink-3); margin-top: 5px; }
-.pf-sched-exam { color: var(--rose-600); font-weight: 650; }
-
-.pf-go { width: 100%; }
-
-/* ── 플랜 카드 그리드 ── */
-.plan-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(238px, 1fr)); gap: 12px; }
-.plan-card {
-  position: relative; overflow: hidden;
-  padding: 14px 16px 13px 18px; border-radius: var(--r-md);
-  background: var(--paper); border: 1px solid var(--edge);
-  cursor: pointer; transition: transform .15s, box-shadow .15s, border-color .15s;
-}
-.plan-card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--sage-400); }
-.plan-card.near::before { background: var(--amber); }
-.plan-card.soon::before { background: var(--rose-500); }
-.plan-card.past { opacity: .62; }
-.plan-card.past::before { background: var(--ink-3); }
-.plan-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); border-color: color-mix(in srgb, var(--olive-700) 22%, var(--edge)); }
-.pc-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.pc-name { font-weight: 660; font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pc-dday { font-weight: 760; font-size: 14px; color: var(--olive-700); flex-shrink: 0; }
-.pc-dday.near { color: var(--amber); }
-.pc-dday.soon { color: var(--rose-600); }
-.pc-dday.past { color: var(--ink-3); }
-.pc-today { font-size: 12.5px; color: var(--ink-2); margin: 5px 0 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pc-bar { height: 9px; border-radius: 99px; background: color-mix(in srgb, var(--ink) 8%, transparent); overflow: hidden; }
-.pc-bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--sage-400), var(--olive-600)); transition: width .5s; }
-.pc-foot { display: flex; justify-content: space-between; margin-top: 7px; font-size: 11.5px; color: var(--ink-3); }
-.pc-spark { display: flex; align-items: flex-end; gap: 2px; height: 26px; margin-top: 11px; }
-.pc-spark i { flex: 1; min-width: 2px; height: var(--h, 4%); border-radius: 2px 2px 1px 1px; background: color-mix(in srgb, var(--sage-400) 55%, transparent); }
-.pc-spark i.today { background: linear-gradient(var(--olive-600), var(--sage-400)); }
-.pc-spark i.exam { background: var(--rose-500); }
+/* 나머지 플랜 — 조용한 리스트 */
+.plan-list { list-style: none; border-top: 1px solid var(--edge); }
+.plan-row { display: flex; align-items: center; gap: 14px; padding: 13px 4px; border-bottom: 1px solid var(--edge); cursor: pointer; transition: background .15s; }
+.plan-row:hover { background: color-mix(in srgb, var(--ink) 3%, transparent); }
+.pr-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.pr-name { font-size: 14.5px; font-weight: 560; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pr-sub { font-size: 12px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pr-track { flex: 0 0 auto; width: 52px; height: 3px; border-radius: 99px; background: color-mix(in srgb, var(--ink) 9%, transparent); overflow: hidden; }
+.pr-track i { display: block; height: 100%; border-radius: 99px; background: color-mix(in srgb, var(--olive-600) 78%, transparent); }
+.pr-dday { flex: 0 0 auto; min-width: 42px; text-align: right; font-size: 13px; font-weight: 600; color: var(--olive-700); }
+.pr-dday.soon { color: var(--rose-600); }
+.pr-dday.past { color: var(--ink-3); }
 
 /* 플랜 모달: 덱 선택 + 타임라인 미리보기 */
 .plan-deck-pick { display: flex; flex-direction: column; gap: 4px; max-height: 190px; overflow-y: auto; margin-top: 6px; }
@@ -3299,13 +3242,10 @@ body[data-view="study"] .cafe-dock.mini { bottom: 84px; }
 @media (prefers-reduced-motion: reduce) { .wd.pop, .wd.miss { animation: none; } }
 
 /* ══════════════ 모바일 보정 ══════════════ */
-/* 플랜 '오늘의 집중' — 좁은 화면에선 버튼을 아래로 내려 덱 이름이 안 잘리게 */
+/* 플랜 '오늘의 집중' — 좁은 화면 여백 보정 */
 @media (max-width: 480px) {
-  .plan-focus { flex-wrap: wrap; gap: 12px 14px; padding: 14px 16px; }
-  .pf-ring { width: 56px; height: 56px; }
-  .pf-ring-in { width: 44px; height: 44px; }
-  .pf-go { width: 100%; order: 3; }
-  .pf-deck { font-size: 18px; }
+  .plan-focus { padding: 20px 18px 16px; }
+  .pf-plan { font-size: 21px; }
 }
 /* 상단 탭이 6개라 좁은 폰에서 '친구'가 잘리던 문제 — 간격·폰트 줄여 모두 보이게 */
 @media (max-width: 400px) {
