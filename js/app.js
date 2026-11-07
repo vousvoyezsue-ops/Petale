@@ -1450,7 +1450,8 @@
     const ddayCls = d => d == null ? "" : d < 0 ? "past" : d <= 3 ? "soon" : d <= 7 ? "near" : "";
     const rows = plans.map(p => ({ p, s: Store.planStats(p, now) }))
       .sort((a, b) => ((a.s.daysLeft == null ? 1e9 : a.s.daysLeft) - (b.s.daysLeft == null ? 1e9 : b.s.daysLeft)));
-    const focus = rows.find(x => (x.s.daysLeft == null || x.s.daysLeft >= 0) && x.s.todayTotal > 0) || rows[0];
+    const active = rows.filter(x => !x.p.completed);
+    const focus = active.find(x => (x.s.daysLeft == null || x.s.daysLeft >= 0) && x.s.todayTotal > 0) || active[0] || null;
 
     const fmtDate = ts => new Intl.DateTimeFormat(I18N.lang === "ko" ? "ko-KR" : "en-US", { month: "numeric", day: "numeric" }).format(new Date(ts));
     const taskLine = s => {
@@ -1482,9 +1483,16 @@
       </div>`;
     }
 
-    // ── 나머지 플랜 — 조용한 리스트 행 ──
-    const others = rows.filter(x => !focus || x.p.id !== focus.p.id);
+    // ── 나머지 플랜 — 조용한 리스트 행 (완료한 플랜은 맨 아래 흐리게) ──
+    const others = rows.filter(x => !focus || x.p.id !== focus.p.id)
+      .sort((a, b) => (a.p.completed ? 1 : 0) - (b.p.completed ? 1 : 0));
     const list = others.map(({ p, s }) => {
+      if (p.completed) {
+        return `<li class="plan-row done" data-plan="${p.id}" role="button" tabindex="0">
+          <span class="pr-main"><span class="pr-name">${escapeHTML(p.name)}</span><span class="pr-sub">${t("plan.completed")}</span></span>
+          <span class="pr-check">✓</span>
+        </li>`;
+      }
       const pct = Math.round(s.progress * 100);
       const dcls = ddayCls(s.daysLeft);
       return `<li class="plan-row" data-plan="${p.id}" role="button" tabindex="0">
@@ -1500,16 +1508,75 @@
 
     host.innerHTML = `<div class="plan-head"><h3>${t("plan.title")}</h3>${addBtn}</div>${hero}${grid}`;
     $("#btnAddPlan")?.addEventListener("click", () => openPlanModal(null));
-    const openEdit = el => openPlanModal(el.dataset.plan);
+    const openDetail = el => openPlanDetail(el.dataset.plan);
     host.querySelectorAll(".plan-row, .plan-focus").forEach(el => {
-      el.addEventListener("click", () => openEdit(el));
-      el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEdit(el); } });
+      el.addEventListener("click", () => openDetail(el));
+      el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDetail(el); } });
     });
+    // '지금 학습' → 바로 카드가 아니라 상세(오늘 할 덱)부터 보여준다
     host.querySelectorAll(".pf-go").forEach(el => el.addEventListener("click", (e) => {
       e.stopPropagation();
-      const p = Store.getPlan(el.dataset.plan); if (p) startPlanSession(p);
+      openPlanDetail(el.dataset.plan);
     }));
   }
+
+  // ── 플랜 상세: 끝낸 거 · 남은 거 · 전체 · 오늘 할 덱, 그리고 시작/완료/수정 ──
+  let detailPlanId = null;
+  function openPlanDetail(planId) {
+    const p = Store.getPlan(planId); if (!p) return;
+    detailPlanId = planId;
+    const now = Date.now();
+    const s = Store.planStats(p, now);
+    const pct = Math.round(s.progress * 100);
+    const fmtDate = ts => new Intl.DateTimeFormat(I18N.lang === "ko" ? "ko-KR" : "en-US", { month: "numeric", day: "numeric" }).format(new Date(ts));
+    $("#pdName").textContent = p.name;
+    $("#pdDday").textContent = s.daysLeft != null ? `${ddayLabel(s.daysLeft)} · ${fmtDate(s.examTs)}` : "";
+    $("#pdDday").className = "pd-dday " + (s.daysLeft == null ? "" : s.daysLeft < 0 ? "past" : s.daysLeft <= 3 ? "soon" : "");
+    $("#pdBar").style.width = pct + "%";
+    $("#pdPct").textContent = pct + "%";
+    $("#pdStats").innerHTML =
+      `<span><b>${s.learned}</b>${t("plan.doneLabel")}</span>` +
+      `<span><b>${s.newCards}</b>${t("plan.remainLabel")}</span>` +
+      `<span><b>${s.total}</b>${t("plan.totalLabel")}</span>`;
+    const perDeck = (p.deckIds || []).map(id => {
+      const deck = Store.getDeck(id); if (!deck) return null;
+      const cs = Store.state.cards.filter(c => c.deckId === id && !c.suspended);
+      const due = cs.filter(c => (c.views || 0) > 0 && c.due <= now).length;
+      const neu = cs.filter(c => (c.views || 0) === 0).length;
+      return { deck, due, neu };
+    }).filter(Boolean);
+    const todayDecks = perDeck.filter(x => x.due > 0 || x.neu > 0);
+    $("#pdTodayTitle").textContent = t("plan.todayDecks");
+    $("#pdDecks").innerHTML = todayDecks.length
+      ? todayDecks.map(x => {
+        const parts = [];
+        if (x.due) parts.push(t("plan.splitReview", { n: x.due }));
+        if (x.neu) parts.push(t("plan.splitNew", { n: x.neu }));
+        return `<div class="pd-deck"><span class="pdk-name">${escapeHTML(x.deck.name)}</span><span class="pdk-cnt">${parts.join(" · ")}</span></div>`;
+      }).join("")
+      : `<p class="pd-empty">${t("plan.noTodayDecks")}</p>`;
+    $("#pdStart").textContent = s.todayTotal > 0 ? t("plan.goNowN", { n: s.todayTotal }) : t("plan.studyNow");
+    $("#pdStart").classList.toggle("hidden", !!p.completed || s.todayTotal <= 0);
+    $("#pdComplete").textContent = p.completed ? t("plan.uncomplete") : t("plan.complete");
+    $("#planDetailModal").showModal();
+  }
+  $("#pdStart").addEventListener("click", () => {
+    const p = Store.getPlan(detailPlanId);
+    $("#planDetailModal").close();
+    if (p) startPlanSession(p);
+  });
+  $("#pdEdit").addEventListener("click", () => {
+    const id = detailPlanId;
+    $("#planDetailModal").close();
+    openPlanModal(id);
+  });
+  $("#pdComplete").addEventListener("click", () => {
+    const p = Store.getPlan(detailPlanId); if (!p) return;
+    Store.updatePlan(detailPlanId, { completed: !p.completed });
+    if (!p.completed) toast(t("plan.completedToast"));
+    $("#planDetailModal").close();
+    renderPlanSection();
+  });
 
   function startPlanSession(plan) {
     const now = Date.now();
@@ -1526,11 +1593,32 @@
     const host = $("#planDeckPick");
     const decks = sortDecks(Store.state.decks);
     if (!decks.length) { host.innerHTML = `<p class="plan-empty">${t("plan.noDecks")}</p>`; return; }
-    host.innerHTML = decks.map(d => {
+    const optHTML = d => {
       const n = planNewCount(d.id);
       return `<label class="plan-deck-opt"><input type="checkbox" value="${d.id}" ${selected.has(d.id) ? "checked" : ""}>
         <span>${escapeHTML(d.name)}</span><em>${t("plan.newN", { n })}</em></label>`;
-    }).join("");
+    };
+    // 과목(폴더)별로 묶어 접었다 펼 수 있게. 폴더가 전혀 없으면 평평하게.
+    const byFolder = new Map();
+    for (const d of decks) { const k = d.folderId || ""; (byFolder.get(k) || byFolder.set(k, []).get(k)).push(d); }
+    const folders = sortFolders([...byFolder.keys()].filter(Boolean).map(id => Store.getFolder(id)).filter(Boolean));
+    if (!folders.length) {
+      host.innerHTML = decks.map(optHTML).join("");
+      host.querySelectorAll("input").forEach(i => i.addEventListener("change", renderPlanPreview));
+      return;
+    }
+    const chev = `<svg class="pg-chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>`;
+    const group = (list, name) => {
+      const sel = list.filter(d => selected.has(d.id)).length;
+      return `<div class="plan-group ${sel ? "open" : ""}">
+        <button type="button" class="plan-group-head">${chev}<span class="pg-name">${escapeHTML(name)}</span><span class="pg-count">${sel ? sel + "/" : ""}${list.length}</span></button>
+        <div class="plan-group-body">${list.map(optHTML).join("")}</div>
+      </div>`;
+    };
+    const parts = folders.map(f => group(byFolder.get(f.id), f.name));
+    if (byFolder.has("")) parts.push(group(byFolder.get(""), t("plan.ungrouped")));
+    host.innerHTML = parts.join("");
+    host.querySelectorAll(".plan-group-head").forEach(h => h.addEventListener("click", () => h.closest(".plan-group").classList.toggle("open")));
     host.querySelectorAll("input").forEach(i => i.addEventListener("change", renderPlanPreview));
   }
   function planFormDeckIds() { return [...$("#planDeckPick").querySelectorAll("input:checked")].map(i => i.value); }

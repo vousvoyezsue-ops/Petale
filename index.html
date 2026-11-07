@@ -836,6 +836,26 @@
   </form>
 </dialog>
 
+<!-- ═══════════ 모달: 플랜 상세 (전체 현황 + 오늘 할 덱) ═══════════ -->
+<dialog class="modal" id="planDetailModal">
+  <div class="modal-body">
+    <div class="pd-head">
+      <h3 id="pdName"></h3>
+      <span class="pd-dday" id="pdDday"></span>
+    </div>
+    <div class="pd-prog"><span class="pd-track"><i id="pdBar"></i></span><span class="pd-pct" id="pdPct"></span></div>
+    <div class="pd-stats" id="pdStats"></div>
+    <h4 class="pd-sub" id="pdTodayTitle"></h4>
+    <div class="pd-decks" id="pdDecks"></div>
+    <div class="modal-actions pd-actions">
+      <button type="button" class="btn ghost" id="pdComplete"></button>
+      <button type="button" class="btn ghost" id="pdEdit" data-i18n="plan.editBtn"></button>
+      <button type="button" class="btn primary" id="pdStart"></button>
+    </div>
+    <button type="button" class="pd-close" data-close aria-label="close">✕</button>
+  </div>
+</dialog>
+
 <!-- ═══════════ 모달: 카드 (기본/빈칸) ═══════════ -->
 <dialog class="modal" id="cardModal">
   <form method="dialog" class="modal-body" id="cardForm">
