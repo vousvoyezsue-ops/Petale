@@ -1452,84 +1452,56 @@
       .sort((a, b) => ((a.s.daysLeft == null ? 1e9 : a.s.daysLeft) - (b.s.daysLeft == null ? 1e9 : b.s.daysLeft)));
     const focus = rows.find(x => (x.s.daysLeft == null || x.s.daysLeft >= 0) && x.s.todayTotal > 0) || rows[0];
 
-    const fmtDate = ts => new Intl.DateTimeFormat(I18N.lang === "ko" ? "ko-KR" : "en-US", { month: "short", day: "numeric" }).format(new Date(ts));
-    // 시험일까지 '하루 새 카드' 막대그래프 (오늘·시험일 강조)
-    const schedBars = (p, max) => {
-      let tl; try { tl = Store.planTimeline(p, now); } catch { return ""; }
-      if (!tl || tl.length < 2) return "";
-      tl = tl.slice(0, max);
-      const mx = Math.max(1, ...tl.map(d => d.newCount));
-      return tl.map((d, i) => {
-        const h = d.newCount ? Math.max(9, Math.round(d.newCount / mx * 100)) : 4;
-        const cls = d.isExam ? "exam" : i === 0 ? "today" : "";
-        return `<i class="${cls}" style="--h:${h}%" title="${d.newCount}"></i>`;
-      }).join("");
+    const fmtDate = ts => new Intl.DateTimeFormat(I18N.lang === "ko" ? "ko-KR" : "en-US", { month: "numeric", day: "numeric" }).format(new Date(ts));
+    const taskLine = s => {
+      if (s.todayTotal <= 0) return t("plan.todayDone");
+      const parts = [];
+      if (s.dueToday) parts.push(t("plan.splitReview", { n: s.dueToday }));
+      if (s.todayNew) parts.push(t("plan.splitNew", { n: s.todayNew }));
+      return parts.join(" · ");
     };
 
-    // ── 오늘의 집중 (hero) ──
+    // ── 오늘의 집중 — 담백하게: 이름 · D-day · 얇은 진도선 · 오늘 할 일 · 조용한 버튼 ──
     let hero = "";
     if (focus) {
       const s = focus.s, fd = planFocusDeck(focus.p);
       const pct = Math.round(s.progress * 100);
       const dcls = ddayCls(s.daysLeft);
-      const chips = [];
-      if (s.dueToday) chips.push(`<span class="pf-chip review">${t("plan.splitReview", { n: s.dueToday })}</span>`);
-      if (s.todayNew) chips.push(`<span class="pf-chip new">${t("plan.splitNew", { n: s.todayNew })}</span>`);
-      if (!chips.length) chips.push(`<span class="pf-chip done">${t("plan.todayDone")}</span>`);
-      const workNum = s.todayTotal > 0
-        ? `<b>${s.todayTotal}</b><span>${t("plan.todayWork")}</span>`
-        : `<b class="done">✓</b><span>${t("plan.todayDone")}</span>`;
       const dday = s.daysLeft != null
-        ? `<div class="pf-dday ${dcls}"><b>${ddayLabel(s.daysLeft)}</b><span>${fmtDate(s.examTs)}</span></div>` : "";
-      const bars = schedBars(focus.p, 30);
-      const sched = (s.daysLeft != null && bars) ? `<div class="pf-sched">
-          <div class="pf-sched-head"><span>${t("plan.schedule")}</span><span>${s.perDay ? t("plan.perDayN", { n: s.perDay }) : ""}</span></div>
-          <div class="pf-sched-bars">${bars}</div>
-          <div class="pf-sched-axis"><span>${t("plan.axisToday")}</span><span class="pf-sched-exam">${t("plan.examMark", { d: fmtDate(s.examTs) })}</span></div>
-        </div>` : "";
+        ? `<span class="pf-dday ${dcls}">${ddayLabel(s.daysLeft)}<em>${fmtDate(s.examTs)}</em></span>` : "";
       const goLabel = s.todayTotal > 0 ? t("plan.goNowN", { n: s.todayTotal }) : t("plan.studyNow");
-      hero = `<div class="plan-focus ${dcls}" data-plan="${focus.p.id}" role="button" tabindex="0">
-        <div class="pf-top">
-          <div class="pf-id">
-            <span class="pf-kicker">${t("plan.todayFocus")}</span>
-            <span class="pf-plan">${escapeHTML(focus.p.name)}</span>
-            ${fd ? `<span class="pf-deck">${t("plan.focusWeight", { deck: escapeHTML(fd.name) })}</span>` : ""}
-          </div>
-          ${dday}
+      hero = `<div class="plan-focus" data-plan="${focus.p.id}" role="button" tabindex="0">
+        <div class="pf-top"><span class="pf-kicker">${t("plan.todayFocus")}</span>${dday}</div>
+        <div class="pf-plan">${escapeHTML(focus.p.name)}</div>
+        ${fd ? `<div class="pf-deck">${escapeHTML(fd.name)}</div>` : ""}
+        <div class="pf-prog"><span class="pf-track"><i style="width:${pct}%"></i></span><span class="pf-pct">${pct}%</span></div>
+        <div class="pf-bottom">
+          <span class="pf-task">${taskLine(s)}</span>
+          <button class="pf-go" data-plan="${focus.p.id}">${goLabel}</button>
         </div>
-        <div class="pf-mid">
-          <div class="pf-ring" style="--pct:${pct}"><div class="pf-ring-in"><b>${pct}<i>%</i></b><span>${t("plan.ringProgress")}</span></div></div>
-          <div class="pf-work">
-            <div class="pf-work-num">${workNum}</div>
-            <div class="pf-chips">${chips.join("")}</div>
-            <div class="pf-learned">${t("plan.learnedN", { a: s.learned, b: s.total })}</div>
-          </div>
-        </div>
-        ${sched}
-        <button class="btn primary pf-go" data-plan="${focus.p.id}">${goLabel}</button>
       </div>`;
     }
 
-    // ── 나머지 플랜 카드 ──
+    // ── 나머지 플랜 — 조용한 리스트 행 ──
     const others = rows.filter(x => !focus || x.p.id !== focus.p.id);
-    const cards = others.map(({ p, s }) => {
+    const list = others.map(({ p, s }) => {
       const pct = Math.round(s.progress * 100);
       const dcls = ddayCls(s.daysLeft);
-      const bars = schedBars(p, 22);
-      return `<div class="plan-card ${dcls}" data-plan="${p.id}" role="button" tabindex="0">
-        <div class="pc-top"><span class="pc-name">${escapeHTML(p.name)}</span><span class="pc-dday ${dcls}">${ddayLabel(s.daysLeft)}</span></div>
-        <div class="pc-today">${planTodayLabel(s)}</div>
-        <div class="pc-bar"><i style="width:${pct}%"></i></div>
-        <div class="pc-foot"><span>${t("plan.progressN", { n: pct })}</span><span>${t("plan.totalN", { n: s.total })}</span></div>
-        ${bars ? `<div class="pc-spark">${bars}</div>` : ""}
-      </div>`;
+      return `<li class="plan-row" data-plan="${p.id}" role="button" tabindex="0">
+        <span class="pr-main">
+          <span class="pr-name">${escapeHTML(p.name)}</span>
+          <span class="pr-sub">${taskLine(s)}</span>
+        </span>
+        <span class="pr-track"><i style="width:${pct}%"></i></span>
+        <span class="pr-dday ${dcls}">${ddayLabel(s.daysLeft)}</span>
+      </li>`;
     }).join("");
-    const grid = cards ? `<div class="plan-grid">${cards}</div>` : "";
+    const grid = list ? `<ul class="plan-list">${list}</ul>` : "";
 
     host.innerHTML = `<div class="plan-head"><h3>${t("plan.title")}</h3>${addBtn}</div>${hero}${grid}`;
     $("#btnAddPlan")?.addEventListener("click", () => openPlanModal(null));
     const openEdit = el => openPlanModal(el.dataset.plan);
-    host.querySelectorAll(".plan-card, .plan-focus").forEach(el => {
+    host.querySelectorAll(".plan-row, .plan-focus").forEach(el => {
       el.addEventListener("click", () => openEdit(el));
       el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEdit(el); } });
     });
