@@ -1712,9 +1712,49 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
 .pr-dday.past { color: var(--ink-3); }
 
 /* 플랜 모달: 덱 선택 + 타임라인 미리보기 */
-.plan-deck-pick { display: flex; flex-direction: column; gap: 4px; max-height: 190px; overflow-y: auto; margin-top: 6px; }
+.plan-deck-pick { display: flex; flex-direction: column; gap: 4px; max-height: 240px; overflow-y: auto; margin-top: 6px; }
 .plan-deck-opt { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 9px; cursor: pointer; }
 .plan-deck-opt:hover { background: var(--paper-soft); }
+
+/* 과목별 접이식 그룹 */
+.plan-group { border-bottom: 1px solid var(--edge); }
+.plan-group:last-child { border-bottom: 0; }
+.plan-group-head { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 6px; background: none; border: 0; cursor: pointer; font: inherit; color: var(--ink); text-align: left; }
+.pg-chev { flex: 0 0 auto; color: var(--ink-3); transition: transform .18s; }
+.plan-group.open .pg-chev { transform: rotate(90deg); }
+.pg-name { flex: 1; min-width: 0; font-size: 14px; font-weight: 560; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pg-count { flex: 0 0 auto; font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.plan-group-body { display: none; padding: 0 0 6px 10px; }
+.plan-group.open .plan-group-body { display: block; }
+
+/* 플랜 상세 모달 */
+.pd-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.pd-head h3 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pd-dday { flex: 0 0 auto; font-size: 13px; font-weight: 640; color: var(--olive-700); }
+.pd-dday.soon { color: var(--rose-600); }
+.pd-dday.past { color: var(--ink-3); }
+.pd-prog { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
+.pd-track { flex: 1; height: 4px; border-radius: 99px; background: color-mix(in srgb, var(--ink) 9%, transparent); overflow: hidden; }
+.pd-track i { display: block; height: 100%; border-radius: 99px; background: var(--olive-600); transition: width .5s; }
+.pd-pct { flex: 0 0 auto; font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.pd-stats { display: flex; gap: 22px; margin-top: 16px; }
+.pd-stats span { display: flex; flex-direction: column; gap: 2px; font-size: 11.5px; color: var(--ink-3); }
+.pd-stats b { font-size: 20px; font-weight: 740; color: var(--ink); line-height: 1; }
+.pd-sub { margin: 22px 0 10px; font-size: 12px; font-weight: 680; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3); }
+.pd-decks { display: flex; flex-direction: column; }
+.pd-deck { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 2px; border-bottom: 1px solid var(--edge); }
+.pd-deck:last-child { border-bottom: 0; }
+.pdk-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; color: var(--ink); }
+.pdk-cnt { flex: 0 0 auto; font-size: 12.5px; color: var(--ink-2); }
+.pd-empty { font-size: 13.5px; color: var(--ink-3); padding: 6px 2px; }
+.pd-actions { margin-top: 22px; }
+.pd-close { position: absolute; top: 14px; right: 14px; width: 30px; height: 30px; border: 0; background: none; color: var(--ink-3); font-size: 15px; cursor: pointer; border-radius: 50%; }
+.pd-close:hover { background: var(--paper-soft); color: var(--ink); }
+
+/* 완료한 플랜 행 */
+.plan-row.done { opacity: .6; }
+.plan-row.done .pr-name { text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--ink) 35%, transparent); }
+.pr-check { flex: 0 0 auto; color: var(--sage-500); font-weight: 760; font-size: 15px; }
 .plan-deck-opt input[type="checkbox"] { width: 17px; height: 17px; flex: 0 0 auto; accent-color: var(--sage-400); }
 .plan-deck-opt span { flex: 1; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .plan-deck-opt em { font-size: 12px; color: var(--ink-3); font-style: normal; }
