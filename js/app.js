@@ -3425,6 +3425,8 @@
     $("#keyHint").textContent = t("study.revealHint");
     $("#speakBtn").hidden = !(Store.settings.tts && "speechSynthesis" in window && card.type !== "occlusion");
     answerCard.classList.toggle("media-card", isMediaCard(card));
+    // occlusion만 카드 박스를 없애고 이미지를 꽉 채운다. 기본 이미지 카드는 카드 안에 그대로.
+    answerCard.classList.toggle("occ-card", card.type === "occlusion");
     renderFace($("#acQuestion"), card, false);
     showNotes(card, false);
     updateStudyStar();
