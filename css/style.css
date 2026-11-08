@@ -1282,9 +1282,10 @@ body[data-view="study"] .footer { display: none; }
 /* 학습 화면: 하단 여백(FAB 여유용 100px)을 줄여 스크롤 방지 */
 body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
 
-/* 이미지/가리기 카드: 박스 제거 — 배경·테두리·그림자·패딩 없이 이미지만 크게 */
-.study-stage:has(.media-card) { margin: 4px 0 8px; }
-.answer-card.media-card {
+/* 가리기(occlusion) 카드만: 박스 제거 — 배경·테두리·그림자·패딩 없이 이미지만 크게.
+   기본 이미지 카드는 카드 박스를 그대로 유지한다(텍스트·이미지가 카드 안에 들어가도록). */
+.study-stage:has(.occ-card) { margin: 4px 0 8px; }
+.answer-card.occ-card {
   width: min(calc(1280px * var(--card-scale, 1)), 100%);
   min-height: 0;
   padding: 0;
@@ -1292,6 +1293,13 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
   background: none;
   border: none;
   box-shadow: none;
+}
+/* 기본 이미지 카드: 카드 박스(배경·테두리·그림자)는 그대로 두고, 패딩만 줄여
+   이미지와 평가 버튼이 들어갈 세로 공간을 확보한다. */
+.answer-card.media-card:not(.occ-card) {
+  min-height: 0;
+  padding: 20px 20px 22px;
+  gap: 8px;
 }
 .answer-card.media-card .occ-view img,
 .answer-card.media-card .face-img {
@@ -1302,8 +1310,8 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
 }
 /* 기본 카드(앞/뒤 이미지)는 질문·정답 텍스트와 평가 버튼이 함께 있으므로
    이미지를 더 보수적으로 제한해 버튼이 화면 밖으로 밀리지 않게 한다. (occlusion은 위 규칙 유지) */
-.answer-card.media-card .face-img {
-  max-height: min(48dvh, calc(100dvh - 360px));
+.answer-card.media-card:not(.occ-card) .face-img {
+  max-height: min(50vh, 420px);
 }
 .answer-card .face-body { font-size: clamp(calc(17px * var(--font-scale, 1)), calc(2.2vw * var(--font-scale, 1)), calc(22px * var(--font-scale, 1))); }
 /* 이미지 카드는 본문 높이 제한(380px)을 풀어 내부 스크롤·상하 여백이 생기지 않게 한다 */
@@ -2847,7 +2855,7 @@ mark, mark.hl, .hl {
   .deck-card-meta { flex-direction: column; align-items: flex-end; gap: 4px; }
   /* 모바일: occlusion(이미지 전용)은 크게, 기본 카드 이미지는 텍스트·버튼 공간 확보 */
   .answer-card.media-card .occ-view img { max-height: min(76dvh, calc(100dvh - 270px)); }
-  .answer-card.media-card .face-img { max-height: min(42dvh, calc(100dvh - 400px)); }
+  .answer-card.media-card:not(.occ-card) .face-img { max-height: min(46dvh, 360px); }
   .filter-chips { order: 3; width: 100%; }
   .deck-head-actions { width: 100%; padding-top: 0; }
   .flashcard, .flashcard-inner { min-height: 320px; }
