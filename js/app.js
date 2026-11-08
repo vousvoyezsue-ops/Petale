@@ -2420,6 +2420,20 @@
     catch { toast(t("toast.imageFail")); }
   });
   $("#backImgRemove").addEventListener("click", () => { backImageData = null; renderBackImagePreview(); });
+  // 답 칸에 이미지 붙여넣기(Ctrl+V) → 답 이미지로 첨부
+  $("#cardBackInput").addEventListener("paste", async (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type && item.type.startsWith("image/")) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        const file = item.getAsFile();
+        if (file) { try { backImageData = await fileToNoteDataURL(file); renderBackImagePreview(); } catch { toast(t("toast.imageFail")); } }
+        return;
+      }
+    }
+  });
 
   $("#cardForm").addEventListener("submit", (e) => {
     const notes = getRich($("#cardNotesInput"));
