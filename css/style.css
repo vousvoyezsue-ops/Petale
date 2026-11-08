@@ -1104,19 +1104,25 @@ body[data-view="docreader"] #app { max-width: none; }
 /* 카드/편집기 안의 글머리·번호 목록 (import·툴바 공통) */
 .face-body ul, .face-body ol,
 .cardview-body ul, .cardview-body ol,
+/* 전역 리셋(* { padding:0 })으로 ul 패딩이 0이라 들여쓰기를 직접 준다.
+   에디터뿐 아니라 '표시'되는 곳(.note-text = 학습 중·카드 보기·개요)에도 줘야
+   불렛 마커가 왼쪽으로 튀지 않고 제대로 들여써진다. */
+.note-text ul, .note-text ol,
+.face-body ul, .face-body ol,
+.cardview-body ul, .cardview-body ol,
 .rich-field ul, .rich-field ol {
   text-align: left;
   margin: .3em 0;
   padding-left: 1.4em;
 }
 /* 항목 사이는 줄바꿈(엔터) 느낌으로 촘촘하게 — 줄 간격은 line-height가 담당 */
-.face-body li, .cardview-body li, .rich-field li { margin: 0; padding-left: .15em; }
-.face-body li::marker, .cardview-body li::marker, .rich-field li::marker { color: var(--olive-600); }
-.face-body ul, .cardview-body ul, .rich-field ul { list-style: disc; }
-.face-body ol, .cardview-body ol, .rich-field ol { list-style: decimal; }
+.face-body li, .cardview-body li, .rich-field li, .note-text li { margin: 0; padding-left: .15em; }
+.face-body li::marker, .cardview-body li::marker, .rich-field li::marker, .note-text li::marker { color: var(--olive-600); }
+.face-body ul, .cardview-body ul, .rich-field ul, .note-text ul { list-style: disc; }
+.face-body ol, .cardview-body ol, .rich-field ol, .note-text ol { list-style: decimal; }
 /* 중첩 목록(들여쓰기) — 깊이마다 마커를 바꿔 구분, 세로 여백은 더 촘촘하게 */
-.face-body ul ul, .cardview-body ul ul, .rich-field ul ul { list-style: circle; }
-.face-body ul ul ul, .cardview-body ul ul ul, .rich-field ul ul ul { list-style: square; }
+.face-body ul ul, .cardview-body ul ul, .rich-field ul ul, .note-text ul ul { list-style: circle; }
+.face-body ul ul ul, .cardview-body ul ul ul, .rich-field ul ul ul, .note-text ul ul ul { list-style: square; }
 .face-body li ul, .face-body li ol, .cardview-body li ul, .cardview-body li ol, .rich-field li ul, .rich-field li ol,
 .face-body ul ul, .face-body ul ol, .face-body ol ul, .face-body ol ol,
 .cardview-body ul ul, .cardview-body ul ol, .cardview-body ol ul, .cardview-body ol ol,
