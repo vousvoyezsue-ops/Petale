@@ -1300,6 +1300,11 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
   width: auto;
   max-width: min(calc(100% * var(--image-scale, 1)), 100vw);
 }
+/* 기본 카드(앞/뒤 이미지)는 질문·정답 텍스트와 평가 버튼이 함께 있으므로
+   이미지를 더 보수적으로 제한해 버튼이 화면 밖으로 밀리지 않게 한다. (occlusion은 위 규칙 유지) */
+.answer-card.media-card .face-img {
+  max-height: min(48dvh, calc(100dvh - 360px));
+}
 .answer-card .face-body { font-size: clamp(calc(17px * var(--font-scale, 1)), calc(2.2vw * var(--font-scale, 1)), calc(22px * var(--font-scale, 1))); }
 /* 이미지 카드는 본문 높이 제한(380px)을 풀어 내부 스크롤·상하 여백이 생기지 않게 한다 */
 .answer-card.media-card .face-body {
@@ -2840,9 +2845,9 @@ mark, mark.hl, .hl {
   .deck-chevron { display: none; }
   .deck-main .deck-progress { max-width: none; }
   .deck-card-meta { flex-direction: column; align-items: flex-end; gap: 4px; }
-  /* 모바일: 평가 버튼을 한 줄로 줄였으니 이미지를 크게 */
-  .answer-card.media-card .occ-view img,
-  .answer-card.media-card .face-img { max-height: min(76dvh, calc(100dvh - 270px)); }
+  /* 모바일: occlusion(이미지 전용)은 크게, 기본 카드 이미지는 텍스트·버튼 공간 확보 */
+  .answer-card.media-card .occ-view img { max-height: min(76dvh, calc(100dvh - 270px)); }
+  .answer-card.media-card .face-img { max-height: min(42dvh, calc(100dvh - 400px)); }
   .filter-chips { order: 3; width: 100%; }
   .deck-head-actions { width: 100%; padding-top: 0; }
   .flashcard, .flashcard-inner { min-height: 320px; }
