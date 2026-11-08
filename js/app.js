@@ -2249,7 +2249,7 @@
     $$(".rt-cloze-only").forEach(el => el.classList.toggle("hidden", type !== "cloze"));
   }
 
-  const scaleFields = ["cardScale", "fontScale", "imageScale"];
+  const scaleFields = ["cardScale", "imageScale"];
   function setScaleControls(card) {
     scaleFields.forEach(id => {
       const el = $("#" + id);
@@ -2420,19 +2420,32 @@
     catch { toast(t("toast.imageFail")); }
   });
   $("#backImgRemove").addEventListener("click", () => { backImageData = null; renderBackImagePreview(); });
+  // 붙여넣기에서 이미지를 꺼낸다 — files / items / HTML의 data:URL 모두 지원.
+  // 동기 감지만 하고(여기서 preventDefault를 즉시 부를 수 있게) 파일 변환은 뒤에서 처리.
+  function pickPasteImage(e) {
+    const cd = e.clipboardData; if (!cd) return null;
+    for (const f of (cd.files || [])) if (f.type && f.type.startsWith("image/")) return { file: f };
+    for (const it of (cd.items || [])) if (it.kind === "file" && it.type && it.type.startsWith("image/")) { const f = it.getAsFile(); if (f) return { file: f }; }
+    const html = cd.getData && cd.getData("text/html");
+    const m = html && html.match(/<img[^>]+src=["'](data:image\/[^"']+)["']/i);
+    if (m) return { dataUrl: m[1] };
+    return null;
+  }
+  async function pasteToBackImage(hit) {
+    try {
+      let f = hit.file;
+      if (!f && hit.dataUrl) { const r = await fetch(hit.dataUrl); const b = await r.blob(); f = new File([b], "paste", { type: b.type }); }
+      backImageData = await fileToNoteDataURL(f);
+      renderBackImagePreview();
+    } catch { toast(t("toast.imageFail")); }
+  }
   // 답 칸에 이미지 붙여넣기(Ctrl+V) → 답 이미지로 첨부
-  $("#cardBackInput").addEventListener("paste", async (e) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-    for (const item of items) {
-      if (item.type && item.type.startsWith("image/")) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        const file = item.getAsFile();
-        if (file) { try { backImageData = await fileToNoteDataURL(file); renderBackImagePreview(); } catch { toast(t("toast.imageFail")); } }
-        return;
-      }
-    }
+  $("#cardBackInput").addEventListener("paste", (e) => {
+    const hit = pickPasteImage(e);
+    if (!hit) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    pasteToBackImage(hit);
   });
 
   $("#cardForm").addEventListener("submit", (e) => {
@@ -2713,14 +2726,6 @@
   $("#richFont").addEventListener("change", e => {
     if (!e.target.value) return;
     activeRichField.focus(); document.execCommand("styleWithCSS", false, true); document.execCommand("fontName", false, e.target.value); e.target.value = "";
-  });
-  $("#richSize").addEventListener("change", e => {
-    const v = e.target.value; e.target.value = "";
-    if (!v) return;
-    // 상대 크기(em)로 지정 — 편집기(작은 기준)든 카드(큰 기준)든 항상 주변 글자 대비 같은 비율로 커진다.
-    // 절대 키워드(medium=16px 등)는 카드 기본 글자(≈20px)보다 작아서 "키웠는데 작아지는" 문제가 있었다.
-    activeRichField.focus();
-    wrapSelection(activeRichField, "span", { fontSize: v });
   });
 
   /* ══════════ 이미지 가리기 편집기 ══════════ */
