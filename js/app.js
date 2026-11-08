@@ -3424,9 +3424,11 @@
     $("#acAnswerWrap").classList.add("hidden");
     $("#keyHint").textContent = t("study.revealHint");
     $("#speakBtn").hidden = !(Store.settings.tts && "speechSynthesis" in window && card.type !== "occlusion");
-    answerCard.classList.toggle("media-card", isMediaCard(card));
-    // occlusion만 카드 박스를 없애고 이미지를 꽉 채운다. 기본 이미지 카드는 카드 안에 그대로.
-    answerCard.classList.toggle("occ-card", card.type === "occlusion");
+    // occlusion만 카드 박스를 없애고 이미지를 꽉 채운다(media-card).
+    // 앞/뒤 이미지가 있는 기본 카드는 '원래 카드' 그대로 두고 본문만 늘려 이미지가 안에 들어가게 한다(has-img).
+    const isOcc = card.type === "occlusion";
+    answerCard.classList.toggle("media-card", isOcc);
+    answerCard.classList.toggle("has-img", !isOcc && !!(card.frontImageId || card.backImageId));
     renderFace($("#acQuestion"), card, false);
     showNotes(card, false);
     updateStudyStar();
