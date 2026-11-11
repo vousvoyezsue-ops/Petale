@@ -1776,6 +1776,78 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
 .tl-d { font-size: 9px; color: var(--ink-3); height: 12px; white-space: nowrap; }
 .tl-col.today .tl-d { color: var(--rose-600); font-weight: 700; }
 
+/* ═══ 복습 플래너 (망각곡선) ═══ */
+.review-section { margin: 4px 0 22px; }
+.review-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.review-toggle { display: inline-flex; align-items: center; gap: 8px; background: none; border: 0; cursor: pointer; font: inherit; color: var(--ink); padding: 6px 2px; }
+.review-toggle h3 { font-family: var(--font-display); font-size: 17px; font-weight: 500; }
+.rv-chev { flex: 0 0 auto; color: var(--ink-3); transition: transform .2s; }
+.rv-chev.open { transform: rotate(90deg); }
+.rv-badge {
+  flex: 0 0 auto; min-width: 18px; height: 18px; padding: 0 6px; border-radius: 99px;
+  background: var(--rose-500); color: #fff; font-size: 11px; font-weight: 700; line-height: 18px;
+  text-align: center; font-variant-numeric: tabular-nums;
+}
+.review-add { white-space: nowrap; }
+.review-empty { color: var(--ink-3); font-size: 13.5px; padding: 8px 2px 4px; }
+.review-body { margin-top: 8px; }
+
+.rv-tabs { display: inline-flex; gap: 2px; padding: 3px; border-radius: 99px; background: color-mix(in srgb, var(--ink) 5%, transparent); margin-bottom: 14px; }
+.rv-tab { border: 0; background: none; cursor: pointer; font: inherit; font-size: 12.5px; font-weight: 560; color: var(--ink-3); padding: 5px 14px; border-radius: 99px; transition: color .15s, background .15s; }
+.rv-tab.on { background: var(--paper); color: var(--ink); box-shadow: var(--shadow-xs); }
+
+/* 주간 — 체크리스트 */
+.rv-group { margin-bottom: 16px; }
+.rv-group-head { font-size: 11px; font-weight: 680; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 7px; padding-left: 2px; }
+.rv-group.overdue .rv-group-head { color: var(--rose-600); }
+.rv-task { display: flex; align-items: center; gap: 12px; padding: 10px 2px; border-bottom: 1px solid var(--edge); }
+.rv-task:last-child { border-bottom: 0; }
+.rv-check {
+  flex: 0 0 auto; width: 20px; height: 20px; border-radius: 6px; cursor: pointer;
+  border: 1.6px solid color-mix(in srgb, var(--ink) 26%, transparent); background: var(--paper);
+  display: inline-flex; align-items: center; justify-content: center; transition: background .15s, border-color .15s;
+}
+.rv-check::after { content: "✓"; font-size: 12px; font-weight: 800; color: #fff; opacity: 0; transform: scale(.6); transition: opacity .15s, transform .15s; }
+.rv-check.on { background: var(--sage-500); border-color: var(--sage-500); }
+.rv-check.on::after { opacity: 1; transform: scale(1); }
+.rv-deck { flex: 1; min-width: 0; text-align: left; border: 0; background: none; cursor: pointer; font: inherit; font-size: 14.5px; font-weight: 540; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 0; }
+.rv-deck:hover { color: var(--olive-700); }
+.rv-off { flex: 0 0 auto; font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.rv-edit { flex: 0 0 auto; border: 0; background: none; cursor: pointer; color: var(--ink-3); font-size: 17px; line-height: 1; padding: 2px 4px; border-radius: 6px; }
+.rv-edit:hover { color: var(--ink); background: var(--paper-soft); }
+.rv-task.done .rv-deck { color: var(--ink-3); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--ink) 30%, transparent); }
+
+/* 월간 — 달력 */
+.rv-cal-top { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 12px; }
+.rv-month { font-family: var(--font-display); font-size: 15px; color: var(--ink); min-width: 120px; text-align: center; }
+.rv-nav { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--edge); background: var(--paper); cursor: pointer; color: var(--ink-2); font-size: 15px; line-height: 1; }
+.rv-nav:hover { border-color: color-mix(in srgb, var(--olive-700) 26%, var(--edge)); color: var(--ink); }
+.rv-wds { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 4px; }
+.rv-wd { text-align: center; font-size: 10.5px; font-weight: 600; color: var(--ink-3); }
+.rv-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.rv-cell {
+  position: relative; aspect-ratio: 1; border: 0; background: none; cursor: default;
+  font: inherit; font-size: 12.5px; color: var(--ink-2); border-radius: 9px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.rv-cell.empty { visibility: hidden; }
+.rv-cell.has { cursor: pointer; color: var(--ink); }
+.rv-cell.has:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); }
+.rv-cell.today { font-weight: 760; color: var(--rose-600); }
+.rv-cell.sel { background: color-mix(in srgb, var(--sage-400) 22%, transparent); }
+.rv-cell.sel.today { color: var(--ink); }
+.rv-dot { min-width: 16px; height: 15px; padding: 0 4px; border-radius: 99px; background: var(--rose-500); color: #fff; font-size: 9.5px; font-weight: 700; line-height: 15px; }
+.rv-dot.alldone { background: var(--sage-500); }
+.rv-day-list { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--edge); }
+
+/* 모달 미리보기 */
+.review-preview:empty { display: none; }
+.rv-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 4px; }
+.rv-chip { font-size: 11.5px; font-weight: 600; color: var(--olive-700); background: color-mix(in srgb, var(--sage-400) 16%, transparent); padding: 4px 11px; border-radius: 99px; font-variant-numeric: tabular-nums; }
+.rv-chip.muted { color: var(--ink-3); background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.btn.ghost.danger { color: var(--rose-600); }
+
 .data-actions { display: flex; gap: 10px; justify-content: center; }
 
 /* ═══ friends ═══ */
