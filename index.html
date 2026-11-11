@@ -195,6 +195,8 @@
 
     <div class="plan-section" id="planSection"></div>
 
+    <div class="review-section" id="reviewSection"></div>
+
     <div class="folder-bar-row">
       <div class="folder-bar" id="folderBar"></div>
       <button class="btn ghost sm select-toggle" id="btnSelectMode" data-i18n="home.select">선택</button>
@@ -832,6 +834,37 @@
       <button type="button" class="btn ghost danger hidden" id="planDelete" data-i18n="plan.delete"></button>
       <button type="button" class="btn ghost" data-close data-i18n="common.cancel"></button>
       <button type="submit" class="btn primary" id="planModalSubmit"></button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ═══════════ 모달: 복습 플래너 (망각곡선) ═══════════ -->
+<dialog class="modal" id="reviewModal">
+  <form method="dialog" class="modal-body" id="reviewForm">
+    <h3 id="reviewModalTitle"></h3>
+    <label class="field">
+      <span data-i18n="review.deck"></span>
+      <select id="reviewDeckSel" required></select>
+    </label>
+    <label class="field">
+      <span data-i18n="review.start"></span>
+      <input type="date" id="reviewStartInput" required>
+    </label>
+    <label class="field">
+      <span data-i18n="review.intervals"></span>
+      <input type="text" id="reviewIntervalsInput" inputmode="numeric" placeholder="1, 3, 7, 14, 30">
+      <p class="field-hint" data-i18n="review.intervalsHint"></p>
+    </label>
+    <label class="field">
+      <span data-i18n="review.end"></span>
+      <input type="date" id="reviewEndInput">
+      <p class="field-hint" data-i18n="review.endHint"></p>
+    </label>
+    <div class="review-preview" id="reviewPreview"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn ghost danger hidden" id="reviewDelete" data-i18n="review.delete"></button>
+      <button type="button" class="btn ghost" data-close data-i18n="common.cancel"></button>
+      <button type="submit" class="btn primary" id="reviewModalSubmit"></button>
     </div>
   </form>
 </dialog>
