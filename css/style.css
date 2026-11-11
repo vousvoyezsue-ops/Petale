@@ -1799,7 +1799,7 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
 /* 주간 — 가로형 주간 캘린더 (study planner 느낌) */
 .rv-weekcal { padding: 16px 16px 14px; border-radius: var(--r-lg); background: var(--paper); border: 1px solid var(--edge); margin-bottom: 18px; touch-action: pan-y; }
 .rv-wk-top { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 12px; }
-.rv-wk-range { font-family: var(--font-brand); font-size: 16px; color: var(--ink); min-width: 118px; text-align: center; font-variant-numeric: tabular-nums; }
+.rv-wk-range { font-family: var(--font-brand); font-weight: 500; font-size: 16px; color: var(--ink); min-width: 118px; text-align: center; font-variant-numeric: tabular-nums; }
 .rv-week-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 .rv-day {
   position: relative; display: flex; flex-direction: column; align-items: center; gap: 5px;
@@ -1841,7 +1841,7 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
 
 /* 월간 — 달력 */
 .rv-cal-top { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 12px; }
-.rv-month { font-family: var(--font-brand); font-size: 16.5px; color: var(--ink); min-width: 120px; text-align: center; }
+.rv-month { font-family: var(--font-brand); font-weight: 500; font-size: 16.5px; color: var(--ink); min-width: 120px; text-align: center; }
 /* 월간 — 주간과 동일한 흰색 카드 */
 .rv-monthcal { padding: 16px 14px 14px; }
 .rv-monthcal .rv-cell { border-radius: 10px; }
