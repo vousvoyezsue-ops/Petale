@@ -1692,8 +1692,13 @@
   const rvCleanIv = (s) => [...new Set(String(s || "").split(/[,\s]+/).map(x => parseInt(x, 10)).filter(n => Number.isFinite(n) && n >= 0))].sort((a, b) => a - b);
   let reviewView = "week";          // week | month
   let reviewMonthTs = null;         // 월간 뷰 기준(해당 월 1일)
-  let reviewSelDay = null;          // 월간 뷰에서 선택한 날짜 key
+  let reviewWeekOffset = 0;         // 주간 뷰 기준(0=이번 주, -1=지난주, +1=다음주)
+  let reviewSelDay = null;          // 선택한 날짜 key (주간·월간 공용)
   let editingReviewId = null;
+
+  const rvWeekStart = (offset = 0) => { // 일요일 시작
+    const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - d.getDay() + offset * 7); return d.getTime();
+  };
 
   const reviewOpen = () => { try { return localStorage.getItem("petale.review.open") === "1"; } catch { return false; } };
   const setReviewOpen = (v) => { try { localStorage.setItem("petale.review.open", v ? "1" : "0"); } catch { /* 무시 */ } };
@@ -1748,17 +1753,61 @@
     </div>`;
   }
   function reviewWeekHTML(tasks) {
+    const todayK = rvKey(Date.now());
     const todayStart = rvDayStart(Date.now());
-    let html = "";
-    const overdue = tasks.filter(x => !x.done && x.ts < todayStart).sort((a, b) => a.ts - b.ts);
-    if (overdue.length) html += `<div class="rv-group overdue"><div class="rv-group-head">${t("review.overdue")}</div>${overdue.map(tk => rvTaskRow(tk, true)).join("")}</div>`;
-    for (let i = 0; i < 7; i++) {
-      const dayTs = todayStart + i * RV_DAY;
-      const dayTasks = tasks.filter(x => x.ts === dayTs).sort((a, b) => a.off - b.off);
-      if (!dayTasks.length) continue;
-      html += `<div class="rv-group"><div class="rv-group-head">${reviewDayLabel(dayTs)}</div>${dayTasks.map(tk => rvTaskRow(tk, true)).join("")}</div>`;
+    const weekStart = rvWeekStart(reviewWeekOffset);
+    const weekEnd = weekStart + 6 * RV_DAY;
+    const byKey = {};
+    for (const tk of tasks) (byKey[tk.key] = byKey[tk.key] || []).push(tk);
+
+    // 선택일이 이번 주에 없으면 보정: 오늘이 이 주에 있으면 오늘, 아니면 주 시작일
+    let selTs = reviewSelDay ? rvParse(reviewSelDay).getTime() : null;
+    if (selTs == null || selTs < weekStart || selTs > weekEnd) {
+      selTs = (todayStart >= weekStart && todayStart <= weekEnd) ? todayStart : weekStart;
+      reviewSelDay = rvKey(selTs);
     }
-    return html || `<p class="review-empty">${t("review.weekNone")}</p>`;
+    const selK = rvKey(selTs);
+
+    const wds = I18N.lang === "ko" ? ["일", "월", "화", "수", "목", "금", "토"] : ["S", "M", "T", "W", "T", "F", "S"];
+    const fmt = new Intl.DateTimeFormat(I18N.lang === "ko" ? "ko-KR" : "en-US", { month: "numeric", day: "numeric" });
+    const rangeLabel = `${fmt.format(new Date(weekStart))} – ${fmt.format(new Date(weekEnd))}`;
+
+    let cells = "";
+    for (let i = 0; i < 7; i++) {
+      const ts = weekStart + i * RV_DAY;
+      const key = rvKey(ts);
+      const list = byKey[key] || [];
+      const undone = list.filter(x => !x.done).length;
+      const dot = list.length
+        ? `<span class="rv-dot ${undone ? "" : "alldone"}">${list.length}</span>`
+        : `<span class="rv-dot-empty"></span>`;
+      const cls = [i === 0 ? "sun" : "", i === 6 ? "sat" : "", key === todayK ? "today" : "", key === selK ? "sel" : "", list.length ? "has" : ""].filter(Boolean).join(" ");
+      cells += `<button type="button" class="rv-day ${cls}" data-day="${key}">
+        <span class="rv-dw">${wds[i]}</span><span class="rv-dn">${new Date(ts).getDate()}</span>${dot}
+      </button>`;
+    }
+    let html = `<div class="rv-weekcal">
+      <div class="rv-wk-top">
+        <button type="button" class="rv-nav" id="rvPrevWeek" aria-label="prev">‹</button>
+        <span class="rv-wk-range">${reviewWeekOffset === 0 ? t("review.thisWeek") : rangeLabel}</span>
+        <button type="button" class="rv-nav" id="rvNextWeek" aria-label="next">›</button>
+      </div>
+      <div class="rv-week-row">${cells}</div>
+    </div>`;
+
+    // 밀린 복습(지난 미완료) — 어느 주를 보든 항상 노출
+    const overdue = tasks.filter(x => !x.done && x.ts < todayStart).sort((a, b) => a.ts - b.ts || a.off - b.off);
+    if (overdue.length) {
+      html += `<div class="rv-group overdue"><div class="rv-group-head">${t("review.overdue")} · ${overdue.length}</div>${overdue.map(tk => rvTaskRow(tk, true)).join("")}</div>`;
+    }
+
+    // 선택한 날의 복습
+    const sel = (byKey[selK] || []).slice().sort((a, b) => a.off - b.off);
+    const selLabel = reviewDayLabel(selTs);
+    html += `<div class="rv-day-list"><div class="rv-group-head">${selLabel}</div>`;
+    html += sel.length ? sel.map(tk => rvTaskRow(tk, true)).join("") : `<p class="review-empty">${t("review.dayNone")}</p>`;
+    html += `</div>`;
+    return html;
   }
   function reviewMonthBase() {
     if (reviewMonthTs) return reviewMonthTs;
@@ -1830,9 +1879,22 @@
       host.querySelectorAll(".rv-check").forEach(b => b.addEventListener("click", () => toggleReviewDone(b.dataset.plan, Number(b.dataset.off))));
       host.querySelectorAll("[data-rv-study]").forEach(el => el.addEventListener("click", () => startSession(el.dataset.rvStudy)));
       host.querySelectorAll("[data-rv-edit]").forEach(el => el.addEventListener("click", () => openReviewModal(el.dataset.rvEdit)));
-      host.querySelectorAll(".rv-cell[data-day]").forEach(c => c.addEventListener("click", () => { reviewSelDay = (reviewSelDay === c.dataset.day ? null : c.dataset.day); renderReviewSection(); }));
+      host.querySelectorAll("[data-day]").forEach(c => c.addEventListener("click", () => { reviewSelDay = c.dataset.day; renderReviewSection(); }));
       $("#rvPrevMonth")?.addEventListener("click", () => { reviewMonthTs = reviewMonthShift(-1); renderReviewSection(); });
       $("#rvNextMonth")?.addEventListener("click", () => { reviewMonthTs = reviewMonthShift(1); renderReviewSection(); });
+      $("#rvPrevWeek")?.addEventListener("click", () => { reviewWeekOffset -= 1; reviewSelDay = null; renderReviewSection(); });
+      $("#rvNextWeek")?.addEventListener("click", () => { reviewWeekOffset += 1; reviewSelDay = null; renderReviewSection(); });
+      const wk = host.querySelector(".rv-weekcal");
+      if (wk) {
+        let sx = 0, sy = 0;
+        wk.addEventListener("touchstart", (e) => { const p = e.touches[0]; sx = p.clientX; sy = p.clientY; }, { passive: true });
+        wk.addEventListener("touchend", (e) => {
+          const p = e.changedTouches[0]; const dx = p.clientX - sx, dy = p.clientY - sy;
+          if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+            reviewWeekOffset += dx < 0 ? 1 : -1; reviewSelDay = null; renderReviewSection();
+          }
+        }, { passive: true });
+      }
     }
   }
 
