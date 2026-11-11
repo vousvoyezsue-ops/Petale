@@ -1835,11 +1835,13 @@
       const dot = list.length ? `<span class="rv-dot ${undone ? "" : "alldone"}">${list.length}</span>` : "";
       cells += `<button type="button" class="rv-cell ${key === todayK ? "today" : ""} ${key === reviewSelDay ? "sel" : ""} ${list.length ? "has" : ""}" data-day="${key}">${d}${dot}</button>`;
     }
-    let html = `<div class="rv-cal-top"><button type="button" class="rv-nav" id="rvPrevMonth" aria-label="prev">‹</button><span class="rv-month">${monthLabel}</span><button type="button" class="rv-nav" id="rvNextMonth" aria-label="next">›</button></div>
-      <div class="rv-wds">${wds}</div><div class="rv-grid">${cells}</div>`;
+    let html = `<div class="rv-weekcal rv-monthcal">
+      <div class="rv-cal-top"><button type="button" class="rv-nav" id="rvPrevMonth" aria-label="prev">‹</button><span class="rv-month">${monthLabel}</span><button type="button" class="rv-nav" id="rvNextMonth" aria-label="next">›</button></div>
+      <div class="rv-wds">${wds}</div><div class="rv-grid">${cells}</div>
+    </div>`;
     const sel = reviewSelDay && byKey[reviewSelDay];
     if (sel && sel.length) {
-      html += `<div class="rv-day-list"><div class="rv-group-head">${reviewSelDay}</div>${sel.slice().sort((a, b) => a.off - b.off).map(tk => rvTaskRow(tk, false)).join("")}</div>`;
+      html += `<div class="rv-day-list"><div class="rv-group-head">${reviewDayLabel(rvParse(reviewSelDay).getTime())}</div>${sel.slice().sort((a, b) => a.off - b.off).map(tk => rvTaskRow(tk, true)).join("")}</div>`;
     }
     return html;
   }
@@ -1960,7 +1962,6 @@
 
   function renderHome() {
     renderFolderBar();
-    renderPlanSection();
     renderReviewSection();
     const grid = $("#deckGrid");
     const hasFolders = Store.state.folders.length > 0;
