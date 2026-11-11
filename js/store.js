@@ -69,6 +69,7 @@ const Store = (() => {
       newLog: {},  // { "deckId|YYYY-MM-DD": 오늘 시작한 새 카드 수 }
       folders: [],
       plans: [],   // 학습 플랜/마감 — { id, name, date:"YYYY-MM-DD", deckIds:[], created }
+      reviewPlans: [], // 망각곡선 복습 — { id, deckId, start:"YYYY-MM-DD", intervals:[1,3,7,14,30], done:[offset], end:null, graduated:false, created }
       ratingCounts: { 0: 0, 1: 0, 2: 0, 3: 0 },
       settings: { ...DEFAULT_SETTINGS },
       updatedAt: now, // 마지막 변경 시각 — 클라우드 동기화 충돌 판정용
@@ -87,6 +88,7 @@ const Store = (() => {
       newLog: data.newLog || {},
       folders: data.folders || [],
       plans: Array.isArray(data.plans) ? data.plans : [],
+      reviewPlans: Array.isArray(data.reviewPlans) ? data.reviewPlans : [],
       ratingCounts: data.ratingCounts || { 0: 0, 1: 0, 2: 0, 3: 0 },
       settings: { ...DEFAULT_SETTINGS, ...(data.settings || {}) },
       updatedAt: data.updatedAt || Date.now(),
@@ -759,6 +761,37 @@ const Store = (() => {
   function deletePlan(id) { state.plans = state.plans.filter(p => p.id !== id); save(); }
   function getPlan(id) { return state.plans.find(p => p.id === id); }
 
+  /* ── 망각곡선 복습 플래너 ── */
+  const cleanIntervals = (arr) => {
+    const a = (Array.isArray(arr) ? arr : []).map(Number).filter(n => Number.isFinite(n) && n >= 0);
+    return [...new Set(a)].sort((x, y) => x - y);
+  };
+  function addReviewPlan({ deckId, start, intervals, end }) {
+    const iv = cleanIntervals(intervals);
+    const plan = {
+      id: uid(), deckId,
+      start: start || todayKey(),
+      intervals: iv.length ? iv : [1, 3, 7, 14, 30],
+      done: [], end: end || null, graduated: false, created: Date.now(),
+    };
+    state.reviewPlans.push(plan);
+    save();
+    return plan;
+  }
+  function updateReviewPlan(id, patch) {
+    const p = state.reviewPlans.find(x => x.id === id);
+    if (!p) return;
+    if (patch.deckId != null) p.deckId = patch.deckId;
+    if (patch.start != null) p.start = patch.start;
+    if ("intervals" in patch) { const iv = cleanIntervals(patch.intervals); if (iv.length) p.intervals = iv; }
+    if ("end" in patch) p.end = patch.end || null;
+    if ("graduated" in patch) p.graduated = !!patch.graduated;
+    if (Array.isArray(patch.done)) p.done = [...new Set(patch.done.map(Number))];
+    save();
+  }
+  function deleteReviewPlan(id) { state.reviewPlans = state.reviewPlans.filter(p => p.id !== id); save(); }
+  function getReviewPlan(id) { return state.reviewPlans.find(p => p.id === id); }
+
   const startOfDay = (ts) => { const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); };
   const planDateTs = (dateStr) => { const d = new Date(String(dateStr) + "T00:00:00"); return isNaN(d) ? NaN : d.getTime(); };
 
@@ -874,6 +907,7 @@ const Store = (() => {
     addDeck, updateDeck, deleteDeck, deleteDecks, getDeck, patchDeck,
     addFolder, updateFolder, deleteFolder, getFolder, childFolders, isDescendantFolder,
     addPlan, updatePlan, deletePlan, getPlan, planStats, planTimeline,
+    addReviewPlan, updateReviewPlan, deleteReviewPlan, getReviewPlan,
     addMedia, getMedia, putMedia, referencedMedia, gcMedia,
     addCard, updateCard, deleteCard, deleteCards, cardsOf, moveCards, bulkAddCards, syncClozeSiblings, syncOcclusionSiblings, replaceDeckCards, mergeDeckCards,
     sectionsOf, setSection,

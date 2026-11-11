@@ -1684,9 +1684,222 @@
     renderPlanSection();
   });
 
+  /* ══════════ 복습 플래너 (망각곡선) ══════════ */
+  const RV_DAY = 86400000;
+  const rvDayStart = (ts) => { const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); };
+  const rvKey = (ts) => { const d = new Date(ts); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+  const rvParse = (key) => new Date(String(key) + "T00:00:00");
+  const rvCleanIv = (s) => [...new Set(String(s || "").split(/[,\s]+/).map(x => parseInt(x, 10)).filter(n => Number.isFinite(n) && n >= 0))].sort((a, b) => a - b);
+  let reviewView = "week";          // week | month
+  let reviewMonthTs = null;         // 월간 뷰 기준(해당 월 1일)
+  let reviewSelDay = null;          // 월간 뷰에서 선택한 날짜 key
+  let editingReviewId = null;
+
+  const reviewOpen = () => { try { return localStorage.getItem("petale.review.open") === "1"; } catch { return false; } };
+  const setReviewOpen = (v) => { try { localStorage.setItem("petale.review.open", v ? "1" : "0"); } catch { /* 무시 */ } };
+
+  // 한 복습 플랜의 체크포인트(각 간격 날짜). end 이후는 제외.
+  function reviewTasksOf(p) {
+    const base = rvParse(p.start).getTime();
+    const endTs = p.end ? rvParse(p.end).getTime() : Infinity;
+    const doneSet = new Set(p.done || []);
+    return (p.intervals || []).map(off => {
+      const ts = rvDayStart(base + off * RV_DAY);
+      return { planId: p.id, deckId: p.deckId, off, ts, key: rvKey(ts), done: doneSet.has(off) };
+    }).filter(tk => tk.ts <= endTs);
+  }
+  function reviewFinished(p) {
+    if (p.graduated) return true;
+    const tk = reviewTasksOf(p);
+    return tk.length > 0 && tk.every(x => x.done);   // 모든 체크포인트 완료 = 졸업
+  }
+  function activeReviewPlans() {
+    return (Store.state.reviewPlans || []).filter(p => Store.getDeck(p.deckId) && !reviewFinished(p));
+  }
+  function allReviewTasks() {
+    const out = [];
+    for (const p of activeReviewPlans()) for (const tk of reviewTasksOf(p)) out.push(tk);
+    return out;
+  }
+  function toggleReviewDone(planId, off) {
+    const p = Store.getReviewPlan(planId); if (!p) return;
+    const was = reviewFinished(p);
+    const done = new Set(p.done || []);
+    if (done.has(off)) done.delete(off); else done.add(off);
+    Store.updateReviewPlan(planId, { done: [...done] });
+    const nowFin = reviewFinished(Store.getReviewPlan(planId));
+    if (nowFin && !was) toast(t("review.graduated"));
+    renderReviewSection();
+  }
+
+  const rvDeckName = (id) => escapeHTML(Store.getDeck(id)?.name || "—");
+  function reviewDayLabel(ts) {
+    const diff = Math.round((ts - rvDayStart(Date.now())) / RV_DAY);
+    if (diff === 0) return t("review.today");
+    if (diff === 1) return t("review.tomorrow");
+    return new Intl.DateTimeFormat(I18N.lang === "ko" ? "ko-KR" : "en-US", { weekday: "short", month: "numeric", day: "numeric" }).format(new Date(ts));
+  }
+  function rvTaskRow(tk, withEdit) {
+    return `<div class="rv-task ${tk.done ? "done" : ""}">
+      <button type="button" class="rv-check ${tk.done ? "on" : ""}" data-plan="${tk.planId}" data-off="${tk.off}" aria-label="${t("review.markDone")}"></button>
+      <button type="button" class="rv-deck" data-rv-study="${tk.deckId}">${rvDeckName(tk.deckId)}</button>
+      <span class="rv-off">+${tk.off}${t("review.dayUnit")}</span>
+      ${withEdit ? `<button type="button" class="rv-edit" data-rv-edit="${tk.planId}" aria-label="${t("plan.editBtn")}">⋯</button>` : ""}
+    </div>`;
+  }
+  function reviewWeekHTML(tasks) {
+    const todayStart = rvDayStart(Date.now());
+    let html = "";
+    const overdue = tasks.filter(x => !x.done && x.ts < todayStart).sort((a, b) => a.ts - b.ts);
+    if (overdue.length) html += `<div class="rv-group overdue"><div class="rv-group-head">${t("review.overdue")}</div>${overdue.map(tk => rvTaskRow(tk, true)).join("")}</div>`;
+    for (let i = 0; i < 7; i++) {
+      const dayTs = todayStart + i * RV_DAY;
+      const dayTasks = tasks.filter(x => x.ts === dayTs).sort((a, b) => a.off - b.off);
+      if (!dayTasks.length) continue;
+      html += `<div class="rv-group"><div class="rv-group-head">${reviewDayLabel(dayTs)}</div>${dayTasks.map(tk => rvTaskRow(tk, true)).join("")}</div>`;
+    }
+    return html || `<p class="review-empty">${t("review.weekNone")}</p>`;
+  }
+  function reviewMonthBase() {
+    if (reviewMonthTs) return reviewMonthTs;
+    const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); return d.getTime();
+  }
+  function reviewMonthShift(delta) {
+    const d = new Date(reviewMonthBase()); d.setMonth(d.getMonth() + delta); d.setDate(1); d.setHours(0, 0, 0, 0); return d.getTime();
+  }
+  function reviewMonthHTML(tasks) {
+    const base = new Date(reviewMonthBase());
+    const year = base.getFullYear(), month = base.getMonth();
+    const startWd = new Date(year, month, 1).getDay();
+    const days = new Date(year, month + 1, 0).getDate();
+    const todayK = rvKey(Date.now());
+    const byKey = {};
+    for (const tk of tasks) (byKey[tk.key] = byKey[tk.key] || []).push(tk);
+    const monthLabel = new Intl.DateTimeFormat(I18N.lang === "ko" ? "ko-KR" : "en-US", { year: "numeric", month: "long" }).format(base);
+    const wds = (I18N.lang === "ko" ? ["일", "월", "화", "수", "목", "금", "토"] : ["S", "M", "T", "W", "T", "F", "S"]).map(w => `<span class="rv-wd">${w}</span>`).join("");
+    let cells = "";
+    for (let i = 0; i < startWd; i++) cells += `<span class="rv-cell empty"></span>`;
+    for (let d = 1; d <= days; d++) {
+      const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      const list = byKey[key] || [];
+      const undone = list.filter(x => !x.done).length;
+      const dot = list.length ? `<span class="rv-dot ${undone ? "" : "alldone"}">${list.length}</span>` : "";
+      cells += `<button type="button" class="rv-cell ${key === todayK ? "today" : ""} ${key === reviewSelDay ? "sel" : ""} ${list.length ? "has" : ""}" data-day="${key}">${d}${dot}</button>`;
+    }
+    let html = `<div class="rv-cal-top"><button type="button" class="rv-nav" id="rvPrevMonth" aria-label="prev">‹</button><span class="rv-month">${monthLabel}</span><button type="button" class="rv-nav" id="rvNextMonth" aria-label="next">›</button></div>
+      <div class="rv-wds">${wds}</div><div class="rv-grid">${cells}</div>`;
+    const sel = reviewSelDay && byKey[reviewSelDay];
+    if (sel && sel.length) {
+      html += `<div class="rv-day-list"><div class="rv-group-head">${reviewSelDay}</div>${sel.slice().sort((a, b) => a.off - b.off).map(tk => rvTaskRow(tk, false)).join("")}</div>`;
+    }
+    return html;
+  }
+
+  function renderReviewSection() {
+    const host = $("#reviewSection"); if (!host) return;
+    const open = reviewOpen();
+    const plans = activeReviewPlans();
+    const tasks = allReviewTasks();
+    const todayK = rvKey(Date.now());
+    const todayStart = rvDayStart(Date.now());
+    const due = tasks.filter(x => !x.done && (x.key === todayK || x.ts < todayStart)).length;
+    const chev = `<svg class="rv-chev ${open ? "open" : ""}" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>`;
+    const badge = due > 0 ? `<span class="rv-badge">${due}</span>` : "";
+    let html = `<div class="review-head">
+      <button type="button" class="review-toggle" id="reviewToggle" aria-expanded="${open}">${chev}<h3>${t("review.title")}</h3>${badge}</button>
+      <button type="button" class="btn ghost sm review-add" id="btnAddReview">+ <span>${t("review.add")}</span></button>
+    </div>`;
+    if (open) {
+      if (!plans.length) {
+        html += `<p class="review-empty">${t("review.empty")}</p>`;
+      } else {
+        html += `<div class="review-body">
+          <div class="rv-tabs">
+            <button type="button" class="rv-tab ${reviewView === "week" ? "on" : ""}" data-rv="week">${t("review.week")}</button>
+            <button type="button" class="rv-tab ${reviewView === "month" ? "on" : ""}" data-rv="month">${t("review.month")}</button>
+          </div>
+          ${reviewView === "week" ? reviewWeekHTML(tasks) : reviewMonthHTML(tasks)}
+        </div>`;
+      }
+    }
+    host.innerHTML = html;
+    $("#reviewToggle")?.addEventListener("click", () => { setReviewOpen(!open); renderReviewSection(); });
+    $("#btnAddReview")?.addEventListener("click", () => openReviewModal(null));
+    if (open && plans.length) {
+      host.querySelectorAll(".rv-tab").forEach(b => b.addEventListener("click", () => { reviewView = b.dataset.rv; renderReviewSection(); }));
+      host.querySelectorAll(".rv-check").forEach(b => b.addEventListener("click", () => toggleReviewDone(b.dataset.plan, Number(b.dataset.off))));
+      host.querySelectorAll("[data-rv-study]").forEach(el => el.addEventListener("click", () => startSession(el.dataset.rvStudy)));
+      host.querySelectorAll("[data-rv-edit]").forEach(el => el.addEventListener("click", () => openReviewModal(el.dataset.rvEdit)));
+      host.querySelectorAll(".rv-cell[data-day]").forEach(c => c.addEventListener("click", () => { reviewSelDay = (reviewSelDay === c.dataset.day ? null : c.dataset.day); renderReviewSection(); }));
+      $("#rvPrevMonth")?.addEventListener("click", () => { reviewMonthTs = reviewMonthShift(-1); renderReviewSection(); });
+      $("#rvNextMonth")?.addEventListener("click", () => { reviewMonthTs = reviewMonthShift(1); renderReviewSection(); });
+    }
+  }
+
+  function reviewDeckOptions(selId) {
+    const decks = sortDecks(Store.state.decks);
+    const byFolder = new Map();
+    for (const d of decks) { const k = d.folderId || ""; (byFolder.get(k) || byFolder.set(k, []).get(k)).push(d); }
+    const opt = d => `<option value="${d.id}" ${d.id === selId ? "selected" : ""}>${escapeHTML(d.name)}</option>`;
+    const folders = sortFolders([...byFolder.keys()].filter(Boolean).map(id => Store.getFolder(id)).filter(Boolean));
+    let html = "";
+    for (const f of folders) html += `<optgroup label="${escapeHTML(f.name)}">${byFolder.get(f.id).map(opt).join("")}</optgroup>`;
+    if (byFolder.has("")) { const u = byFolder.get(""); html += folders.length ? `<optgroup label="${escapeHTML(t("plan.ungrouped"))}">${u.map(opt).join("")}</optgroup>` : u.map(opt).join(""); }
+    return html;
+  }
+  function renderReviewPreview() {
+    const host = $("#reviewPreview"); if (!host) return;
+    const start = $("#reviewStartInput").value;
+    const iv = rvCleanIv($("#reviewIntervalsInput").value);
+    const end = $("#reviewEndInput").value;
+    if (!start || !iv.length) { host.innerHTML = ""; return; }
+    const endTs = end ? rvParse(end).getTime() : Infinity;
+    const base = rvParse(start).getTime();
+    const fmt = new Intl.DateTimeFormat(I18N.lang === "ko" ? "ko-KR" : "en-US", { month: "numeric", day: "numeric" });
+    const chips = iv.map(off => { const ts = rvDayStart(base + off * RV_DAY); return ts <= endTs ? `<span class="rv-chip">+${off}${t("review.dayUnit")} · ${fmt.format(new Date(ts))}</span>` : ""; }).filter(Boolean).join("");
+    host.innerHTML = `<div class="rv-chips">${chips || `<span class="rv-chip muted">${t("review.noneInRange")}</span>`}</div>`;
+  }
+  function openReviewModal(id) {
+    if (!Store.state.decks.length) { toast(t("review.needDeck")); return; }
+    editingReviewId = id || null;
+    const p = id ? Store.getReviewPlan(id) : null;
+    $("#reviewModalTitle").textContent = p ? t("review.editTitle") : t("review.newTitle");
+    $("#reviewModalSubmit").textContent = p ? t("plan.save") : t("review.create");
+    $("#reviewDeckSel").innerHTML = reviewDeckOptions(p ? p.deckId : sortDecks(Store.state.decks)[0]?.id);
+    $("#reviewStartInput").value = p ? p.start : rvKey(Date.now());
+    $("#reviewIntervalsInput").value = (p ? p.intervals : [1, 3, 7, 14, 30]).join(", ");
+    $("#reviewEndInput").value = p && p.end ? p.end : "";
+    $("#reviewDelete").classList.toggle("hidden", !p);
+    renderReviewPreview();
+    $("#reviewModal").showModal();
+  }
+  $("#reviewStartInput").addEventListener("change", renderReviewPreview);
+  $("#reviewIntervalsInput").addEventListener("input", renderReviewPreview);
+  $("#reviewEndInput").addEventListener("change", renderReviewPreview);
+  $("#reviewDelete").addEventListener("click", () => {
+    if (!editingReviewId) return;
+    confirmDialog(t("review.deleteTitle"), t("review.deleteConfirm"), () => {
+      Store.deleteReviewPlan(editingReviewId);
+      $("#reviewModal").close();
+      renderReviewSection();
+    });
+  });
+  $("#reviewForm").addEventListener("submit", () => {
+    const deckId = $("#reviewDeckSel").value;
+    const start = $("#reviewStartInput").value;
+    const intervals = rvCleanIv($("#reviewIntervalsInput").value);
+    const end = $("#reviewEndInput").value || null;
+    if (!deckId || !start || !intervals.length) return;
+    if (editingReviewId) Store.updateReviewPlan(editingReviewId, { deckId, start, intervals, end, graduated: false });
+    else Store.addReviewPlan({ deckId, start, intervals, end });
+    if (!reviewOpen()) setReviewOpen(true);
+    renderReviewSection();
+  });
+
   function renderHome() {
     renderFolderBar();
     renderPlanSection();
+    renderReviewSection();
     const grid = $("#deckGrid");
     const hasFolders = Store.state.folders.length > 0;
     // mode: 'overview'(최상위·폴더 있음) | 'folder'(폴더 안) | 'starred' | 'flat'(폴더 없음 폴백)
