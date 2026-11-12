@@ -4,14 +4,14 @@
    ═══════════════════════════════════════════════════════ */
 
 :root {
-  /* ── cream (default) ── */
-  --bg:           #fcf9f1;
+  /* ── soft ivory (default) — 거의 티 안 나는 아이보리 크림 ── */
+  --bg:           #f6f3ec;
   --bg-grad1:     rgba(245, 224, 232, .55);
   --bg-grad2:     rgba(238, 243, 216, .6);
   --bg-grad3:     rgba(238, 203, 215, .35);
-  --paper:        #f8f2e2;
-  --paper-soft:   #f2ecd9;
-  --ivory-deep:   #ebe3cf;
+  --paper:        #fdfbf5;
+  --paper-soft:   #f7f4ed;
+  --ivory-deep:   #efece3;
 
   --blush-50:     #fbf3f6;
   --blush-100:    #f6e3ea;
