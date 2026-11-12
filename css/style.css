@@ -147,13 +147,14 @@
   --paper-soft: #2e3027;
   --ivory-deep: #3a3c30;
 
-  --blush-50:  #33292e;
-  --blush-100: #47333c;
-  --blush-200: #5d4250;
-  --blush-300: #8a5f74;
-  --rose-500:  #d795ad;
-  --rose-600:  #e3aec1;
-  --rose-700:  #eec6d4;
+  /* 핑크 대신 로고(단추) 크림·버터 옐로우 계열 */
+  --blush-50:  #2b2a1e;
+  --blush-100: #3b3826;
+  --blush-200: #524d33;
+  --blush-300: #91824f;
+  --rose-500:  #dcc47a;
+  --rose-600:  #e7d492;
+  --rose-700:  #f0e3b2;
 
   --lime-100: #333827;
   --lime-200: #454d31;
@@ -171,7 +172,7 @@
   --amber:  #d3b478;
 
   --edge: rgba(233, 232, 220, .12);
-  --edge-rose: rgba(215, 149, 173, .25);
+  --edge-rose: rgba(220, 196, 122, .25);
   --shadow-xs: 0 1px 2px rgba(0,0,0,.3), 0 2px 8px rgba(0,0,0,.25);
   --shadow-sm: 0 2px 6px rgba(0,0,0,.3), 0 10px 28px rgba(0,0,0,.3);
   --shadow-md: 0 4px 10px rgba(0,0,0,.35), 0 22px 48px rgba(0,0,0,.4);
@@ -1252,6 +1253,13 @@ body[data-view="docreader"] #app { max-width: none; }
     linear-gradient(158deg, var(--paper) 20%, var(--blush-50) 100%) padding-box,
     linear-gradient(150deg, color-mix(in srgb, var(--blush-200) 85%, transparent), color-mix(in srgb, var(--lime-200) 65%, transparent)) border-box;
   box-shadow: var(--shadow-md);
+}
+/* 다크모드: 카드 그라데이션 제거 — 평평한 카드 */
+:root[data-theme="noir"] .answer-card,
+:root[data-theme="noir"] .flashcard-face.front,
+:root[data-theme="noir"] .flashcard-face.back {
+  background: var(--paper);
+  border-color: var(--edge);
 }
 /* 카드에 앉은 토끼 — 6프레임 23x38 앉은 시트 (138x38), swing 애니메이션.
    --sc: 배율, left/right 값만 바꾸면 카드 아무 데나 앉힐 수 있음.
