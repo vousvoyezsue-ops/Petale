@@ -139,19 +139,20 @@
 
 /* ── noir: 미드나잇 ── */
 :root[data-theme="noir"] {
-  --bg: #1e1f19;
+  /* 따뜻한 뉴트럴 다크 (그린/이끼 끼 제거) */
+  --bg: #1a1816;
   --bg-grad1: rgba(201, 127, 151, .12);
   --bg-grad2: rgba(141, 150, 99, .12);
   --bg-grad3: rgba(226, 175, 194, .07);
-  --paper: #282a21;
-  --paper-soft: #2e3027;
-  --ivory-deep: #3a3c30;
+  --paper: #242120;
+  --paper-soft: #2b2724;
+  --ivory-deep: #39342e;
 
   /* 핑크 대신 로고(단추) 크림·버터 옐로우 계열 */
-  --blush-50:  #2b2a1e;
-  --blush-100: #3b3826;
-  --blush-200: #524d33;
-  --blush-300: #91824f;
+  --blush-50:  #241f1a;
+  --blush-100: #322a22;
+  --blush-200: #463a2c;
+  --blush-300: #a08a52;
   --rose-500:  #dcc47a;
   --rose-600:  #e7d492;
   --rose-700:  #f0e3b2;
@@ -214,6 +215,10 @@ button { font-family: inherit; cursor: pointer; color: inherit; }
 input, textarea, select { font-family: inherit; }
 /* 커서(캐럿)·선택 — 은은한 포인트 (요란하지 않게) */
 input, textarea, [contenteditable] { caret-color: var(--rose-500); }
+/* 마우스 커서 — 크림톤 미니멀 도트 (클릭 가능한 곳은 링으로 살짝 커짐) */
+html { cursor: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2222%22%20height%3D%2222%22%3E%3Ccircle%20cx%3D%2211%22%20cy%3D%2211%22%20r%3D%225.3%22%20fill%3D%22%23ece0b8%22%20stroke%3D%22rgba(50%2C44%2C30%2C0.55)%22%20stroke-width%3D%221.2%22%2F%3E%3C%2Fsvg%3E") 11 11, auto; }
+a, button, [role="button"], summary, label[for], select, .nav-link, .deck-card, .rv-day, .rv-check, .rv-tab, .fab { cursor: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2228%22%20height%3D%2228%22%3E%3Ccircle%20cx%3D%2214%22%20cy%3D%2214%22%20r%3D%228.2%22%20fill%3D%22none%22%20stroke%3D%22rgba(50%2C44%2C30%2C0.4)%22%20stroke-width%3D%222.4%22%2F%3E%3Ccircle%20cx%3D%2214%22%20cy%3D%2214%22%20r%3D%228.2%22%20fill%3D%22none%22%20stroke%3D%22%23ece0b8%22%20stroke-width%3D%221.2%22%2F%3E%3Ccircle%20cx%3D%2214%22%20cy%3D%2214%22%20r%3D%223%22%20fill%3D%22%23ece0b8%22%20stroke%3D%22rgba(50%2C44%2C30%2C0.55)%22%20stroke-width%3D%221%22%2F%3E%3C%2Fsvg%3E") 14 14, pointer; }
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, [contenteditable="true"] { cursor: text; }
 .hidden { display: none !important; }
 
 :focus-visible {
