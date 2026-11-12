@@ -916,12 +916,14 @@
                         "i-box", "i-pencil", "i-star", "i-grid", "i-timer"];
   const FOLDER_COLORS = ["#c97f97", "#8d9663", "#b9975a", "#8f81c2",
                          "#6d92b0", "#b3798f", "#6d7548", "#97988a"];
+  const FOLDER_PATTERNS = ["dots", "lace", "floral", "gingham", "none"];
 
   const STARRED = "__starred__"; // 별표 필터 센티넬
   let currentFolder = null; // null = 전체, STARRED = 별표덱만, 그 외 = 폴더 id
   let editingFolderId = null;
   let pickedIcon = FOLDER_ICONS[0];
   let pickedColor = FOLDER_COLORS[0];
+  let pickedPattern = FOLDER_PATTERNS[0];
 
   // 루트→현재 폴더까지의 조상 경로(빵부스러기)
   function folderTrail(id) {
@@ -986,6 +988,7 @@
     $("#folderNameInput").value = folder ? folder.name : "";
     pickedIcon = folder?.icon || FOLDER_ICONS[0];
     pickedColor = folder?.color || FOLDER_COLORS[0];
+    pickedPattern = folder?.pattern || FOLDER_PATTERNS[0];
     $("#folderDelete").classList.toggle("hidden", !folder);
     renderFolderParentSelect(folder, folder ? (folder.parentId || "") : (presetParent || ""));
     renderFolderPickers();
@@ -1012,10 +1015,15 @@
     $("#folderColorGrid").innerHTML = FOLDER_COLORS.map(c => `
       <button type="button" class="pick color ${c === pickedColor ? "active" : ""}" data-color="${c}"
         style="--fc:${c}"></button>`).join("");
+    $("#folderPatternGrid").innerHTML = FOLDER_PATTERNS.map(p => `
+      <button type="button" class="pick pattern pat-${p} ${p === pickedPattern ? "active" : ""}" data-pattern="${p}"
+        style="--accent:${pickedColor}" title="${t("folder.pat_" + p)}"><span class="pat-label">${t("folder.pat_" + p)}</span></button>`).join("");
     $("#folderIconGrid").querySelectorAll(".pick").forEach(b =>
       b.addEventListener("click", () => { pickedIcon = b.dataset.icon; renderFolderPickers(); }));
     $("#folderColorGrid").querySelectorAll(".pick").forEach(b =>
       b.addEventListener("click", () => { pickedColor = b.dataset.color; renderFolderPickers(); }));
+    $("#folderPatternGrid").querySelectorAll(".pick").forEach(b =>
+      b.addEventListener("click", () => { pickedPattern = b.dataset.pattern; renderFolderPickers(); }));
   }
 
   $("#folderForm").addEventListener("submit", () => {
@@ -1023,9 +1031,9 @@
     if (!name) return;
     const parentId = $("#folderParentSelect").value || null;
     if (editingFolderId) {
-      Store.updateFolder(editingFolderId, { name, icon: pickedIcon, color: pickedColor, parentId });
+      Store.updateFolder(editingFolderId, { name, icon: pickedIcon, color: pickedColor, pattern: pickedPattern, parentId });
     } else {
-      const f = Store.addFolder(name, pickedIcon, pickedColor, parentId);
+      const f = Store.addFolder(name, pickedIcon, pickedColor, parentId, pickedPattern);
       currentFolder = f.id;
     }
     toast(t("toast.folderSaved"));
@@ -1142,7 +1150,7 @@
       ? `${t("folder.subCount", { n: subs })} · ${t("folder.deckCount", { n: decks.length })}`
       : t("folder.deckCount", { n: decks.length });
     return `
-      <article class="folder-card" data-folderopen="${folder.id}" tabindex="0" role="button" style="--i:${i}; --accent:${folder.color}">
+      <article class="folder-card pat-${folder.pattern || "dots"}" data-folderopen="${folder.id}" tabindex="0" role="button" style="--i:${i}; --accent:${folder.color}">
         <span class="deck-cover folder"><svg width="20" height="20"><use href="#${folder.icon}"/></svg></span>
         <div class="deck-main">
           <div class="deck-row-head"><h3>${escapeHTML(folder.name)}</h3></div>
@@ -1157,7 +1165,7 @@
     const decks = Store.state.decks.filter(d => d.starred);
     const c = aggCounts(decks);
     return `
-      <article class="folder-card starred" data-folderopen="${STARRED}" tabindex="0" role="button" style="--i:${i}; --accent:#e3a92e">
+      <article class="folder-card starred pat-dots" data-folderopen="${STARRED}" tabindex="0" role="button" style="--i:${i}; --accent:#e3a92e">
         <span class="deck-cover folder"><svg width="18" height="18"><use href="#i-star"/></svg></span>
         <div class="deck-main">
           <div class="deck-row-head"><h3>${t("folder.starred")}</h3></div>
