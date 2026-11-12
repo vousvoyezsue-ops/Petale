@@ -2712,8 +2712,13 @@ mark, mark.hl, .hl {
 .folder-card .deck-chevron { flex-shrink: 0; color: color-mix(in srgb, var(--ink-3) 70%, transparent); }
 .folder-card:hover .deck-chevron { color: var(--accent); }
 .deck-cover.folder { color: color-mix(in srgb, var(--accent) 85%, #2a241c); }
-/* 과목/학기 폴더 — 파일 폴더 탭 모양 */
-.folder-card:not(.add) { margin-top: 14px; border-top-left-radius: 5px; }
+/* 과목/학기 폴더 — 파일 폴더 탭 + 은은한 도트 패턴 */
+.folder-card:not(.add) {
+  margin-top: 14px; border-top-left-radius: 5px;
+  background-color: var(--paper);
+  background-image: radial-gradient(color-mix(in srgb, var(--accent) 22%, transparent) 1.4px, transparent 1.6px);
+  background-size: 13px 13px; background-position: 9px 9px;
+}
 .folder-card:not(.add)::before {
   content: "";
   position: absolute; left: -1px; top: -11px;
