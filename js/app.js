@@ -1923,13 +1923,14 @@
     const chips = iv.map(off => { const ts = rvDayStart(base + off * RV_DAY); return ts <= endTs ? `<span class="rv-chip">+${off}${t("review.dayUnit")} · ${fmt.format(new Date(ts))}</span>` : ""; }).filter(Boolean).join("");
     host.innerHTML = `<div class="rv-chips">${chips || `<span class="rv-chip muted">${t("review.noneInRange")}</span>`}</div>`;
   }
-  function openReviewModal(id) {
+  function openReviewModal(id, presetDeckId) {
     if (!Store.state.decks.length) { toast(t("review.needDeck")); return; }
     editingReviewId = id || null;
     const p = id ? Store.getReviewPlan(id) : null;
     $("#reviewModalTitle").textContent = p ? t("review.editTitle") : t("review.newTitle");
     $("#reviewModalSubmit").textContent = p ? t("plan.save") : t("review.create");
-    $("#reviewDeckSel").innerHTML = reviewDeckOptions(p ? p.deckId : sortDecks(Store.state.decks)[0]?.id);
+    const defDeck = p ? p.deckId : (presetDeckId || sortDecks(Store.state.decks)[0]?.id);
+    $("#reviewDeckSel").innerHTML = reviewDeckOptions(defDeck);
     $("#reviewStartInput").value = p ? p.start : rvKey(Date.now());
     $("#reviewIntervalsInput").value = (p ? p.intervals : [1, 3, 7, 14, 30]).join(", ");
     $("#reviewEndInput").value = p && p.end ? p.end : "";
@@ -3436,8 +3437,11 @@
 
   function startSessionWith(queue, { global = false, emptyMsg } = {}) {
     if (!queue.length) { toast(emptyMsg || t("study.nothingDue")); return; }
+    // 이 세션에서 다루는 덱들(끝낸 뒤 자동 복습 추가 판단용)
+    const deckOf = new Map(Store.state.cards.map(c => [c.id, c.deckId]));
+    const deckIds = [...new Set(queue.map(id => deckOf.get(id)).filter(Boolean))];
     // main: 복습·새 카드(복습 먼저, 새 카드 나중) / learning: 세션 중 '다시·어려움' 누른 학습 카드 {id, dueAt}
-    session = { main: queue, learning: [], current: null, done: 0, total: queue.length, revealed: false, global, history: [], again: 0 };
+    session = { main: queue, learning: [], current: null, done: 0, total: queue.length, revealed: false, global, history: [], again: 0, deckIds };
     $("#studyDone").classList.add("hidden");
     $(".study-stage").classList.remove("hidden");
     $("#btnUndo").classList.add("hidden");
@@ -3458,6 +3462,10 @@
     startSessionWith(shuffleIds(Store.cardsOf(deckId).filter(isLeech)), { emptyMsg: t("study.noLeeches") });
   }
 
+  $("#btnAddReviewDeck").addEventListener("click", () => {
+    const existing = (Store.state.reviewPlans || []).find(p => p.deckId === currentDeckId && !reviewFinished(p));
+    openReviewModal(existing ? existing.id : null, currentDeckId);
+  });
   $("#btnStudy").addEventListener("click", () => startSession(currentDeckId));
   $("#btnStudyStarred").addEventListener("click", () => startStarredSession(currentDeckId));
   $("#btnStudyLeeches").addEventListener("click", () => startLeechSession(currentDeckId));
@@ -4133,6 +4141,25 @@
       : t("study.doneNextNone");
     $("#studyDone").classList.remove("hidden");
     burstPetals();
+    // 오늘 할 걸 전부 끝낸(due·새 카드 0) 덱은 자동으로 복습 목록에 넣는다
+    const added = maybeAutoAddReview(session.deckIds);
+    if (added.length) toast(added.length === 1 ? t("review.autoAdded", { deck: added[0] }) : t("review.autoAddedN", { n: added.length }));
+  }
+
+  // 세션에서 다룬 덱 중 '오늘 할 일(복습+새)'이 0이 된 덱을 복습 플래너에 자동 등록
+  function maybeAutoAddReview(deckIds) {
+    const added = [];
+    for (const deckId of (deckIds || [])) {
+      const deck = Store.getDeck(deckId); if (!deck) continue;
+      const c = Store.deckCounts(deckId);
+      if (c.total === 0 || c.due > 0 || c.neu > 0) continue;              // 아직 할 게 남음
+      const studied = Store.cardsOf(deckId).some(x => !x.suspended && x.reps > 0);
+      if (!studied) continue;                                            // 실제 학습된 카드가 있어야
+      if ((Store.state.reviewPlans || []).some(p => p.deckId === deckId && !reviewFinished(p))) continue; // 이미 있음
+      Store.addReviewPlan({ deckId, start: rvKey(Date.now()), intervals: [1, 3, 7, 14, 30], end: null });
+      added.push(deck.name);
+    }
+    return added;
   }
 
   function burstPetals() {
