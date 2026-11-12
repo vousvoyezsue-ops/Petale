@@ -2,7 +2,7 @@
    전략: 네트워크 우선 + 캐시 폴백 (항상 최신, 오프라인에서도 동작)
    vendor/ 는 불변 대용량이라 캐시 우선 */
 
-const CACHE = "petale-v204";
+const CACHE = "petale-v205";
 const PRECACHE = [
   "./",
   "index.html",
@@ -62,9 +62,9 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // 나머지는 네트워크 우선, 실패 시 캐시
+  // 나머지는 네트워크 우선 + 항상 서버 재검증(no-cache) — 배포 즉시 반영, 실패 시 캐시
   e.respondWith(
-    fetch(e.request)
+    fetch(e.request, { cache: "no-cache" })
       .then((res) => {
         const copy = res.clone();
         caches.open(CACHE).then((c) => c.put(e.request, copy));
