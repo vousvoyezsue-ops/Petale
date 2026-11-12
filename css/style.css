@@ -2712,6 +2712,20 @@ mark, mark.hl, .hl {
 .folder-card .deck-chevron { flex-shrink: 0; color: color-mix(in srgb, var(--ink-3) 70%, transparent); }
 .folder-card:hover .deck-chevron { color: var(--accent); }
 .deck-cover.folder { color: color-mix(in srgb, var(--accent) 85%, #2a241c); }
+/* 과목/학기 폴더 — 파일 폴더 탭 모양 */
+.folder-card:not(.add) { margin-top: 14px; border-top-left-radius: 5px; }
+.folder-card:not(.add)::before {
+  content: "";
+  position: absolute; left: -1px; top: -11px;
+  width: 86px; height: 14px;
+  background: color-mix(in srgb, var(--accent) 16%, var(--paper));
+  border: 1px solid var(--edge);
+  border-bottom: none;
+  border-radius: 8px 13px 0 0;
+  box-shadow: 0 1px 2px rgba(70,64,48,.03);
+  transition: background .2s;
+}
+.folder-card:not(.add):hover::before { background: color-mix(in srgb, var(--accent) 26%, var(--paper)); border-color: color-mix(in srgb, var(--accent) 42%, var(--edge)); }
 /* 폴더 추가 카드 — 점선, 은은하게 */
 .folder-card.add { border-style: dashed; background: transparent; box-shadow: none; }
 .folder-card.add:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
