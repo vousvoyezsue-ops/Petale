@@ -2712,25 +2712,32 @@ mark, mark.hl, .hl {
 .folder-card .deck-chevron { flex-shrink: 0; color: color-mix(in srgb, var(--ink-3) 70%, transparent); }
 .folder-card:hover .deck-chevron { color: var(--accent); }
 .deck-cover.folder { color: color-mix(in srgb, var(--accent) 85%, #2a241c); }
-/* 과목/학기 폴더 — 파일 폴더 탭 + 은은한 도트 패턴 */
+/* 과목/학기 폴더 — 파일 폴더 탭 + 색 채움 + 패턴(흰색 모티프) */
 .folder-card:not(.add) {
   margin-top: 14px; border-top-left-radius: 5px;
-  background-color: var(--paper);
-  background-image: radial-gradient(color-mix(in srgb, var(--accent) 22%, transparent) 1.4px, transparent 1.6px);
-  background-size: 13px 13px; background-position: 9px 9px;
+  background-color: color-mix(in srgb, var(--accent) 20%, var(--paper));
 }
+.folder-card:not(.add) .deck-cover,
+.folder-card:not(.add) .deck-main,
+.folder-card:not(.add) .deck-card-meta,
+.folder-card:not(.add) .deck-chevron { position: relative; z-index: 1; }
+.folder-card:not(.add)::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  pointer-events: none; z-index: 0; background-repeat: repeat;
+}
+.folder-card.pat-none::after { display: none; }
+.folder-card.pat-dots::after,    .pick.pattern.pat-dots    { background-image: radial-gradient(rgba(255,255,255,.6) 1.5px, transparent 1.7px); background-size: 12px 12px; }
+.folder-card.pat-gingham::after, .pick.pattern.pat-gingham { background-image: repeating-linear-gradient(0deg, rgba(255,255,255,.22) 0 8px, transparent 8px 16px), repeating-linear-gradient(90deg, rgba(255,255,255,.22) 0 8px, transparent 8px 16px); }
+.folder-card.pat-floral::after,  .pick.pattern.pat-floral  { background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2234%22%20height%3D%2234%22%3E%3Cg%20fill%3D%22rgba%28255%2C255%2C255%2C0.5%29%22%3E%3Ccircle%20cx%3D%2217%22%20cy%3D%2210%22%20r%3D%223%22/%3E%3Ccircle%20cx%3D%2224%22%20cy%3D%2215.5%22%20r%3D%223%22/%3E%3Ccircle%20cx%3D%2221%22%20cy%3D%2223.5%22%20r%3D%223%22/%3E%3Ccircle%20cx%3D%2213%22%20cy%3D%2223.5%22%20r%3D%223%22/%3E%3Ccircle%20cx%3D%2210%22%20cy%3D%2215.5%22%20r%3D%223%22/%3E%3Ccircle%20cx%3D%2217%22%20cy%3D%2217%22%20r%3D%222.6%22%20fill%3D%22rgba%28255%2C255%2C255%2C0.8%29%22/%3E%3C/g%3E%3Cg%20fill%3D%22rgba%28255%2C255%2C255%2C0.4%29%22%3E%3Ccircle%20cx%3D%220%22%20cy%3D%220%22%20r%3D%221.4%22/%3E%3Ccircle%20cx%3D%2234%22%20cy%3D%220%22%20r%3D%221.4%22/%3E%3Ccircle%20cx%3D%220%22%20cy%3D%2234%22%20r%3D%221.4%22/%3E%3Ccircle%20cx%3D%2234%22%20cy%3D%2234%22%20r%3D%221.4%22/%3E%3C/g%3E%3C/svg%3E"); background-size: 34px 34px; }
+.folder-card.pat-lace::after,    .pick.pattern.pat-lace    { background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2240%22%20height%3D%2240%22%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22rgba%28255%2C255%2C255%2C0.42%29%22%20stroke-width%3D%221.1%22%3E%3Ccircle%20cx%3D%220%22%20cy%3D%2220%22%20r%3D%2210%22/%3E%3Ccircle%20cx%3D%2240%22%20cy%3D%2220%22%20r%3D%2210%22/%3E%3Ccircle%20cx%3D%2220%22%20cy%3D%220%22%20r%3D%2210%22/%3E%3Ccircle%20cx%3D%2220%22%20cy%3D%2240%22%20r%3D%2210%22/%3E%3Ccircle%20cx%3D%2220%22%20cy%3D%2220%22%20r%3D%225.5%22/%3E%3C/g%3E%3Cg%20fill%3D%22rgba%28255%2C255%2C255%2C0.5%29%22%3E%3Ccircle%20cx%3D%2220%22%20cy%3D%2220%22%20r%3D%221.5%22/%3E%3Ccircle%20cx%3D%220%22%20cy%3D%220%22%20r%3D%221.5%22/%3E%3Ccircle%20cx%3D%2240%22%20cy%3D%220%22%20r%3D%221.5%22/%3E%3Ccircle%20cx%3D%220%22%20cy%3D%2240%22%20r%3D%221.5%22/%3E%3Ccircle%20cx%3D%2240%22%20cy%3D%2240%22%20r%3D%221.5%22/%3E%3C/g%3E%3C/svg%3E"); background-size: 40px 40px; }
 .folder-card:not(.add)::before {
-  content: "";
-  position: absolute; left: -1px; top: -11px;
+  content: ""; position: absolute; left: -1px; top: -11px; z-index: 2;
   width: 86px; height: 14px;
-  background: color-mix(in srgb, var(--accent) 16%, var(--paper));
-  border: 1px solid var(--edge);
-  border-bottom: none;
+  background: color-mix(in srgb, var(--accent) 38%, var(--paper));
+  border: 1px solid var(--edge); border-bottom: none;
   border-radius: 8px 13px 0 0;
   box-shadow: 0 1px 2px rgba(70,64,48,.03);
-  transition: background .2s;
 }
-.folder-card:not(.add):hover::before { background: color-mix(in srgb, var(--accent) 26%, var(--paper)); border-color: color-mix(in srgb, var(--accent) 42%, var(--edge)); }
 /* 폴더 추가 카드 — 점선, 은은하게 */
 .folder-card.add { border-style: dashed; background: transparent; box-shadow: none; }
 .folder-card.add:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
@@ -2796,6 +2803,15 @@ mark, mark.hl, .hl {
 }
 .picker-grid .pick.color { border-radius: 50%; background: var(--fc); }
 .picker-grid .pick.color.active { box-shadow: 0 0 0 2.5px var(--paper), 0 0 0 5px var(--fc); border-color: transparent; }
+.pattern-grid { gap: 8px; }
+.picker-grid .pick.pattern {
+  width: 56px; height: 42px; border-radius: 10px;
+  background-color: color-mix(in srgb, var(--accent) 26%, var(--paper));
+  background-repeat: repeat; overflow: hidden;
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.picker-grid .pick.pattern.active { border-color: var(--accent); box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--accent) 28%, transparent); }
+.pat-label { font-size: 9.5px; font-weight: 650; color: var(--ink); background: color-mix(in srgb, var(--paper) 82%, transparent); padding: 1px 5px; border-radius: 6px; margin-bottom: 4px; }
 .modal-actions .spacer { flex: 1; }
 #deckFolderSel {
   width: 100%;
