@@ -4,14 +4,14 @@
    ═══════════════════════════════════════════════════════ */
 
 :root {
-  /* ── pearl white (default) ── */
-  --bg:           #faf8f3;
+  /* ── cream (default) ── */
+  --bg:           #fcf9f1;
   --bg-grad1:     rgba(245, 224, 232, .55);
   --bg-grad2:     rgba(238, 243, 216, .6);
   --bg-grad3:     rgba(238, 203, 215, .35);
-  --paper:        #ffffff;
-  --paper-soft:   #fbf9f7;
-  --ivory-deep:   #f1efe9;
+  --paper:        #f8f2e2;
+  --paper-soft:   #f2ecd9;
+  --ivory-deep:   #ebe3cf;
 
   --blush-50:     #fbf3f6;
   --blush-100:    #f6e3ea;
@@ -139,23 +139,23 @@
 
 /* ── noir: 미드나잇 ── */
 :root[data-theme="noir"] {
-  /* 따뜻한 뉴트럴 다크 (그린/이끼 끼 제거) */
-  --bg: #1a1816;
+  /* 따뜻한 크림빛 다크 (그린/이끼 끼 제거) */
+  --bg: #1a1714;
   --bg-grad1: rgba(201, 127, 151, .12);
   --bg-grad2: rgba(141, 150, 99, .12);
   --bg-grad3: rgba(226, 175, 194, .07);
-  --paper: #242120;
-  --paper-soft: #2b2724;
-  --ivory-deep: #39342e;
+  --paper: #2a2521;
+  --paper-soft: #322c26;
+  --ivory-deep: #403930;
 
   /* 핑크 대신 로고(단추) 크림·버터 옐로우 계열 */
   --blush-50:  #241f1a;
   --blush-100: #322a22;
   --blush-200: #463a2c;
   --blush-300: #a08a52;
-  --rose-500:  #dcc47a;
-  --rose-600:  #e7d492;
-  --rose-700:  #f0e3b2;
+  --rose-500:  #e6d79f;
+  --rose-600:  #eee2b6;
+  --rose-700:  #f5ead0;
 
   --lime-100: #333827;
   --lime-200: #454d31;
