@@ -237,6 +237,8 @@ input, textarea, select { font-family: inherit; }
   from { transform: translate(0, 0) rotate(0deg) scale(1); }
   to   { transform: translate(30px, -44px) rotate(24deg) scale(1.08); }
 }
+/* 다크모드(noir): 그라데이션 오브 제거 — 평평한 배경 */
+:root[data-theme="noir"] .bg-scene { display: none; }
 
 .grain {
   position: fixed; inset: -50%;
