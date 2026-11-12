@@ -212,12 +212,14 @@ body {
 
 button { font-family: inherit; cursor: pointer; color: inherit; }
 input, textarea, select { font-family: inherit; }
+/* 커서(캐럿)·선택 — 은은한 포인트 (요란하지 않게) */
+input, textarea, [contenteditable] { caret-color: var(--rose-500); }
 .hidden { display: none !important; }
 
 :focus-visible {
-  outline: 2px solid var(--sage-500);
-  outline-offset: 3px;
-  border-radius: 4px;
+  outline: 2px solid color-mix(in srgb, var(--sage-500) 65%, transparent);
+  outline-offset: 2px;
+  border-radius: 6px;
 }
 
 /* ═══ ambient scene ═══ */
@@ -257,9 +259,7 @@ input, textarea, select { font-family: inherit; }
   position: sticky; top: 0; z-index: 30;
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px clamp(20px, 5vw, 56px);
-  background: color-mix(in srgb, var(--bg) 78%, transparent);
-  backdrop-filter: blur(16px) saturate(1.3);
-  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  background: var(--bg);
   border-bottom: 1px solid var(--edge);
 }
 .topbar-right { display: flex; align-items: center; gap: 10px; }
@@ -290,9 +290,9 @@ input, textarea, select { font-family: inherit; }
   display: flex; gap: 3px;
   padding: 4px;
   border-radius: 99px;
-  background: color-mix(in srgb, var(--paper) 72%, transparent);
+  background: var(--paper);
   border: 1px solid var(--edge);
-  box-shadow: var(--shadow-xs);
+  box-shadow: var(--shadow-sm);
 }
 .nav-link {
   border: none; background: transparent;
@@ -313,7 +313,7 @@ input, textarea, select { font-family: inherit; }
   width: 40px; height: 40px;
   border: 1px solid var(--edge);
   border-radius: 50%;
-  background: color-mix(in srgb, var(--paper) 72%, transparent);
+  background: var(--paper);
   color: var(--ink-2);
   box-shadow: var(--shadow-xs);
   transition: transform .4s var(--ease-spring), color .2s;
@@ -360,7 +360,7 @@ input, textarea, select { font-family: inherit; }
   padding: 12px 14px;
   border: 1px solid var(--edge);
   border-radius: var(--r-sm);
-  background: color-mix(in srgb, var(--paper) 82%, transparent);
+  background: var(--paper);
   transition: border-color .18s, box-shadow .18s, transform .18s;
 }
 .today-row:hover {
@@ -522,7 +522,7 @@ input, textarea, select { font-family: inherit; }
   padding: 76px 24px;
   border-radius: var(--r-xl);
   border: 1.5px dashed color-mix(in srgb, var(--sage-400) 45%, transparent);
-  background: color-mix(in srgb, var(--paper) 45%, transparent);
+  background: var(--paper-soft);
   color: var(--ink-2);
   font-size: 15px;
   line-height: 1.9;
@@ -673,7 +673,7 @@ input, textarea, select { font-family: inherit; }
 .btn.secondary:hover { transform: translateY(-2px); }
 
 .btn.ghost {
-  background: color-mix(in srgb, var(--paper) 55%, transparent);
+  background: var(--paper);
   color: var(--ink-2);
   box-shadow: inset 0 0 0 1.2px color-mix(in srgb, var(--sage-400) 40%, transparent);
 }
@@ -692,7 +692,7 @@ input, textarea, select { font-family: inherit; }
 .card-list-wrap {
   border-radius: var(--r-lg);
   border: 1px solid var(--edge);
-  background: color-mix(in srgb, var(--paper) 68%, transparent);
+  background: var(--paper);
   backdrop-filter: blur(8px);
   box-shadow: var(--shadow-xs);
   padding: 22px 22px 18px;
@@ -1009,7 +1009,7 @@ body[data-view="docreader"] #app { max-width: none; }
   width: 38px; height: 38px;
   border: 1px solid var(--edge);
   border-radius: 50%;
-  background: color-mix(in srgb, var(--paper) 80%, transparent);
+  background: var(--paper);
   color: var(--ink-2);
   transition: color .2s, transform .2s;
   flex-shrink: 0;
@@ -1523,7 +1523,7 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
 .heatmap-card {
   padding: 26px 28px;
   border-radius: var(--r-lg);
-  background: color-mix(in srgb, var(--paper) 80%, transparent);
+  background: var(--paper);
   border: 1px solid var(--edge);
   box-shadow: var(--shadow-xs);
   margin-bottom: 26px;
@@ -3255,7 +3255,7 @@ body:not(.pre-auth) .auth-gate { display: none; }
   margin: 12px auto 0;
   padding: 10px 16px;
   border-radius: 14px;
-  background: color-mix(in srgb, var(--blush-100) 72%, transparent);
+  background: color-mix(in srgb, var(--blush-100) 55%, var(--paper));
   border-left: 3px solid var(--rose-500);
   color: var(--rose-700);
 }
