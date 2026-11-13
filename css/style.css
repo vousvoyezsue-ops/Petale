@@ -2712,37 +2712,41 @@ mark, mark.hl, .hl {
 .folder-card .deck-chevron { flex-shrink: 0; color: color-mix(in srgb, var(--ink-3) 70%, transparent); }
 .folder-card:hover .deck-chevron { color: var(--accent); }
 .deck-cover.folder { color: color-mix(in srgb, var(--accent) 85%, #2a241c); }
-/* 과목/학기 폴더 — 패브릭 텍스처 + 입체감 + 단색 탭 */
-.folder-card.pat-lace,    .pick.pattern.pat-lace    { --tex: url("../assets/patterns/lace.webp"); }
-.folder-card.pat-dot,     .pick.pattern.pat-dot     { --tex: url("../assets/patterns/dot.webp"); }
-.folder-card.pat-rosedot, .pick.pattern.pat-rosedot { --tex: url("../assets/patterns/rosedot.webp"); }
-.folder-card.pat-fawn,    .pick.pattern.pat-fawn    { --tex: url("../assets/patterns/fawn.webp"); }
+/* 과목/학기 폴더 — 패브릭 텍스처 10테마 + 입체감 + 단색 탭 */
+.folder-card.pat-chestnut-fawn, .pick.pattern.pat-chestnut-fawn { --folder-texture: url("../assets/patterns/chestnut-fawn.webp"); --folder-tab-color: #dbc6a7; }
+.folder-card.pat-beige-fawn, .pick.pattern.pat-beige-fawn { --folder-texture: url("../assets/patterns/beige-fawn.webp"); --folder-tab-color: #d8c8b0; }
+.folder-card.pat-pink-lace, .pick.pattern.pat-pink-lace { --folder-texture: url("../assets/patterns/pink-lace.webp"); --folder-tab-color: #ca9f9f; }
+.folder-card.pat-ivory-lace, .pick.pattern.pat-ivory-lace { --folder-texture: url("../assets/patterns/ivory-lace.webp"); --folder-tab-color: #ded2ba; }
+.folder-card.pat-mauve-embroidery, .pick.pattern.pat-mauve-embroidery { --folder-texture: url("../assets/patterns/mauve-embroidery.webp"); --folder-tab-color: #b69392; }
+.folder-card.pat-cream-dots, .pick.pattern.pat-cream-dots { --folder-texture: url("../assets/patterns/cream-dots.webp"); --folder-tab-color: #c4b9a8; }
+.folder-card.pat-pink-dots, .pick.pattern.pat-pink-dots { --folder-texture: url("../assets/patterns/pink-dots.webp"); --folder-tab-color: #d5a4a7; }
+.folder-card.pat-pink-script, .pick.pattern.pat-pink-script { --folder-texture: url("../assets/patterns/pink-script.webp"); --folder-tab-color: #c998a3; }
+.folder-card.pat-floral-stripes, .pick.pattern.pat-floral-stripes { --folder-texture: url("../assets/patterns/floral-stripes.webp"); --folder-tab-color: #ddaeb2; }
+.folder-card.pat-blue-tapestry, .pick.pattern.pat-blue-tapestry { --folder-texture: url("../assets/patterns/blue-tapestry.webp"); --folder-tab-color: #305262; }
 .folder-card:not(.add) {
   margin-top: 20px;
   border: none;
   border-radius: 3px 15px 15px 15px;
   background:
-    linear-gradient(90deg, rgba(255,255,255,.55) 6%, rgba(255,255,255,0) 50%),
-    var(--tex, none) center / 188px auto repeat,
-    color-mix(in srgb, var(--accent) 20%, var(--paper));
+    linear-gradient(90deg, rgba(255,255,255,.52) 4%, rgba(255,255,255,0) 44%),
+    var(--folder-texture, none) center / cover no-repeat,
+    color-mix(in srgb, var(--folder-tab-color, var(--accent)) 30%, var(--paper));
   box-shadow:
-    0 3px 10px -5px color-mix(in srgb, var(--accent) 42%, transparent),
-    inset 0 1px 0 rgba(255,255,255,.4),
-    inset 0 -15px 22px -12px rgba(70,50,40,.2);
+    0 1px 2px rgba(58,41,30,.06),
+    0 5px 9px -4px rgba(58,41,30,.14),
+    inset 0 1px 1px rgba(255,255,255,.6),
+    inset 0 -3px 6px rgba(58,41,30,.07);
 }
 .folder-card:not(.add):hover {
   transform: translateY(-2px);
-  box-shadow:
-    0 9px 20px -9px color-mix(in srgb, var(--accent) 55%, transparent),
-    inset 0 1px 0 rgba(255,255,255,.4),
-    inset 0 -15px 22px -12px rgba(70,50,40,.2);
+  box-shadow: 0 10px 20px -8px rgba(58,41,30,.22), inset 0 1px 1px rgba(255,255,255,.6), inset 0 -3px 6px rgba(58,41,30,.07);
 }
 :root[data-theme="noir"] .folder-card:not(.add) {
   background:
-    linear-gradient(90deg, rgba(16,13,11,.6) 6%, rgba(16,13,11,0) 50%),
+    linear-gradient(90deg, rgba(16,13,11,.62) 4%, rgba(16,13,11,0) 46%),
     linear-gradient(rgba(22,18,16,.4), rgba(22,18,16,.4)),
-    var(--tex, none) center / 188px auto repeat,
-    color-mix(in srgb, var(--accent) 22%, var(--paper));
+    var(--folder-texture, none) center / cover no-repeat,
+    color-mix(in srgb, var(--folder-tab-color, var(--accent)) 26%, var(--paper));
 }
 .folder-card:not(.add) .deck-cover,
 .folder-card:not(.add) .deck-main,
@@ -2751,12 +2755,12 @@ mark, mark.hl, .hl {
 .folder-card:not(.add)::before {
   content: ""; position: absolute; left: 0; top: -15px; z-index: 0;
   width: 46%; max-width: 220px; height: 18px;
-  background: color-mix(in srgb, var(--accent) 60%, #fff);
+  background-color: var(--folder-tab-color, color-mix(in srgb, var(--accent) 60%, #fff));
+  background-image: linear-gradient(to bottom, rgba(255,255,255,.3), rgba(58,41,30,.06));
   border-radius: 11px 5px 0 0;
   clip-path: polygon(0 0, 82% 0, 100% 100%, 0 100%);
   filter: drop-shadow(0 1px 1.5px rgba(70,64,48,.12));
 }
-:root[data-theme="noir"] .folder-card:not(.add)::before { background: color-mix(in srgb, var(--accent) 52%, #2a2521); }
 /* 폴더 추가 카드 — 점선, 은은하게 */
 .folder-card.add { border-style: dashed; background: transparent; box-shadow: none; }
 .folder-card.add:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
@@ -2825,7 +2829,7 @@ mark, mark.hl, .hl {
 .pattern-grid { gap: 8px; }
 .picker-grid .pick.pattern {
   width: 56px; height: 42px; border-radius: 10px;
-  background: var(--tex, color-mix(in srgb, var(--accent) 26%, var(--paper))) center / cover;
+  background: var(--folder-texture, color-mix(in srgb, var(--accent) 26%, var(--paper))) center / cover;
   overflow: hidden;
   display: flex; align-items: flex-end; justify-content: center;
 }

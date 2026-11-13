@@ -916,7 +916,7 @@
                         "i-box", "i-pencil", "i-star", "i-grid", "i-timer"];
   const FOLDER_COLORS = ["#c97f97", "#8d9663", "#b9975a", "#8f81c2",
                          "#6d92b0", "#b3798f", "#6d7548", "#97988a"];
-  const FOLDER_PATTERNS = ["lace", "dot", "rosedot", "fawn", "none"];
+  const FOLDER_PATTERNS = ["cream-dots", "ivory-lace", "pink-lace", "pink-dots", "pink-script", "floral-stripes", "mauve-embroidery", "chestnut-fawn", "beige-fawn", "blue-tapestry", "none"];
 
   const STARRED = "__starred__"; // 별표 필터 센티넬
   let currentFolder = null; // null = 전체, STARRED = 별표덱만, 그 외 = 폴더 id
@@ -1150,7 +1150,7 @@
       ? `${t("folder.subCount", { n: subs })} · ${t("folder.deckCount", { n: decks.length })}`
       : t("folder.deckCount", { n: decks.length });
     return `
-      <article class="folder-card pat-${folder.pattern || "lace"}" data-folderopen="${folder.id}" tabindex="0" role="button" style="--i:${i}; --accent:${folder.color}">
+      <article class="folder-card pat-${folder.pattern || "cream-dots"}" data-folderopen="${folder.id}" tabindex="0" role="button" style="--i:${i}; --accent:${folder.color}">
         <span class="deck-cover folder"><svg width="20" height="20"><use href="#${folder.icon}"/></svg></span>
         <div class="deck-main">
           <div class="deck-row-head"><h3>${escapeHTML(folder.name)}</h3></div>
@@ -1165,7 +1165,7 @@
     const decks = Store.state.decks.filter(d => d.starred);
     const c = aggCounts(decks);
     return `
-      <article class="folder-card starred pat-dot" data-folderopen="${STARRED}" tabindex="0" role="button" style="--i:${i}; --accent:#e3a92e">
+      <article class="folder-card starred pat-cream-dots" data-folderopen="${STARRED}" tabindex="0" role="button" style="--i:${i}; --accent:#e3a92e">
         <span class="deck-cover folder"><svg width="18" height="18"><use href="#i-star"/></svg></span>
         <div class="deck-main">
           <div class="deck-row-head"><h3>${t("folder.starred")}</h3></div>
