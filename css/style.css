@@ -2712,39 +2712,51 @@ mark, mark.hl, .hl {
 .folder-card .deck-chevron { flex-shrink: 0; color: color-mix(in srgb, var(--ink-3) 70%, transparent); }
 .folder-card:hover .deck-chevron { color: var(--accent); }
 .deck-cover.folder { color: color-mix(in srgb, var(--accent) 85%, #2a241c); }
-/* 과목/학기 폴더 — 파일 폴더 탭 + 색 채움 + 패턴(흰색 모티프) */
+/* 과목/학기 폴더 — 패브릭 텍스처 + 입체감 + 단색 탭 */
+.folder-card.pat-lace,    .pick.pattern.pat-lace    { --tex: url("../assets/patterns/lace.webp"); }
+.folder-card.pat-dot,     .pick.pattern.pat-dot     { --tex: url("../assets/patterns/dot.webp"); }
+.folder-card.pat-rosedot, .pick.pattern.pat-rosedot { --tex: url("../assets/patterns/rosedot.webp"); }
+.folder-card.pat-fawn,    .pick.pattern.pat-fawn    { --tex: url("../assets/patterns/fawn.webp"); }
 .folder-card:not(.add) {
   margin-top: 20px;
   border: none;
   border-radius: 3px 15px 15px 15px;
-  background-color: color-mix(in srgb, var(--accent) 24%, var(--paper));
-  box-shadow: 0 3px 10px -5px color-mix(in srgb, var(--accent) 50%, transparent);
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.55) 6%, rgba(255,255,255,0) 50%),
+    var(--tex, none) center / 188px auto repeat,
+    color-mix(in srgb, var(--accent) 20%, var(--paper));
+  box-shadow:
+    0 3px 10px -5px color-mix(in srgb, var(--accent) 42%, transparent),
+    inset 0 1px 0 rgba(255,255,255,.4),
+    inset 0 -15px 22px -12px rgba(70,50,40,.2);
 }
 .folder-card:not(.add):hover {
   transform: translateY(-2px);
-  box-shadow: 0 9px 20px -9px color-mix(in srgb, var(--accent) 58%, transparent);
+  box-shadow:
+    0 9px 20px -9px color-mix(in srgb, var(--accent) 55%, transparent),
+    inset 0 1px 0 rgba(255,255,255,.4),
+    inset 0 -15px 22px -12px rgba(70,50,40,.2);
+}
+:root[data-theme="noir"] .folder-card:not(.add) {
+  background:
+    linear-gradient(90deg, rgba(16,13,11,.6) 6%, rgba(16,13,11,0) 50%),
+    linear-gradient(rgba(22,18,16,.4), rgba(22,18,16,.4)),
+    var(--tex, none) center / 188px auto repeat,
+    color-mix(in srgb, var(--accent) 22%, var(--paper));
 }
 .folder-card:not(.add) .deck-cover,
 .folder-card:not(.add) .deck-main,
 .folder-card:not(.add) .deck-card-meta,
 .folder-card:not(.add) .deck-chevron { position: relative; z-index: 1; }
-.folder-card:not(.add)::after {
-  content: ""; position: absolute; inset: 0; border-radius: inherit;
-  pointer-events: none; z-index: 0; background-repeat: repeat;
-}
-.folder-card.pat-none::after { display: none; }
-.folder-card.pat-dots::after,    .pick.pattern.pat-dots    { background-image: radial-gradient(rgba(255,255,255,.6) 1.5px, transparent 1.7px); background-size: 12px 12px; }
-.folder-card.pat-gingham::after, .pick.pattern.pat-gingham { background-image: repeating-linear-gradient(0deg, rgba(255,255,255,.22) 0 8px, transparent 8px 16px), repeating-linear-gradient(90deg, rgba(255,255,255,.22) 0 8px, transparent 8px 16px); }
-.folder-card.pat-floral::after,  .pick.pattern.pat-floral  { background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2234%22%20height%3D%2234%22%3E%3Cg%20fill%3D%22rgba%28255%2C255%2C255%2C0.5%29%22%3E%3Ccircle%20cx%3D%2217%22%20cy%3D%2210%22%20r%3D%223%22/%3E%3Ccircle%20cx%3D%2224%22%20cy%3D%2215.5%22%20r%3D%223%22/%3E%3Ccircle%20cx%3D%2221%22%20cy%3D%2223.5%22%20r%3D%223%22/%3E%3Ccircle%20cx%3D%2213%22%20cy%3D%2223.5%22%20r%3D%223%22/%3E%3Ccircle%20cx%3D%2210%22%20cy%3D%2215.5%22%20r%3D%223%22/%3E%3Ccircle%20cx%3D%2217%22%20cy%3D%2217%22%20r%3D%222.6%22%20fill%3D%22rgba%28255%2C255%2C255%2C0.8%29%22/%3E%3C/g%3E%3Cg%20fill%3D%22rgba%28255%2C255%2C255%2C0.4%29%22%3E%3Ccircle%20cx%3D%220%22%20cy%3D%220%22%20r%3D%221.4%22/%3E%3Ccircle%20cx%3D%2234%22%20cy%3D%220%22%20r%3D%221.4%22/%3E%3Ccircle%20cx%3D%220%22%20cy%3D%2234%22%20r%3D%221.4%22/%3E%3Ccircle%20cx%3D%2234%22%20cy%3D%2234%22%20r%3D%221.4%22/%3E%3C/g%3E%3C/svg%3E"); background-size: 34px 34px; }
-.folder-card.pat-lace::after,    .pick.pattern.pat-lace    { background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2240%22%20height%3D%2240%22%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22rgba%28255%2C255%2C255%2C0.42%29%22%20stroke-width%3D%221.1%22%3E%3Ccircle%20cx%3D%220%22%20cy%3D%2220%22%20r%3D%2210%22/%3E%3Ccircle%20cx%3D%2240%22%20cy%3D%2220%22%20r%3D%2210%22/%3E%3Ccircle%20cx%3D%2220%22%20cy%3D%220%22%20r%3D%2210%22/%3E%3Ccircle%20cx%3D%2220%22%20cy%3D%2240%22%20r%3D%2210%22/%3E%3Ccircle%20cx%3D%2220%22%20cy%3D%2220%22%20r%3D%225.5%22/%3E%3C/g%3E%3Cg%20fill%3D%22rgba%28255%2C255%2C255%2C0.5%29%22%3E%3Ccircle%20cx%3D%2220%22%20cy%3D%2220%22%20r%3D%221.5%22/%3E%3Ccircle%20cx%3D%220%22%20cy%3D%220%22%20r%3D%221.5%22/%3E%3Ccircle%20cx%3D%2240%22%20cy%3D%220%22%20r%3D%221.5%22/%3E%3Ccircle%20cx%3D%220%22%20cy%3D%2240%22%20r%3D%221.5%22/%3E%3Ccircle%20cx%3D%2240%22%20cy%3D%2240%22%20r%3D%221.5%22/%3E%3C/g%3E%3C/svg%3E"); background-size: 40px 40px; }
 .folder-card:not(.add)::before {
   content: ""; position: absolute; left: 0; top: -15px; z-index: 0;
   width: 46%; max-width: 220px; height: 18px;
-  background: color-mix(in srgb, var(--accent) 34%, var(--paper));
+  background: color-mix(in srgb, var(--accent) 60%, #fff);
   border-radius: 11px 5px 0 0;
   clip-path: polygon(0 0, 82% 0, 100% 100%, 0 100%);
-  filter: drop-shadow(0 1px 1.5px rgba(70,64,48,.08));
+  filter: drop-shadow(0 1px 1.5px rgba(70,64,48,.12));
 }
+:root[data-theme="noir"] .folder-card:not(.add)::before { background: color-mix(in srgb, var(--accent) 52%, #2a2521); }
 /* 폴더 추가 카드 — 점선, 은은하게 */
 .folder-card.add { border-style: dashed; background: transparent; box-shadow: none; }
 .folder-card.add:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
@@ -2813,8 +2825,8 @@ mark, mark.hl, .hl {
 .pattern-grid { gap: 8px; }
 .picker-grid .pick.pattern {
   width: 56px; height: 42px; border-radius: 10px;
-  background-color: color-mix(in srgb, var(--accent) 26%, var(--paper));
-  background-repeat: repeat; overflow: hidden;
+  background: var(--tex, color-mix(in srgb, var(--accent) 26%, var(--paper))) center / cover;
+  overflow: hidden;
   display: flex; align-items: flex-end; justify-content: center;
 }
 .picker-grid .pick.pattern.active { border-color: var(--accent); box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--accent) 28%, transparent); }
