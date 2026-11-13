@@ -258,7 +258,7 @@ const Store = (() => {
 
   /* ── folders ── */
   function addFolder(name, icon, color, parentId, pattern) {
-    const folder = { id: uid(), name, icon, color, pattern: pattern || "dots", parentId: parentId || null };
+    const folder = { id: uid(), name, icon, color, pattern: pattern || "lace", parentId: parentId || null };
     state.folders.push(folder);
     save();
     return folder;
