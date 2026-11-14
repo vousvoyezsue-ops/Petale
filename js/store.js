@@ -623,10 +623,11 @@ const Store = (() => {
   function applyReview(cardId, rating) {
     const c = state.cards.find(x => x.id === cardId);
     if (!c) return null;
-    const prev = { ef: c.ef, interval: c.interval, reps: c.reps, lapses: c.lapses, due: c.due, againCount: c.againCount || 0, views: c.views || 0, starred: c.starred, autoStarred: c.autoStarred };
+    const prev = { ef: c.ef, interval: c.interval, reps: c.reps, lapses: c.lapses, due: c.due, againCount: c.againCount || 0, views: c.views || 0, starred: c.starred, autoStarred: c.autoStarred, lastRating: (c.lastRating ?? null) };
     const wasNew = SRS.isNew(c);
     Object.assign(c, SRS.schedule(c, rating, Date.now(), true)); // 실제 저장: 복습 부담 분산(fuzz) 적용
     if (rating === 0) c.againCount = (c.againCount || 0) + 1; // '다시' 누적 횟수 (자주 틀린 카드 찾기용)
+    c.lastRating = rating; // 직전에 누른 평가(다시/어려움/보통/쉬움) — 다음 복습 때 카드에 표시
     c.views = (c.views || 0) + 1; // 이 카드를 복습한 총 횟수(반복 횟수 뱃지용)
     // 자동 별표: 정해진 횟수만큼 복습하면 별표 표시 (한 번만 — 수동으로 해제하면 다시 붙지 않음)
     let autoStarred = false;
