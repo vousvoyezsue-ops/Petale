@@ -1029,6 +1029,24 @@ body[data-view="docreader"] #app { max-width: none; }
 }
 .rep-badge.hidden { display: none; }
 
+/* 직전 평가 배지 — 이 카드를 마지막으로 복습할 때 누른 버튼 */
+.last-rate-badge {
+  display: inline-flex; align-items: center;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tone) 15%, var(--paper));
+  border: 1px solid color-mix(in srgb, var(--tone) 42%, transparent);
+  color: color-mix(in srgb, var(--tone) 72%, var(--ink));
+  font-size: 12px; font-weight: 650; letter-spacing: -.01em;
+  white-space: nowrap; line-height: 1;
+}
+.last-rate-badge.hidden { display: none; }
+.last-rate-badge.again { --tone: var(--rose-500); }
+.last-rate-badge.hard  { --tone: var(--amber); }
+.last-rate-badge.good  { --tone: var(--sage-500); }
+.last-rate-badge.easy  { --tone: var(--lime-300); }
+.last-rate-badge.easy  { color: var(--olive-600); }
+
 /* cloze */
 .cloze-blank {
   display: inline-block;
