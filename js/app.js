@@ -1726,14 +1726,19 @@
   const reviewOpen = () => { try { return localStorage.getItem("petale.review.open") === "1"; } catch { return false; } };
   const setReviewOpen = (v) => { try { localStorage.setItem("petale.review.open", v ? "1" : "0"); } catch { /* 무시 */ } };
 
-  // 한 복습 플랜의 체크포인트(각 간격 날짜). end 이후는 제외.
+  // 한 복습 플랜의 체크포인트(각 간격 날짜). off 0 = 처음 복습(기록). end 이후는 제외.
   function reviewTasksOf(p) {
     const base = rvParse(p.start).getTime();
     const endTs = p.end ? rvParse(p.end).getTime() : Infinity;
+    const todayStart = rvDayStart(Date.now());
     const doneSet = new Set(p.done || []);
-    return (p.intervals || []).map(off => {
+    const offs = [...new Set([0, ...(p.intervals || [])])].sort((a, b) => a - b);
+    return offs.map(off => {
       const ts = rvDayStart(base + off * RV_DAY);
-      return { planId: p.id, deckId: p.deckId, off, ts, key: rvKey(ts), done: doneSet.has(off) };
+      const first = off === 0;
+      // 처음 복습은 그날이 오면 자동으로 "기록됨"(완료) — 처음 학습한 날의 기록
+      const done = first ? (doneSet.has(0) || ts <= todayStart) : doneSet.has(off);
+      return { planId: p.id, deckId: p.deckId, off, ts, key: rvKey(ts), done, first };
     }).filter(tk => tk.ts <= endTs);
   }
   function reviewFinished(p) {
@@ -1768,6 +1773,14 @@
     return new Intl.DateTimeFormat(I18N.lang === "ko" ? "ko-KR" : "en-US", { weekday: "short", month: "numeric", day: "numeric" }).format(new Date(ts));
   }
   function rvTaskRow(tk, withEdit) {
+    if (tk.first) {
+      // 처음 복습 — 읽기전용 기록(토글 불가), "첫 복습" 배지로 구분
+      return `<div class="rv-task first ${tk.done ? "done recorded" : ""}">
+        <span class="rv-check static ${tk.done ? "on" : ""}" aria-hidden="true"></span>
+        <button type="button" class="rv-deck" data-rv-study="${tk.deckId}">${rvDeckName(tk.deckId)}</button>
+        <span class="rv-off first-badge">${t("review.firstReview")}</span>
+      </div>`;
+    }
     return `<div class="rv-task ${tk.done ? "done" : ""}">
       <button type="button" class="rv-check ${tk.done ? "on" : ""}" data-plan="${tk.planId}" data-off="${tk.off}" aria-label="${t("review.markDone")}"></button>
       <button type="button" class="rv-deck" data-rv-study="${tk.deckId}">${rvDeckName(tk.deckId)}</button>
@@ -1943,7 +1956,8 @@
     const endTs = end ? rvParse(end).getTime() : Infinity;
     const base = rvParse(start).getTime();
     const fmt = new Intl.DateTimeFormat(I18N.lang === "ko" ? "ko-KR" : "en-US", { month: "numeric", day: "numeric" });
-    const chips = iv.map(off => { const ts = rvDayStart(base + off * RV_DAY); return ts <= endTs ? `<span class="rv-chip">+${off}${t("review.dayUnit")} · ${fmt.format(new Date(ts))}</span>` : ""; }).filter(Boolean).join("");
+    const firstChip = base <= endTs ? `<span class="rv-chip first">${t("review.firstReview")} · ${fmt.format(new Date(rvDayStart(base)))}</span>` : "";
+    const chips = firstChip + iv.filter(off => off > 0).map(off => { const ts = rvDayStart(base + off * RV_DAY); return ts <= endTs ? `<span class="rv-chip">+${off}${t("review.dayUnit")} · ${fmt.format(new Date(ts))}</span>` : ""; }).filter(Boolean).join("");
     host.innerHTML = `<div class="rv-chips">${chips || `<span class="rv-chip muted">${t("review.noneInRange")}</span>`}</div>`;
   }
   function openReviewModal(id, presetDeckId) {
