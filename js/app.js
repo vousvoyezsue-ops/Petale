@@ -914,8 +914,8 @@
   /* ══════════ 폴더 ══════════ */
   const FOLDER_ICONS = ["i-flower", "i-flame", "i-layers", "i-sparkle", "i-target",
                         "i-box", "i-pencil", "i-star", "i-grid", "i-timer"];
-  const FOLDER_COLORS = ["#c97f97", "#8d9663", "#b9975a", "#8f81c2",
-                         "#6d92b0", "#b3798f", "#6d7548", "#97988a"];
+  const FOLDER_COLORS = ["#e3aec0", "#bccb97", "#e1cb97", "#c2b6e2",
+                         "#a9c5db", "#ddafc2", "#b0b887", "#c4c5b8"];
   const FOLDER_PATTERNS = ["cream-dots", "ivory-lace", "pink-lace", "pink-dots", "pink-script", "floral-stripes", "mauve-embroidery", "chestnut-fawn", "beige-fawn", "blue-tapestry", "none"];
 
   const STARRED = "__starred__"; // 별표 필터 센티넬
@@ -964,7 +964,8 @@
       </button>`;
 
     if (currentFolder === STARRED) {
-      html += crumbSep + `<span class="fchip current star"><svg width="13" height="13"><use href="#i-star"/></svg><span>${t("folder.starred")}</span></span>`;
+      const s = starredLook();
+      html += crumbSep + `<span class="fchip current star" style="--fc:${s.color}"><svg width="13" height="13"><use href="#${s.icon}"/></svg><span>${t("folder.starred")}</span><i class="fchip-edit" title="${t("folder.starredEdit")}">✎</i></span>`;
     } else {
       const trail = folderTrail(currentFolder);
       trail.forEach((f, idx) => {
@@ -983,13 +984,18 @@
 
   function openFolderModal(folderId, presetParent) {
     editingFolderId = folderId;
-    const folder = folderId ? Store.getFolder(folderId) : null;
-    $("#folderModalTitle").textContent = folder ? t("folder.titleEdit") : t("folder.titleNew");
-    $("#folderNameInput").value = folder ? folder.name : "";
-    pickedIcon = folder?.icon || FOLDER_ICONS[0];
-    pickedColor = folder?.color || FOLDER_COLORS[0];
-    pickedPattern = folder?.pattern || FOLDER_PATTERNS[0];
+    const isStarred = folderId === STARRED;
+    const folder = (folderId && !isStarred) ? Store.getFolder(folderId) : null;
+    const s = isStarred ? starredLook() : null;
+    $("#folderModalTitle").textContent = isStarred ? t("folder.starredEdit") : (folder ? t("folder.titleEdit") : t("folder.titleNew"));
+    $("#folderNameInput").value = isStarred ? t("folder.starred") : (folder ? folder.name : "");
+    pickedIcon = isStarred ? s.icon : (folder?.icon || FOLDER_ICONS[0]);
+    pickedColor = isStarred ? s.color : (folder?.color || FOLDER_COLORS[0]);
+    pickedPattern = isStarred ? s.pattern : (folder?.pattern || FOLDER_PATTERNS[0]);
     $("#folderDelete").classList.toggle("hidden", !folder);
+    // 별표 폴더는 이름·상위폴더 고정 — 색상/패턴/아이콘만 변경
+    $("#folderNameField").classList.toggle("hidden", isStarred);
+    $("#folderParentField").classList.toggle("hidden", isStarred);
     renderFolderParentSelect(folder, folder ? (folder.parentId || "") : (presetParent || ""));
     renderFolderPickers();
     $("#folderModal").showModal();
@@ -1027,6 +1033,12 @@
   }
 
   $("#folderForm").addEventListener("submit", () => {
+    if (editingFolderId === STARRED) {
+      Store.setSetting("starred", { color: pickedColor, pattern: pickedPattern, icon: pickedIcon });
+      toast(t("toast.folderSaved"));
+      renderHome();
+      return;
+    }
     const name = $("#folderNameInput").value.trim();
     if (!name) return;
     const parentId = $("#folderParentSelect").value || null;
@@ -1161,12 +1173,15 @@
       </article>`;
   }
 
+  const STARRED_DEFAULT = { color: "#e3a92e", pattern: "cream-dots", icon: "i-star" };
+  const starredLook = () => ({ ...STARRED_DEFAULT, ...(Store.settings.starred || {}) });
   function starredCardHTML(i) {
     const decks = Store.state.decks.filter(d => d.starred);
     const c = aggCounts(decks);
+    const s = starredLook();
     return `
-      <article class="folder-card starred pat-cream-dots" data-folderopen="${STARRED}" tabindex="0" role="button" style="--i:${i}; --accent:#e3a92e">
-        <span class="deck-cover folder"><svg width="18" height="18"><use href="#i-star"/></svg></span>
+      <article class="folder-card starred pat-${s.pattern}" data-folderopen="${STARRED}" tabindex="0" role="button" style="--i:${i}; --accent:${s.color}">
+        <span class="deck-cover folder"><svg width="18" height="18"><use href="#${s.icon}"/></svg></span>
         <div class="deck-main">
           <div class="deck-row-head"><h3>${t("folder.starred")}</h3></div>
           <p class="deck-card-desc">${t("folder.deckCount", { n: decks.length })}</p>
