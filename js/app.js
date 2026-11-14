@@ -2553,6 +2553,8 @@
     $("#richToolbar").classList.toggle("hidden", type === "occlusion");
     // 빈칸 삽입 버튼은 cloze 모드에서만 노출
     $$(".rt-cloze-only").forEach(el => el.classList.toggle("hidden", type !== "cloze"));
+    // 반대 방향 카드 옵션은 basic 카드에서만 (신규·편집 모두)
+    $("#reversedRow").classList.toggle("hidden", type !== "basic");
   }
 
   const scaleFields = ["cardScale", "imageScale"];
@@ -2593,8 +2595,9 @@
     $("#cardModalTitle").textContent = card ? t("cardModal.edit") : t("cardModal.add");
     $("#cardModalSubmit").textContent = card ? t("cardModal.submitSave") : t("cardModal.submitAdd");
     $("#typeTabs").classList.toggle("hidden", !!card);
-    $("#reversedRow").classList.toggle("hidden", !!card);
     $("#cardReversed").checked = false;
+    // 편집 중이면 "새로 만들기", 신규면 "함께 만들기" — 역방향 카드는 항상 새 카드로 추가
+    $("#reversedLabel").textContent = t(card ? "cardModal.reversedEdit" : "cardModal.reversed");
     setRich($("#cardNotesInput"), card?.notes || "");
     $("#cardSectionInput").value = card?.section || "";
     $("#sectionList").innerHTML = Store.sectionsOf(currentDeckId).map(s => `<option value="${escapeHTML(s)}">`).join("");
@@ -2610,6 +2613,7 @@
       // 이미지 가리기: 마스크는 편집기에서, 여기선 헤더·메모만 수정
       $("#basicFields").classList.add("hidden");
       $("#clozeFields").classList.add("hidden");
+      $("#reversedRow").classList.add("hidden");
       $("#occHeaderInput").value = card.front || "";
     } else if (card?.type === "cloze") {
       setCardType("cloze");
@@ -2793,7 +2797,14 @@
     if (richIsEmpty($("#cardFrontInput")) || richIsEmpty($("#cardBackInput"))) { e.preventDefault(); return; }
     if (editingCardId) {
       Store.updateCard(editingCardId, { front, back, notes, noteImageId, backImageId, section, ...scaleValues() });
-      toast(t("toast.cardUpdated"));
+      // 편집 화면에서 역방향 체크 → 이 카드의 반대 방향 카드를 새로 추가
+      if ($("#cardReversed").checked) {
+        const rev = [{ type: "basic", front: back, back: front, notes, noteImageId, frontImageId: backImageId, section, ...scaleValues() }];
+        const ok = Store.bulkAddCards(currentDeckId, rev);
+        toast(ok ? t("toast.reversedAdded") : t("toast.storageFull"));
+      } else {
+        toast(t("toast.cardUpdated"));
+      }
     } else {
       const rows = [{ type: "basic", front, back, notes, noteImageId, backImageId, section, ...scaleValues() }];
       // 역방향 자동 카드: 답 이미지는 뒷면(원래 답)에 붙어 있으므로 앞면이 되는 쪽(frontImageId)으로 옮긴다
