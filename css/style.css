@@ -1842,6 +1842,12 @@ body[data-view="study"] #app { padding-bottom: clamp(16px, 3vw, 28px); }
 .rv-check::after { content: "✓"; font-size: 12px; font-weight: 800; color: #fff; opacity: 0; transform: scale(.6); transition: opacity .15s, transform .15s; }
 .rv-check.on { background: var(--sage-500); border-color: var(--sage-500); }
 .rv-check.on::after { opacity: 1; transform: scale(1); }
+/* 처음 복습 — 읽기전용 기록 체크 + "첫 복습" 배지 */
+.rv-check.static { cursor: default; }
+.rv-task.first.recorded .rv-deck { color: var(--ink); text-decoration: none; }
+.rv-off.first-badge { font-size: 10.5px; font-weight: 700; letter-spacing: .02em; color: #9a6710; background: color-mix(in srgb, #e3a92e 22%, transparent); padding: 3px 9px; border-radius: 99px; }
+.rv-chip.first { color: #9a6710; background: color-mix(in srgb, #e3a92e 22%, transparent); }
+[data-theme="noir"] .rv-off.first-badge, [data-theme="noir"] .rv-chip.first { color: #e9c477; background: color-mix(in srgb, #e3a92e 26%, transparent); }
 .rv-deck { flex: 1; min-width: 0; text-align: left; border: 0; background: none; cursor: pointer; font: inherit; font-size: 14.5px; font-weight: 540; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 0; }
 .rv-deck:hover { color: var(--olive-700); }
 .rv-off { flex: 0 0 auto; font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
