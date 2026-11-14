@@ -3747,7 +3747,28 @@
     updateStudyStar();
     updateStudyRibbon();
     updateRepBadge(card);
+    updateLastRateBadge(card);
     updateCardBunny();
+  }
+
+  // 이 카드를 직전에 복습할 때 누른 평가(다시/어려움/보통/쉬움)를 작은 배지로 표시
+  const RATE_META = [
+    { cls: "again", key: "rate.again" },
+    { cls: "hard", key: "rate.hard" },
+    { cls: "good", key: "rate.good" },
+    { cls: "easy", key: "rate.easy" },
+  ];
+  function updateLastRateBadge(card) {
+    const el = $("#lastRateBadge");
+    if (!el) return;
+    const r = card.lastRating;
+    if (Store.settings.lastRate === false || r == null || !RATE_META[r]) {
+      el.classList.add("hidden"); el.className = "last-rate-badge hidden"; return;
+    }
+    const m = RATE_META[r];
+    el.className = `last-rate-badge ${m.cls}`;
+    el.textContent = t(m.key);
+    el.classList.remove("hidden");
   }
 
   // 카드 모서리에 앉아 있는 토끼 — 선택한 마스코트의 앉은 버전으로 표시
@@ -4379,6 +4400,7 @@
     $$("#themeGrid .theme-swatch").forEach(b => b.classList.toggle("active", b.dataset.theme === Store.settings.theme));
     $("#ttsToggle").checked = !!Store.settings.tts;
     $("#repBadgeToggle").checked = Store.settings.repBadge !== false;
+    $("#lastRateToggle").checked = Store.settings.lastRate !== false;
     $("#cardBunnyToggle").checked = Store.settings.cardBunny !== false;
     $("#autoStarToggle").checked = !!Store.settings.autoStar;
     $("#autoStarCount").value = Store.settings.autoStarCount || 5;
@@ -4431,6 +4453,11 @@
     Store.setSetting("repBadge", e.target.checked);
     // 학습 중이면 즉시 반영
     if (session && session.current) updateRepBadge(currentCard());
+  });
+
+  $("#lastRateToggle").addEventListener("change", (e) => {
+    Store.setSetting("lastRate", e.target.checked);
+    if (session && session.current) updateLastRateBadge(currentCard());
   });
 
   $("#cardBunnyToggle").addEventListener("change", (e) => {
