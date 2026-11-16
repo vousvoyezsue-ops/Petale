@@ -2774,6 +2774,20 @@ mark, mark.hl, .hl {
 .folder-card:not(.add) .deck-main,
 .folder-card:not(.add) .deck-card-meta,
 .folder-card:not(.add) .deck-chevron { position: relative; z-index: 1; }
+/* 무늬 위에서도 글자가 읽히게 — 글자 있는 부분에만 희미한 반투명 배경 */
+.folder-card:not(.add) .deck-row-head,
+.folder-card:not(.add) .deck-card-desc {
+  width: fit-content; max-width: 100%;
+  padding: 1px 7px; border-radius: 7px;
+  background: color-mix(in srgb, var(--paper) 62%, transparent);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+.folder-card:not(.add) .deck-card-desc { margin-top: 3px; }
+:root[data-theme="noir"] .folder-card:not(.add) .deck-row-head,
+:root[data-theme="noir"] .folder-card:not(.add) .deck-card-desc {
+  background: color-mix(in srgb, var(--paper) 54%, transparent);
+}
 .folder-card:not(.add)::before {
   content: ""; position: absolute; left: 0; top: -15px; z-index: 0;
   width: 46%; max-width: 220px; height: 18px;
