@@ -155,6 +155,7 @@ const I18N = (() => {
       "update.fail": "업데이트를 받지 못했어요",
       "fc.today": "오늘",
       "toast.undone": "마지막 평가를 되돌렸어요",
+      "sync.pulled": "다른 기기의 최신 내용을 불러왔어요",
       // nav
       "nav.decks": "덱",
       "nav.docs": "문서",
@@ -813,6 +814,7 @@ const I18N = (() => {
       "update.fail": "Couldn't fetch the update",
       "fc.today": "Today",
       "toast.undone": "Last rating undone",
+      "sync.pulled": "Pulled the latest from your other device",
       "nav.decks": "Decks",
       "nav.docs": "Docs",
       "nav.stats": "Stats",
