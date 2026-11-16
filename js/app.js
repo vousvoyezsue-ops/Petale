@@ -4874,6 +4874,17 @@
     Store.setOnSave(() => { Social.schedulePush(); Social.scheduleSharedResync(); });
     // 다른 기기의 변경을 받아 반영하면(앱 복귀 시) 현재 화면을 다시 그린다
     Social.setOnRemoteUpdate(() => { applySettingsToUI(); refreshCurrentView(); });
+
+    // 앱 생명주기: 숨겨지면 대기 중 변경을 서버로 즉시 올리고(유실 방지),
+    // 다시 보이면 서버 변경을 받아 반영한다. (한 번만 등록)
+    if (!window.__petaleCloudLifecycle) {
+      window.__petaleCloudLifecycle = true;
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) { Social.flushPush(); }
+        else { Social.syncOnVisible(); }
+      });
+      window.addEventListener("pagehide", () => { Social.flushPush(); });
+    }
     try {
       const r = await Social.syncOnLogin();
       if (r && r.pulled) applySettingsToUI(); // 서버본 채택 시 언어·테마 반영

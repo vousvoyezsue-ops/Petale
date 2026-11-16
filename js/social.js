@@ -157,6 +157,7 @@ const Social = (() => {
       folders: unionById("folders"),
       docs: unionById("docs"),
       plans: unionById("plans"),
+      reviewPlans: unionById("reviewPlans"),
       updatedAt: Math.max(a.updatedAt || 0, b.updatedAt || 0),
     };
   }

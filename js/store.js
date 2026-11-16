@@ -6,11 +6,13 @@
 const Store = (() => {
   const KEY = "petale.v1";        // 덱·카드·설정 (작음)
   const MEDIA_KEY = "petale.media"; // 이미지 dataURL 모음 (큼, 변경 시에만 기록)
+  const MIRROR_KEY = "petale.v1.mirror"; // 동기 백업(앱이 IDB 커밋 전에 닫혀도 복구)
 
   let state = null;
   let onSaveCb = null;   // 저장 직후 훅 (클라우드 동기화용)
   let quotaCb = null;    // 저장 용량 초과 알림
   let writeTimer = null; // 디바운스 기록 타이머
+  let firstDirtyAt = 0;  // 이번 디바운스 묶음에서 첫 변경 시각 (연속 저장 시 flush 기아 방지)
   let mediaDirty = true; // media가 마지막 기록 이후 바뀌었는지
 
   /* ── IndexedDB 키-값 저장 (localStorage보다 용량이 훨씬 큼) ── */
@@ -121,6 +123,82 @@ const Store = (() => {
       }
     });
     s.decks.forEach(d => { d.newPerDay ??= 20; });
+    repairDuplicateDecks(s); // 동기화로 생긴 '같은 이름 중복 덱' 복구(내용 보존)
+    return s;
+  }
+
+  // 카드 내용 서명 — 같은 카드인지 판단용(id가 아닌 내용 기준)
+  function cardSig(c) {
+    return `${c.type || "basic"}\u0000${c.front || ""}\u0000${c.back || ""}\u0000${c.clozeIndex ?? ""}\u0000${c.imageId || ""}`;
+  }
+  // 더 많이 학습한(= 더 최신 진도) 카드를 고른다
+  function cardScore(c) { return (c.views || 0) + (c.reps || 0) + (c.lapses || 0) + (c.interval || 0); }
+
+  // 동기화(id 합집합 병합)로 같은 덱이 두 벌로 갈라진 경우를 복구한다.
+  //  - 같은 '이름 + 폴더'이고 내용이 겹치는(= 복제가 확실한) 덱만 하나로 합친다.
+  //  - 카드 내용은 절대 잃지 않는다: 동일 내용 카드는 더 많이 학습한 쪽을 남기고, 고유 카드는 그대로 옮긴다.
+  //  - 복습/학습 플랜의 deckId도 canonical로 재지정하고, 같은 덱의 복습 플랜은 done을 합쳐 하나로.
+  // normalize에서 매번 호출 — 중복이 없으면 아무것도 바꾸지 않는다(멱등).
+  function repairDuplicateDecks(s) {
+    if (!Array.isArray(s.decks) || s.decks.length < 2) return s;
+    const cardsByDeck = new Map();
+    for (const c of s.cards) { (cardsByDeck.get(c.deckId) || cardsByDeck.set(c.deckId, []).get(c.deckId)).push(c); }
+    const sigsOf = (id) => new Set((cardsByDeck.get(id) || []).map(cardSig));
+
+    const groups = new Map();
+    for (const d of s.decks) {
+      const key = (d.name || "").trim() + "\u0000" + (d.folderId || "");
+      (groups.get(key) || groups.set(key, []).get(key)).push(d);
+    }
+    const remap = new Map();      // 중복 덱 id -> canonical 덱 id
+    const removeDeck = new Set();
+    for (const group of groups.values()) {
+      if (group.length < 2) continue;
+      const activity = d => (cardsByDeck.get(d.id) || []).reduce((n, c) => n + cardScore(c), 0);
+      group.sort((a, b) => activity(b) - activity(a) || (b.created || 0) - (a.created || 0));
+      const canon = group[0];
+      const canonSigs = sigsOf(canon.id);
+      for (let i = 1; i < group.length; i++) {
+        const dup = group[i];
+        const dupCards = cardsByDeck.get(dup.id) || [];
+        const overlaps = dupCards.some(c => canonSigs.has(cardSig(c)));
+        // 복제가 확실할 때만 합친다(내용 겹침 또는 빈 덱). 그 외엔 그대로 둔다.
+        if (dupCards.length === 0 || overlaps) {
+          remap.set(dup.id, canon.id); removeDeck.add(dup.id);
+          dupCards.forEach(c => canonSigs.add(cardSig(c))); // 체인 중복까지 흡수
+        }
+      }
+    }
+    if (!remap.size) return s;
+
+    const canonIds = new Set(remap.values());
+    const out = [];
+    const sigIdx = new Map(); // canonId -> Map(sig -> out 인덱스)
+    for (const c of s.cards) {
+      c.deckId = remap.get(c.deckId) || c.deckId;
+      if (!canonIds.has(c.deckId)) { out.push(c); continue; }
+      let m = sigIdx.get(c.deckId); if (!m) { m = new Map(); sigIdx.set(c.deckId, m); }
+      const k = cardSig(c);
+      if (!m.has(k)) { m.set(k, out.length); out.push(c); }
+      else { const i = m.get(k); if (cardScore(c) > cardScore(out[i])) out[i] = c; } // 더 학습한 카드 유지
+    }
+    s.cards = out;
+    s.decks = s.decks.filter(d => !removeDeck.has(d.id));
+
+    (s.plans || []).forEach(p => { if (Array.isArray(p.deckIds)) p.deckIds = [...new Set(p.deckIds.map(id => remap.get(id) || id))]; });
+    if (Array.isArray(s.reviewPlans)) {
+      s.reviewPlans.forEach(p => { if (remap.has(p.deckId)) p.deckId = remap.get(p.deckId); });
+      // 같은 덱의 복습 플랜이 여러 개면 하나로(완료 offset 합집합, 가장 이른 시작)
+      const byDeck = new Map();
+      for (const p of s.reviewPlans) {
+        const ex = byDeck.get(p.deckId);
+        if (!ex) { byDeck.set(p.deckId, p); continue; }
+        ex.done = [...new Set([...(ex.done || []), ...(p.done || [])])];
+        if ((p.start || "") < (ex.start || "")) ex.start = p.start;
+        ex.graduated = ex.graduated && p.graduated;
+      }
+      s.reviewPlans = [...byDeck.values()];
+    }
     return s;
   }
 
@@ -137,6 +215,17 @@ const Store = (() => {
           rest = d; media = d.media;
         }
       }
+      // 동기 백업 복구: 앱이 IDB 커밋 전에 닫혔다면 미러가 더 최신일 수 있다.
+      try {
+        const mraw = localStorage.getItem(MIRROR_KEY);
+        if (mraw) {
+          const mirror = JSON.parse(mraw);
+          if (mirror && (!rest || (mirror.updatedAt || 0) > (rest.updatedAt || 0))) {
+            rest = { ...mirror, media: (rest && rest.media) || media };
+            mediaDirty = true; // 미러엔 media가 없으니 기존 media 유지해 다시 기록
+          }
+        }
+      } catch { /* 미러 손상 무시 */ }
       if (rest) {
         state = normalize({ ...rest, media: media || rest.media || {} });
         mediaDirty = true;      // 첫 flush 때 media도 기록(이관 완료)
@@ -154,15 +243,27 @@ const Store = (() => {
   // 실제 IndexedDB 기록: state(작음)는 항상, media(큼)는 변경 시에만.
   async function flush() {
     if (writeTimer) { clearTimeout(writeTimer); writeTimer = null; }
+    firstDirtyAt = 0;
     try {
       const { media, ...rest } = state;
       await idbSet(KEY, rest);
       if (mediaDirty) { await idbSet(MEDIA_KEY, media); mediaDirty = false; }
+      // IDB에 안전히 기록됐으니 동기 백업은 더 필요 없다.
+      try { localStorage.removeItem(MIRROR_KEY); } catch { /* 무시 */ }
       return true;
     } catch (e) {
       if (quotaCb) quotaCb(e);
       return false;
     }
+  }
+
+  // 동기 백업: 작은 state(미디어 제외)만 localStorage에 즉시 기록.
+  // IDB write는 비동기라 앱이 바로 닫히면 커밋 전 유실될 수 있어 — 이 경로는 동기라 즉시 영속된다.
+  function writeMirror() {
+    try {
+      const { media, ...rest } = state;
+      localStorage.setItem(MIRROR_KEY, JSON.stringify(rest));
+    } catch { /* 용량 초과 등 — IDB가 주 저장소이므로 무시 */ }
   }
 
   // touch=true(기본): 변경 시각 갱신 + 동기화 훅 호출.
@@ -171,15 +272,18 @@ const Store = (() => {
   function save(opts = {}) {
     const touch = opts.touch !== false;
     if (touch) state.updatedAt = Date.now();
-    clearTimeout(writeTimer);
-    writeTimer = setTimeout(() => { flush(); }, 250);
+    const now = Date.now();
+    if (!firstDirtyAt) firstDirtyAt = now;
+    // 연속 저장(빠른 평가/편집)으로 flush가 계속 밀리지 않게 — 1초 넘게 밀렸으면 지금 기록.
+    if (now - firstDirtyAt >= 1000) { flush(); }
+    else { clearTimeout(writeTimer); writeTimer = setTimeout(() => { flush(); }, 250); }
     if (touch && onSaveCb) { try { onSaveCb(); } catch { /* 동기화 실패가 앱을 막지 않게 */ } }
     return true;
   }
 
-  // 탭을 닫거나 숨길 때 대기 중인 기록을 즉시 반영
+  // 탭을 닫거나 숨길 때: 먼저 동기 백업(확실), 이어서 IDB flush(대기 중일 때).
   if (typeof window !== "undefined") {
-    const flushNow = () => { if (writeTimer) flush(); };
+    const flushNow = () => { writeMirror(); if (writeTimer) flush(); };
     window.addEventListener("visibilitychange", () => { if (document.hidden) flushNow(); });
     window.addEventListener("pagehide", flushNow);
   }
