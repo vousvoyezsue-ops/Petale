@@ -2628,13 +2628,19 @@
     cardModal.showModal();
   }
 
-  // 카드 저장 후: 덱 목록 갱신 + 학습 중이면 현재 카드 다시 그림
+  // 카드 저장 후: 학습 중이면 현재 카드만 다시 그리고, 그 외에는 덱 화면을 갱신.
+  // (학습 중 renderDeck()을 부르면 currentDeckId가 그 덱이 아닐 수 있어 홈으로 튕길 수 있음 —
+  //  복습 플래너로 시작한 세션 등. 그래서 보이는 화면에 맞춰 분기한다.)
   function afterCardSaved() {
-    renderDeck();
-    if (!$("#view-study").classList.contains("hidden") && session && session.current) {
-      const card = currentCard();
-      if (card && card.id === editingCardId) rerenderStudyFaces(card);
+    const studyActive = !$("#view-study").classList.contains("hidden");
+    if (studyActive) {
+      if (session && session.current) {
+        const card = currentCard();
+        if (card && card.id === editingCardId) rerenderStudyFaces(card);
+      }
+      return;
     }
+    renderDeck();
   }
 
   $("#btnAddCard").addEventListener("click", () => openCardModal());
@@ -2797,10 +2803,11 @@
     if (richIsEmpty($("#cardFrontInput")) || richIsEmpty($("#cardBackInput"))) { e.preventDefault(); return; }
     if (editingCardId) {
       Store.updateCard(editingCardId, { front, back, notes, noteImageId, backImageId, section, ...scaleValues() });
-      // 편집 화면에서 역방향 체크 → 이 카드의 반대 방향 카드를 새로 추가
+      // 편집 화면에서 역방향 체크 → 이 카드의 반대 방향 카드를 (이 카드와 같은 덱에) 새로 추가.
+      // currentDeckId는 복습 플래너로 학습 중이면 이 카드의 덱이 아닐 수 있으므로 카드의 deckId를 쓴다.
       if ($("#cardReversed").checked) {
         const rev = [{ type: "basic", front: back, back: front, notes, noteImageId, frontImageId: backImageId, section, ...scaleValues() }];
-        const ok = Store.bulkAddCards(currentDeckId, rev);
+        const ok = Store.bulkAddCards(editCard ? editCard.deckId : currentDeckId, rev);
         toast(ok ? t("toast.reversedAdded") : t("toast.storageFull"));
       } else {
         toast(t("toast.cardUpdated"));
@@ -3489,7 +3496,12 @@
     show("study");
     nextCard();
   }
-  function startSession(deckId) { startSessionWith(buildQueue(deckId), { global: !deckId }); }
+  function startSession(deckId) {
+    // 단일 덱 학습(복습 플래너 등 어디서 시작하든)이면 현재 덱 컨텍스트를 그 덱으로 맞춘다 —
+    // 학습 중 카드 편집·학습 종료 후 '뒤로'가 올바른 덱을 가리키게.
+    if (deckId) currentDeckId = deckId;
+    startSessionWith(buildQueue(deckId), { global: !deckId });
+  }
 
   const shuffleIds = cards => cards.map(v => [Math.random(), v]).sort((a, b) => a[0] - b[0]).map(p => p[1].id);
 
