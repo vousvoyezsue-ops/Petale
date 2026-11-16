@@ -498,7 +498,11 @@
     else if (cafeState === "room") setCafeState("collapsed");
   }
 
-  $("#brandHome").addEventListener("click", () => show("home"));
+  $("#brandHome").addEventListener("click", () => {
+    show("home");
+    // 로고를 누르면 다른 기기의 최신 내용을 수동으로 한 번 당겨온다(동기화 확인용)
+    try { Social.syncOnVisible?.(); } catch { /* 베스트에포트 */ }
+  });
   $$(".nav-link").forEach(b => b.addEventListener("click", () => show(b.dataset.view)));
   $$("[data-back]").forEach(b => b.addEventListener("click", () => show(b.dataset.back)));
 
@@ -4884,8 +4888,8 @@
     loadEl.querySelector("[data-i18n]").textContent = t("gate.syncing");
 
     Store.setOnSave(() => { Social.schedulePush(); Social.scheduleSharedResync(); });
-    // 다른 기기의 변경을 받아 반영하면(앱 복귀 시) 현재 화면을 다시 그린다
-    Social.setOnRemoteUpdate(() => { applySettingsToUI(); refreshCurrentView(); });
+    // 다른 기기의 변경을 받아 반영하면(앱 복귀 시) 현재 화면을 다시 그리고, 바뀌었음을 알린다
+    Social.setOnRemoteUpdate(() => { applySettingsToUI(); refreshCurrentView(); toast(t("sync.pulled")); });
 
     // 앱 생명주기: 숨겨지면 대기 중 변경을 서버로 즉시 올리고(유실 방지),
     // 다시 보이면 서버 변경을 받아 반영한다. (한 번만 등록)
