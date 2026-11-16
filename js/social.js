@@ -139,8 +139,21 @@ const Social = (() => {
   let onRemoteUpdate = null; // 다른 기기의 변경을 받아 반영한 뒤 UI 새로고침 콜백
   function setOnRemoteUpdate(fn) { onRemoteUpdate = fn; }
 
-  // 충돌(양쪽 모두 바뀜) 시 병합 — 덱·카드·폴더·문서를 id 기준 합집합으로 모아
-  // 어느 기기의 덱도 사라지지 않게 한다. 최신(updatedAt)인 쪽을 기준으로 공유 항목을 채운다.
+  // 카드 진도 비교 — x가 y보다 더 많이 학습(= 더 앞선 상태)됐으면 true.
+  // 복습 횟수(views)가 1차 기준: 공부할수록 단조 증가하므로 '더 공부한 쪽'을 가린다.
+  function cardMoreAdvanced(x, y) {
+    const vx = x.views || 0, vy = y.views || 0; if (vx !== vy) return vx > vy;
+    const rx = x.reps || 0, ry = y.reps || 0; if (rx !== ry) return rx > ry;
+    const lx = x.lapses || 0, ly = y.lapses || 0; if (lx !== ly) return lx > ly;
+    const ix = x.interval || 0, iy = y.interval || 0; if (ix !== iy) return ix > iy;
+    return (Number(x.due) || 0) > (Number(y.due) || 0); // 더 뒤로 밀린(최근 복습) 쪽
+  }
+
+  // 충돌(양쪽 모두 바뀜) 시 병합.
+  //  - 덱·폴더·문서·플랜: id 합집합(어느 기기의 것도 잃지 않게), 메타는 최신 저장 쪽 우선.
+  //  - 카드: 컬렉션 저장 시각이 아니라 '카드별 학습 진도'가 앞선 쪽을 남긴다. 한 기기에서
+  //    복습한 결과가 다른 기기의 낡은 저장에 덮이지 않게 하는 핵심.
+  //  - 일자별 통계(reviews/newLog/ratingCounts): 더 많이 진행한(큰) 값으로 합친다.
   function mergeCollections(a, b) {
     const base = (a.updatedAt || 0) >= (b.updatedAt || 0) ? a : b;
     const other = base === a ? b : a;
@@ -150,14 +163,34 @@ const Social = (() => {
       (other[key] || []).forEach(x => { if (x && x.id && !map.has(x.id)) map.set(x.id, x); });
       return [...map.values()];
     };
+    const mergeCards = () => {
+      const map = new Map();
+      (base.cards || []).forEach(c => { if (c && c.id) map.set(c.id, c); });
+      (other.cards || []).forEach(c => {
+        if (!c || !c.id) return;
+        const ex = map.get(c.id);
+        if (!ex || cardMoreAdvanced(c, ex)) map.set(c.id, c);
+      });
+      return [...map.values()];
+    };
+    const maxMerge = (key) => {
+      const out = {};
+      for (const src of [other[key] || {}, base[key] || {}]) {
+        for (const k of Object.keys(src)) out[k] = Math.max(Number(out[k]) || 0, Number(src[k]) || 0);
+      }
+      return out;
+    };
     return {
       ...base,
       decks: unionById("decks"),
-      cards: unionById("cards"),
+      cards: mergeCards(),
       folders: unionById("folders"),
       docs: unionById("docs"),
       plans: unionById("plans"),
       reviewPlans: unionById("reviewPlans"),
+      reviews: maxMerge("reviews"),
+      newLog: maxMerge("newLog"),
+      ratingCounts: maxMerge("ratingCounts"),
       updatedAt: Math.max(a.updatedAt || 0, b.updatedAt || 0),
     };
   }
