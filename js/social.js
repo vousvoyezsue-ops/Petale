@@ -195,6 +195,16 @@ const Social = (() => {
     };
   }
 
+  // 진도/분량 점수 — 병합 결과가 서버보다 '더 가진' 게 있는지 판단용(올릴지 결정).
+  function progressScore(d) {
+    if (!d) return 0;
+    let s = (d.decks ? d.decks.length : 0) + (d.cards ? d.cards.length : 0)
+          + (d.folders ? d.folders.length : 0) + (d.reviewPlans ? d.reviewPlans.length : 0);
+    for (const c of (d.cards || [])) s += (c.views || 0) + (c.reps || 0) + (c.lapses || 0);
+    for (const k in (d.reviews || {})) s += Number(d.reviews[k]) || 0;
+    return s;
+  }
+
   async function pullCollection() {
     if (!profile) return null;
     const { data, error } = await sb()
@@ -250,16 +260,20 @@ const Social = (() => {
       return;
     }
     const serverChanged = !sameTs(remote.updated_at, getSynced());
-    if (!serverChanged) { if (isDirty()) await flushPush(); return; }
-    // 서버가 바뀜(다른 기기 변경)
-    if (!isDirty()) {
-      Store.replaceState(remote.data);
-      setSynced(remote.updated_at);
-    } else {
-      Store.replaceState(mergeCollections(Store.state, remote.data)); // 양쪽 변경 → 병합
+    if (!serverChanged && !isDirty()) return;
+    // 서버를 통째로 덮어쓰지 않고 진도 기준으로 병합한다 — 로컬이 더 많이 공부한 카드가
+    // 서버의 낡은 상태에 덮이지 않게. (통째 교체가 기기 간 진도 유실의 원인이었다.)
+    const before = progressScore(Store.state);
+    const merged = mergeCollections(Store.state, remote.data);
+    Store.replaceState(merged);
+    setSynced(remote.updated_at);
+    // 로컬이 서버보다 더 가진 게 있거나(또는 아직 못 올린 변경) 있으면 서버로 올려 수렴시킨다.
+    // (pushCollection 성공 시 내부에서 dirty를 지운다 — 실패하면 dirty 유지해 다음에 재시도.)
+    if (isDirty() || progressScore(merged) > progressScore(remote.data)) {
       await pushCollection().catch(() => {});
     }
-    if (onRemoteUpdate) { try { onRemoteUpdate(); } catch { /* 무시 */ } }
+    // 서버에서 실제로 뭔가 새로 들어왔을 때만 화면 갱신/알림
+    if (progressScore(merged) !== before && onRemoteUpdate) { try { onRemoteUpdate(); } catch { /* 무시 */ } }
   }
 
   /* ── 이미지(미디어) 스토리지 동기화 ──
@@ -356,18 +370,18 @@ const Social = (() => {
     let pulled = false;
     if (remote && remote.data && Object.keys(remote.data).length) {
       if (foreignOwner) {
-        // 다른 계정 → 서버본을 그대로 채택
+        // 다른 계정 → 서버본을 그대로 채택(이전 사용자 데이터와 섞지 않음)
         Store.replaceState(remote.data); clearDirty(); setSynced(remote.updated_at); pulled = true;
-      } else if (!isDirty()) {
-        // 로컬에 안 올린 변경 없음 → 서버가 곧 최신(다른 기기 변경 포함) → 항상 채택
-        Store.replaceState(remote.data); setSynced(remote.updated_at); pulled = true;
-      } else if (sameTs(remote.updated_at, getSynced())) {
-        // 로컬만 바뀌고 서버는 그대로 → 로컬을 올림
-        await pushCollection().catch(() => {});
       } else {
-        // 양쪽 모두 바뀜(충돌) → 병합: 어느 기기의 덱도 잃지 않게
-        Store.replaceState(mergeCollections(Store.state, remote.data));
-        await pushCollection().catch(() => {});
+        // 같은 계정 → 서버를 통째로 덮어쓰지 않고 진도 기준으로 병합한다.
+        // 로컬이 더 많이 공부한 카드가 서버의 낡은 상태에 덮이지 않게 하는 핵심.
+        const merged = mergeCollections(Store.state, remote.data);
+        Store.replaceState(merged);
+        setSynced(remote.updated_at);
+        // 로컬이 더 가진 게 있으면(또는 못 올린 변경) 올려 수렴. push 성공 시 내부에서 dirty 해제.
+        if (isDirty() || progressScore(merged) > progressScore(remote.data)) {
+          await pushCollection().catch(() => {});
+        }
         pulled = true;
       }
     } else {
