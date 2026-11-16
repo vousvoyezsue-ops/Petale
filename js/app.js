@@ -3987,6 +3987,7 @@
     if (!session || !session.revealed || !session.current) return;
     const id = session.current;
     const snapshot = Store.applyReview(id, rating);
+    Store.saveNow({ touch: false }); // 카드 한 장 평가할 때마다 즉시 기록(디바운스 대기 없이 유실 방지)
     if (snapshot?.autoStarred) toast(t("study.autoStarred"));
     Social.pushStatsQuiet();
     if (rating === 0) session.again++; // 이번 세션 '다시' 누른 횟수 (완료 요약용)

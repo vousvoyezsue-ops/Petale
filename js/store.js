@@ -281,6 +281,17 @@ const Store = (() => {
     return true;
   }
 
+  // 즉시 저장(디바운스 무시) — 학습 중 카드 한 장 평가할 때마다 바로 기록해 유실을 없앤다.
+  // 동기 미러(즉시 영속) + IDB flush. 동기화 훅(dirty 표시)도 호출해 서버로도 바로 반영되게.
+  function saveNow(opts = {}) {
+    const touch = opts.touch !== false;
+    if (touch) state.updatedAt = Date.now();
+    writeMirror();                 // 동기 — 지금 당장 크래시해도 이 카드까지 남는다
+    const p = flush();             // 비동기 IDB 기록(주 저장소)
+    if (touch && onSaveCb) { try { onSaveCb(); } catch { /* 무시 */ } }
+    return p;
+  }
+
   // 탭을 닫거나 숨길 때: 먼저 동기 백업(확실), 이어서 IDB flush(대기 중일 때).
   if (typeof window !== "undefined") {
     const flushNow = () => { writeMirror(); if (writeTimer) flush(); };
@@ -1006,7 +1017,7 @@ const Store = (() => {
   }
 
   return {
-    load, save, flush, todayKey, uid,
+    load, save, saveNow, flush, todayKey, uid,
     setOnSave, setQuotaHandler, replaceState, reset,
     setSetting, setSteps,
     addDeck, updateDeck, deleteDeck, deleteDecks, getDeck, patchDeck,
