@@ -636,6 +636,36 @@ const Store = (() => {
     save();
   }
 
+  // 카드 형식 변환(기본 ↔ 빈칸). 가능한 한 학습 일정(복습 횟수·간격·예정일)을 유지한다.
+  //  - 기본 → 빈칸: 기존 카드를 첫 빈칸으로 그대로 변환(일정 유지), 추가 빈칸은 새 카드.
+  //  - 빈칸 → 기본: 같은 노트의 형제 빈칸 카드는 지우고 한 장으로 합침(기존 카드 일정 유지).
+  function convertCardType(cardId, newType, payload = {}) {
+    const base = state.cards.find(c => c.id === cardId);
+    if (!base) return;
+    const now = Date.now();
+    if (newType === "cloze") {
+      const { front, indices = [1] } = payload;
+      const content = {};
+      ["notes", "noteImageId", "section", "cardScale", "imageScale"].forEach(k => { if (k in payload) content[k] = payload[k]; });
+      const noteId = base.clozeNoteId || uid();
+      const sorted = [...new Set(indices)].sort((a, b) => a - b);
+      Object.assign(base, { type: "cloze", front, back: "", clozeIndex: sorted[0], clozeNoteId: noteId, mtime: now, ...content });
+      delete base.backImageId; delete base.frontImageId; // 빈칸 카드엔 앞/뒷면 이미지 없음
+      for (let i = 1; i < sorted.length; i++) {
+        state.cards.push({ id: uid(), deckId: base.deckId, type: "cloze", front, back: "", clozeIndex: sorted[i], clozeNoteId: noteId, created: now, mtime: now, ...content, ...SRS.newCardState() });
+      }
+    } else { // basic
+      const { front, back } = payload;
+      const sibs = noteSiblings(base).filter(c => c.id !== base.id);
+      if (sibs.length) { const kill = new Set(sibs.map(c => c.id)); state.cards = state.cards.filter(c => !kill.has(c.id)); }
+      Object.assign(base, { type: "basic", front, back: back || "", mtime: now });
+      ["notes", "noteImageId", "backImageId", "section", "cardScale", "imageScale"].forEach(k => { if (k in payload) base[k] = payload[k]; });
+      delete base.clozeIndex; delete base.clozeNoteId;
+    }
+    gcMedia();
+    save();
+  }
+
   // 덱의 카드를 통째로 교체(공유 덱 업데이트 받기용). 학습 일정은 새로 시작.
   function replaceDeckCards(deckId, rows) {
     state.cards = state.cards.filter(c => c.deckId !== deckId);
@@ -1025,7 +1055,7 @@ const Store = (() => {
     addPlan, updatePlan, deletePlan, getPlan, planStats, planTimeline,
     addReviewPlan, updateReviewPlan, deleteReviewPlan, getReviewPlan,
     addMedia, getMedia, putMedia, referencedMedia, gcMedia,
-    addCard, updateCard, deleteCard, deleteCards, cardsOf, moveCards, bulkAddCards, syncClozeSiblings, syncOcclusionSiblings, replaceDeckCards, mergeDeckCards,
+    addCard, updateCard, deleteCard, deleteCards, cardsOf, moveCards, bulkAddCards, syncClozeSiblings, syncOcclusionSiblings, convertCardType, replaceDeckCards, mergeDeckCards,
     sectionsOf, setSection,
     addDoc, updateDoc, deleteDoc, getDoc, importSharedDocs,
     applyReview, undoReview, newIntroducedToday,
