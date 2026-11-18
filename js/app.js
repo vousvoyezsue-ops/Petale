@@ -358,6 +358,10 @@
   function clozeIndices(text) {
     return [...new Set([...text.matchAll(/\{\{c(\d+)::/g)].map(m => Number(m[1])))].sort((a, b) => a - b);
   }
+  // 빈칸 표시 {{c1::답::힌트}} → 답 만 남겨 기본 카드 앞면으로 넘길 때 쓴다.
+  function clozeStrip(text) {
+    return String(text).replace(/\{\{c\d+::([\s\S]*?)(?:::[\s\S]*?)?\}\}/g, "$1");
+  }
 
   // 들여쓰기(앞 공백/탭)까지 잡기 위해 선행 공백을 캡처한다. 탭 1개 = 공백 2칸.
   const BULLET_RE = /^(\s*)[-–—•·*]\s+([\s\S]*)$/;
@@ -2582,14 +2586,24 @@
   });
 
   $$("#typeTabs .type-tab").forEach(b => b.addEventListener("click", () => {
-    if (b.dataset.type === "occlusion") {
+    const to = b.dataset.type;
+    if (to === "occlusion") {
       editingOccCardId = null;
       cardModal.close();
       Occlusion.resetEditor();
       $("#occModal").showModal();
       return;
     }
-    setCardType(b.dataset.type);
+    if (to === cardType) return;
+    // 형식 전환 시 입력한 내용을 넘긴다(빈 쪽만 채워 기존 입력 보존).
+    if (to === "cloze" && richIsEmpty($("#clozeInput")) && !richIsEmpty($("#cardFrontInput"))) {
+      const f = getRich($("#cardFrontInput"));
+      const seed = richIsEmpty($("#cardBackInput")) ? f : `${f} {{c1::${getRich($("#cardBackInput"))}}}`;
+      setRich($("#clozeInput"), seed);
+    } else if (to === "basic" && richIsEmpty($("#cardFrontInput")) && !richIsEmpty($("#clozeInput"))) {
+      setRich($("#cardFrontInput"), clozeStrip(getRich($("#clozeInput"))));
+    }
+    setCardType(to);
   }));
 
   function openCardModal(cardId = null) {
@@ -2598,7 +2612,11 @@
     const isOcc = card?.type === "occlusion";
     $("#cardModalTitle").textContent = card ? t("cardModal.edit") : t("cardModal.add");
     $("#cardModalSubmit").textContent = card ? t("cardModal.submitSave") : t("cardModal.submitAdd");
-    $("#typeTabs").classList.toggle("hidden", !!card);
+    // 편집 중에도 형식(기본↔빈칸)을 바꿀 수 있게 탭을 노출한다. 단 이미지 가리기는
+    // 이미지 기반이라 별도 에디터라서, 편집 중엔 '이미지 가리기' 탭은 숨기고(텍스트↔이미지 변환 미지원)
+    // 이미지 가리기 카드를 편집할 때는 탭 전체를 숨긴다(헤더·메모만 수정).
+    $("#typeTabs").classList.toggle("hidden", !!card && isOcc);
+    $('#typeTabs .type-tab[data-type="occlusion"]')?.classList.toggle("hidden", !!card);
     $("#cardReversed").checked = false;
     // 편집 중이면 "새로 만들기", 신규면 "함께 만들기" — 역방향 카드는 항상 새 카드로 추가
     $("#reversedLabel").textContent = t(card ? "cardModal.reversedEdit" : "cardModal.reversed");
@@ -2622,12 +2640,14 @@
     } else if (card?.type === "cloze") {
       setCardType("cloze");
       setRich($("#clozeInput"), card.front);
+      setRich($("#cardFrontInput"), ""); // 형식 전환 대비 비활성 칸 초기화
+      setRich($("#cardBackInput"), "");
     } else {
       // 새 카드는 항상 basic으로 시작(직전 타입을 기억하지 않아 헷갈리지 않게)
       setCardType("basic");
       setRich($("#cardFrontInput"), card ? card.front : "");
       setRich($("#cardBackInput"), card ? card.back : "");
-      if (!card) setRich($("#clozeInput"), "");
+      setRich($("#clozeInput"), ""); // 형식 전환 대비 초기화(신규·편집 모두)
     }
     cardModal.showModal();
   }
@@ -2789,8 +2809,13 @@
       const indices = clozeIndices(text);
       if (!text || !indices.length) { e.preventDefault(); toast(t("toast.clozeNeeded")); return; }
       if (editingCardId) {
-        // 같은 노트에서 나온 형제 빈칸 카드들에 본문·메모·배율을 함께 반영(빈칸 추가·삭제 포함)
-        Store.syncClozeSiblings(editingCardId, text, indices, { notes, noteImageId, section, ...scaleValues() });
+        if (editCard && editCard.type === "cloze") {
+          // 같은 노트에서 나온 형제 빈칸 카드들에 본문·메모·배율을 함께 반영(빈칸 추가·삭제 포함)
+          Store.syncClozeSiblings(editingCardId, text, indices, { notes, noteImageId, section, ...scaleValues() });
+        } else {
+          // 기본 → 빈칸 형식 변환(학습 일정 유지)
+          Store.convertCardType(editingCardId, "cloze", { front: text, indices, notes, noteImageId, section, ...scaleValues() });
+        }
         toast(t("toast.cardUpdated"));
       } else {
         const noteId = "n" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -2805,7 +2830,11 @@
     const front = getRich($("#cardFrontInput"));
     const back = getRich($("#cardBackInput"));
     if (richIsEmpty($("#cardFrontInput")) || richIsEmpty($("#cardBackInput"))) { e.preventDefault(); return; }
-    if (editingCardId) {
+    if (editingCardId && editCard && editCard.type !== "basic") {
+      // 빈칸 → 기본 형식 변환(형제 빈칸 카드는 한 장으로 합치고 학습 일정 유지)
+      Store.convertCardType(editingCardId, "basic", { front, back, notes, noteImageId, backImageId, section, ...scaleValues() });
+      toast(t("toast.cardUpdated"));
+    } else if (editingCardId) {
       Store.updateCard(editingCardId, { front, back, notes, noteImageId, backImageId, section, ...scaleValues() });
       // 편집 화면에서 역방향 체크 → 이 카드의 반대 방향 카드를 (이 카드와 같은 덱에) 새로 추가.
       // currentDeckId는 복습 플래너로 학습 중이면 이 카드의 덱이 아닐 수 있으므로 카드의 deckId를 쓴다.
