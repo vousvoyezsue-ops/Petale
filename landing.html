@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>petale: 잊을 때쯤 다시 꺼내는 공부</title>
+<meta name="description" content="망각곡선에 맞춰 복습 날짜를 챙겨 주는 조용한 플래시카드 앱, Petale.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css">
+<style>
+/* Hallmark · shape: Broadsheet · genre: editorial · theme: Newsprint (deal 2/3, seed calm-cozy-korean-flashcard-c5f5·147504c3·2026-11-20·r0) · job: try · draw: 147504c3
+ * hero: Stage, head left / schedule right · nav: edge wordmark + one action · footer: mast, wordmark over links · imagery: none (type + drawn schedule) · signature: the forgetting-curve review schedule, drawn live
+ * axes: light/slab-serif/warm → brand override: Pretendard body, Fraunces wordmark-only · posture: restrained · contrast: pass · fold: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P2 H1 E0 S1 R1 V1 · weakest: brand forbids the slab display face; kept Newsprint's rules, warm paper, tabular figures and zero radius, set type in Pretendard */
+@import url("./tokens.css");
+@import url("./base.css");
+
+body { background: var(--color-paper); }
+h1, h2, h3 { word-break: keep-all; } /* 한국어 단어를 중간에서 끊지 않음 */
+
+/* ── nav ── */
+.nav { border-bottom: var(--rule-hair) solid var(--color-ink); }
+.nav-in { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-md); padding-block: var(--space-md); }
+.wordmark { font-family: var(--font-wordmark); font-weight: 600; font-size: var(--text-xl); letter-spacing: -0.01em; color: var(--color-ink); line-height: 1; }
+.nav .wordmark { font-size: var(--text-lg); }
+.nav-right { display: flex; align-items: baseline; gap: var(--space-lg); }
+.nav-link { color: var(--color-ink-2); text-decoration: none; font-size: var(--text-sm); }
+.nav-link:hover { color: var(--color-ink); text-decoration: underline; }
+
+/* ── buttons ── */
+.btn { --b: var(--color-accent); display: inline-flex; align-items: center; gap: var(--space-xs); background: var(--b); color: var(--color-accent-ink); font-weight: 600; font-size: var(--text-md); padding: var(--space-sm) var(--space-lg); border: var(--rule-hair) solid var(--b); text-decoration: none; transition: background-color var(--dur-short) var(--ease-out), transform var(--dur-micro) var(--ease-out); }
+.btn:hover { background: var(--color-accent-hover); border-color: var(--color-accent-hover); }
+.btn:active { transform: translateY(1px); }
+.link-quiet { color: var(--color-ink); font-size: var(--text-md); text-underline-offset: 0.2em; text-decoration-color: var(--color-rule-2); }
+.link-quiet:hover { text-decoration-color: var(--color-accent); }
+
+/* ── hero ── */
+.hero { padding-block: var(--space-2xl) var(--space-3xl); }
+.hero-grid { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: var(--space-2xl); align-items: center; }
+.hero h1 { font-size: clamp(2.5rem, 4vw + 1rem, 4.25rem); line-height: 1.04; max-width: 14ch; }
+.hero .lead { margin-top: var(--space-lg); color: var(--color-ink-2); }
+.hero-actions { margin-top: var(--space-xl); display: flex; align-items: center; gap: var(--space-lg); flex-wrap: wrap; }
+
+/* ── the drawn schedule (signature) ── */
+.schedule { border: var(--rule-hair) solid var(--color-ink); background: var(--color-card); }
+.schedule-head { display: flex; align-items: baseline; justify-content: space-between; padding: var(--space-sm) var(--space-md); border-bottom: var(--rule-hair) solid var(--color-ink); }
+.schedule-head b { font-size: var(--text-md); font-weight: 600; }
+.schedule-head span { font-size: var(--text-sm); color: var(--color-muted); }
+.curve { display: block; width: 100%; height: auto; padding: var(--space-md) var(--space-md) 0; }
+.curve .axis { stroke: var(--color-rule); stroke-width: 1; }
+.curve .decay { fill: none; stroke: var(--color-ink-2); stroke-width: 1.5; }
+.curve .mark { stroke: var(--color-amber); stroke-width: 1.5; }
+.curve .dot { fill: var(--color-accent); }
+.curve text { fill: var(--color-muted); font-size: 12px; font-family: var(--font-body); }
+.agenda { list-style: none; margin: 0; padding: 0; }
+.agenda li { display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; gap: var(--space-md); padding: var(--space-sm) var(--space-md); border-top: var(--rule-hair) solid var(--color-rule); }
+.agenda li:first-child { border-top: 0; }
+.agenda .when { font-weight: 600; font-variant-numeric: tabular-nums; }
+.agenda .what { color: var(--color-ink-2); font-size: var(--text-sm); }
+.agenda .day { color: var(--color-muted); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+.agenda .done .when { color: var(--color-muted); }
+.agenda .today { background: color-mix(in srgb, var(--color-accent) 9%, transparent); }
+
+/* ── section frame ── */
+.section { padding-block: var(--section-gap-s); border-top: var(--rule-hair) solid var(--color-ink); }
+.section-head { max-width: 46ch; }
+.section-head h2 { font-size: var(--text-section); }
+.section-head .lead { margin-top: var(--space-md); color: var(--color-ink-2); }
+.n { font-variant-numeric: tabular-nums; color: var(--color-amber); font-weight: 600; font-size: var(--text-md); display: block; margin-bottom: var(--space-sm); }
+
+/* ── review planner section ── */
+.planner-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2xl); margin-top: var(--space-xl); align-items: start; }
+.rule-list { list-style: none; margin: 0; padding: 0; }
+.rule-list li { display: flex; gap: var(--space-md); padding: var(--space-md) 0; border-top: var(--rule-hair) solid var(--color-rule); }
+.rule-list li:first-child { border-top: 0; }
+.rule-list .k { color: var(--color-amber); font-weight: 600; font-variant-numeric: tabular-nums; min-width: 3.5ch; }
+.rule-list .v { color: var(--color-ink-2); }
+
+/* ── cards (three formats) ── */
+.formats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--gap-columns); margin-top: var(--space-xl); }
+.fmt { border: var(--rule-hair) solid var(--color-ink); background: var(--color-card); display: flex; flex-direction: column; }
+.fmt-top { padding: var(--space-md); border-bottom: var(--rule-hair) solid var(--color-rule); min-height: 7.5rem; }
+.fmt-top p { font-size: var(--text-md); color: var(--color-ink); }
+.fmt .cloze { background: color-mix(in srgb, var(--color-amber) 22%, transparent); padding: 0 var(--space-3xs); }
+.fmt .mask { display: inline-block; width: 4.5ch; height: 1.1em; background: var(--color-ink); vertical-align: -0.15em; }
+.fmt-foot { padding: var(--space-sm) var(--space-md); display: flex; align-items: baseline; justify-content: space-between; margin-top: auto; }
+.fmt-foot b { font-size: var(--text-md); font-weight: 600; }
+.fmt-foot span { font-size: var(--text-sm); color: var(--color-muted); }
+
+/* ── folders (ledger) ── */
+.folders { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: var(--space-2xl); margin-top: var(--space-xl); align-items: start; }
+.ledger { list-style: none; margin: 0; padding: 0; border-top: var(--rule-hair) solid var(--color-ink); }
+.ledger li { display: grid; grid-template-columns: 1fr auto auto; align-items: baseline; gap: var(--space-md); padding: var(--space-sm) 0; border-bottom: var(--rule-hair) solid var(--color-rule); }
+.ledger .name { font-weight: 600; }
+.ledger .term { color: var(--color-muted); font-size: var(--text-sm); }
+.ledger .count { color: var(--color-ink-2); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+.ledger .sub .name { font-weight: 400; color: var(--color-ink-2); padding-left: var(--space-md); }
+
+/* ── sync ── */
+.sync-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2xl); align-items: center; margin-top: var(--space-lg); }
+.sync-note { border-left: 2px solid var(--color-accent); padding-left: var(--space-lg); }
+.sync-note p { color: var(--color-ink-2); }
+
+/* ── closing ── */
+.closing { padding-block: var(--section-gap); border-top: var(--rule-hair) solid var(--color-ink); text-align: center; }
+.closing h2 { margin-inline: auto; }
+.closing .hero-actions { justify-content: center; margin-top: var(--space-xl); }
+
+/* ── footer ── */
+.foot { border-top: var(--rule-hair) solid var(--color-ink); padding-block: var(--space-xl); }
+.foot-in { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-xl); flex-wrap: wrap; }
+.foot .wordmark { font-size: var(--text-2xl); }
+.foot-links { display: flex; gap: var(--space-xl); flex-wrap: wrap; }
+.foot-links a { color: var(--color-ink-2); text-decoration: none; font-size: var(--text-sm); }
+.foot-links a:hover { color: var(--color-ink); text-decoration: underline; }
+.foot-fine { margin-top: var(--space-lg); color: var(--color-muted); font-size: var(--text-sm); }
+
+@media (max-width: 60rem) {
+  .hero-grid, .planner-grid, .folders, .sync-grid { grid-template-columns: 1fr; }
+  .hero h1 { max-width: 16ch; }
+  .formats { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="container nav-in">
+    <a class="wordmark" href="./index.html" aria-label="petale 홈">petale</a>
+    <nav class="nav-right" aria-label="주요">
+      <a class="nav-link" href="#planner">복습 플래너</a>
+      <a class="nav-link" href="#cards">카드</a>
+      <a class="nav-link" href="./index.html">시작하기</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <!-- HERO -->
+  <section class="hero">
+    <div class="container hero-grid">
+      <div>
+        <h1>잊을 때쯤<br>다시 꺼내는 공부</h1>
+        <p class="lead">망각곡선에 맞춰 복습 날짜를 챙겨 주는, 조용한 플래시카드 앱.</p>
+        <div class="hero-actions">
+          <a class="btn" href="./index.html">시작하기</a>
+          <a class="link-quiet" href="#planner">복습 플래너 보기</a>
+        </div>
+      </div>
+
+      <figure class="schedule" aria-labelledby="sched-cap">
+        <figcaption class="schedule-head" id="sched-cap">
+          <b>생명과학 · 복습 일정</b><span>오늘부터</span>
+        </figcaption>
+        <svg class="curve" viewBox="0 0 520 150" role="img" aria-label="시간이 지날수록 기억이 흐려지고, 복습할 때마다 다시 또렷해지는 곡선.">
+          <line class="axis" x1="16" y1="128" x2="504" y2="128"></line>
+          <!-- decay-and-review path: each review resets memory, forgetting gets slower -->
+          <path class="decay" d="M16,24 C40,70 60,96 96,104 M96,24 C130,62 156,84 192,90 M192,24 C236,56 268,74 304,78 M304,24 C352,50 384,62 416,64 M416,24 C456,44 484,52 504,52"></path>
+          <g class="mark">
+            <line x1="96" y1="18" x2="96" y2="110"></line>
+            <line x1="192" y1="18" x2="192" y2="96"></line>
+            <line x1="304" y1="18" x2="304" y2="84"></line>
+            <line x1="416" y1="18" x2="416" y2="70"></line>
+          </g>
+          <g class="dot">
+            <circle cx="16" cy="24" r="3.5"></circle>
+            <circle cx="96" cy="24" r="3.5"></circle>
+            <circle cx="192" cy="24" r="3.5"></circle>
+            <circle cx="304" cy="24" r="3.5"></circle>
+            <circle cx="416" cy="24" r="3.5"></circle>
+          </g>
+          <text x="16" y="145" text-anchor="middle">오늘</text>
+          <text x="96" y="145" text-anchor="middle">+1일</text>
+          <text x="192" y="145" text-anchor="middle">+3일</text>
+          <text x="304" y="145" text-anchor="middle">+7일</text>
+          <text x="416" y="145" text-anchor="middle">+14일</text>
+        </svg>
+        <ul class="agenda">
+          <li class="today"><span class="when">오늘</span><span class="what">첫 복습 · 생명과학 I</span><span class="day">11·20</span></li>
+          <li><span class="when">+3일</span><span class="what">예정</span><span class="day">11·23</span></li>
+          <li><span class="when">+7일</span><span class="what">예정</span><span class="day">11·27</span></li>
+        </ul>
+      </figure>
+    </div>
+  </section>
+
+  <!-- PLANNER -->
+  <section class="section" id="planner">
+    <div class="container">
+      <div class="section-head">
+        <span class="n">01</span>
+        <h2>복습 플래너가 날짜를 대신 센다</h2>
+        <p class="lead">한 번 외운 카드는 1·3·7·14·30일 간격으로 다시 올라와요. 오늘 뭘 복습할지는 플래너가 챙기고, 당신은 펼치기만 하면 됩니다.</p>
+      </div>
+      <div class="planner-grid">
+        <ul class="rule-list">
+          <li><span class="k">+1일</span><span class="v">짧은 간격으로 처음 기억을 굳혀요.</span></li>
+          <li><span class="k">+3일</span><span class="v">하루 이틀 쉬고 다시 꺼내 확인.</span></li>
+          <li><span class="k">+7일</span><span class="v">한 주 뒤, 흐려질 때쯤 복습.</span></li>
+          <li><span class="k">+14일</span><span class="v">간격을 벌려 장기 기억으로.</span></li>
+          <li><span class="k">+30일</span><span class="v">마지막 점검, 그리고 졸업.</span></li>
+        </ul>
+        <div>
+          <p>주간·월간 달력으로 이번 주 복습량을 한눈에 보고, 끝낸 날은 체크해 지워 나갑니다. 밀린 복습은 따로 모여 사라지지 않아요. 간격은 과목마다 바꿀 수 있고, 다 끝낸 덱은 플래너에서 조용히 졸업합니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CARD FORMATS -->
+  <section class="section" id="cards">
+    <div class="container">
+      <div class="section-head">
+        <span class="n">02</span>
+        <h2>세 가지 카드로, 외우는 방식대로</h2>
+        <p class="lead">묻고 답하거나, 문장 속 빈칸을 채우거나, 그림의 한 곳을 가리거나.</p>
+      </div>
+      <div class="formats">
+        <article class="fmt">
+          <div class="fmt-top"><p>심장의 좌심실은 어디로 피를 보내나요?</p></div>
+          <div class="fmt-foot"><b>기본</b><span>앞면 · 뒷면</span></div>
+        </article>
+        <article class="fmt">
+          <div class="fmt-top"><p>대동맥은 <span class="cloze">좌심실</span>에서 나와 온몸으로 피를 보낸다.</p></div>
+          <div class="fmt-foot"><b>빈칸</b><span>문장 속 지우기</span></div>
+        </article>
+        <article class="fmt">
+          <div class="fmt-top"><p>심장 그림에서 <span class="mask" aria-label="가려진 이름"></span> 의 이름을 떠올려요.</p></div>
+          <div class="fmt-foot"><b>이미지 가리기</b><span>그림 위 마스크</span></div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOLDERS -->
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <span class="n">03</span>
+        <h2>과목과 학기를 폴더로 정리</h2>
+        <p class="lead">덱이 쌓여도 폴더 안에 과목별·학기별로 묶어 두면 찾기 쉬워요.</p>
+      </div>
+      <div class="folders">
+        <ul class="ledger">
+          <li><span class="name">1학기</span><span class="term">폴더</span><span class="count">덱 12</span></li>
+          <li class="sub"><span class="name">생명과학</span><span class="term">과목</span><span class="count">덱 5</span></li>
+          <li class="sub"><span class="name">유기화학</span><span class="term">과목</span><span class="count">덱 4</span></li>
+          <li><span class="name">2학기</span><span class="term">폴더</span><span class="count">덱 9</span></li>
+          <li class="sub"><span class="name">순환기</span><span class="term">과목</span><span class="count">덱 6</span></li>
+          <li><span class="name">별표</span><span class="term">모아보기</span><span class="count">덱 3</span></li>
+        </ul>
+        <div>
+          <p>폴더마다 색과 무늬를 달아 과목을 한눈에 구분하고, 별표한 덱은 어느 폴더에 있든 한곳에 모여요. 자주 틀리는 카드만 따로 복습할 수도 있습니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SYNC -->
+  <section class="section">
+    <div class="container">
+      <div class="sync-grid">
+        <div class="section-head">
+          <span class="n">04</span>
+          <h2>폰과 노트북이 늘 같은 자리</h2>
+        </div>
+        <div class="sync-note">
+          <p>한쪽에서 공부한 진도가 다른 기기에도 그대로 이어집니다. 카드 한 장을 넘길 때마다 바로 기록하고, 열 때마다 가장 최근 상태로 맞춰 둬요. 설치 없이 브라우저에서, 비행기 안에서도.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CLOSING -->
+  <section class="closing">
+    <div class="container">
+      <h2>오늘 한 장, 잊을 때 다시 한 장.</h2>
+      <div class="hero-actions">
+        <a class="btn" href="./index.html">시작하기</a>
+        <a class="link-quiet" href="#planner">복습 플래너 다시 보기</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="container">
+    <div class="foot-in">
+      <a class="wordmark" href="./index.html">petale</a>
+      <nav class="foot-links" aria-label="바닥글">
+        <a href="./index.html">앱 열기</a>
+        <a href="#planner">복습 플래너</a>
+        <a href="#cards">카드 형식</a>
+        <a href="#cards">폴더 정리</a>
+      </nav>
+    </div>
+    <p class="foot-fine">브라우저에서 바로 쓰는 플래시카드 · 설치 없이 홈 화면에 추가.</p>
+  </div>
+</footer>
+
+</body>
+</html>
