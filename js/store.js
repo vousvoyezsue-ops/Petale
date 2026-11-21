@@ -481,14 +481,21 @@ const Store = (() => {
      카드의 section 필드(문자열)로 묶는다. 별도 저장 구조 없이 카드에서 모은 뒤
      자연 정렬(숫자 인식)로 돌려준다 → "1" < "1-1" < "1-2" < "1-10" < "2" 처럼
      번호 매긴 장이 올바른 순서로 보인다. */
+  // 장(섹션)을 '처음 등장한 순서(= 추가/가져온 순서)'로 돌려준다. 알파벳 정렬하지 않는다.
+  // 기존 장에 카드를 더 넣어도 그 장의 위치는 유지되고(첫 카드 기준), 새 장은 맨 뒤로 간다.
   function sectionsOf(deckId) {
-    const seen = [];
+    const firstSeen = new Map();
     for (const c of state.cards) {
       if (c.deckId !== deckId) continue;
       const s = (c.section || "").trim();
-      if (s && !seen.includes(s)) seen.push(s);
+      if (!s) continue;
+      const t = c.created || 0;
+      const prev = firstSeen.get(s);
+      if (prev == null || t < prev) firstSeen.set(s, t);
     }
-    return seen.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+    return [...firstSeen.keys()].sort((a, b) =>
+      (firstSeen.get(a) - firstSeen.get(b)) ||
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
   }
   // cloze/occlusion은 같은 노트에서 나온 형제 카드가 함께 묶이도록 섹션을 형제 전체에 반영
   function noteSiblings(card) {

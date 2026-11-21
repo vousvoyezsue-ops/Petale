@@ -3520,6 +3520,21 @@
   const ratingRow = $("#ratingRow");
 
   // deckId가 null이면 모든 덱을 통합 학습. 새 카드는 제한 없이 전부 포함한다.
+  // 덱 카드를 '토픽(섹션) 첫 등장 순 → 토픽 안에서는 추가(가져온) 순'으로 정렬한다.
+  // 기존 토픽에 뒤늦게 추가한 카드는 그 토픽 끝에 붙고, 새 토픽은 맨 아래로 간다.
+  function orderByImport(cards, allDeckCards) {
+    const base = allDeckCards || cards;
+    const first = new Map();
+    for (const c of base) {
+      const s = (c.section || "").trim();
+      const t = c.created || 0;
+      const prev = first.get(s);
+      if (prev == null || t < prev) first.set(s, t);
+    }
+    const key = c => first.get((c.section || "").trim()) ?? 0;
+    return cards.slice().sort((a, b) => (key(a) - key(b)) || ((a.created || 0) - (b.created || 0)));
+  }
+
   function buildQueue(deckId) {
     const now = Date.now();
     const decks = deckId ? [Store.getDeck(deckId)].filter(Boolean) : Store.state.decks;
@@ -3528,10 +3543,10 @@
     for (const deck of decks) {
       const cards = Store.cardsOf(deck.id).filter(c => !c.suspended);
       due.push(...cards.filter(c => !SRS.isNew(c) && SRS.isDue(c, now)));
-      neu.push(...cards.filter(SRS.isNew)); // 하루 새 카드 제한 없음(무제한)
+      neu.push(...orderByImport(cards.filter(SRS.isNew), cards)); // 토픽 등장 순 → 추가 순
     }
     const shuffle = arr => arr.map(v => [Math.random(), v]).sort((a, b) => a[0] - b[0]).map(p => p[1]);
-    // 복습 카드는 섞고, 새 카드(처음 학습)는 등록한 순서 그대로 (cardsOf가 생성 순서로 반환)
+    // 복습 카드는 섞고, 새 카드(처음 학습)는 가져온 순서대로(토픽별)
     return [...shuffle(due), ...neu].map(c => c.id);
   }
 
@@ -3569,7 +3584,8 @@
   // 새 카드만 학습 — 아직 한 번도 안 본(new) 카드만, 등록한 순서대로(복습 카드 제외)
   function startNewSession(deckId) {
     if (deckId) currentDeckId = deckId;
-    const neu = Store.cardsOf(deckId).filter(c => SRS.isNew(c) && !c.suspended);
+    const all = Store.cardsOf(deckId).filter(c => !c.suspended);
+    const neu = orderByImport(all.filter(c => SRS.isNew(c)), all); // 토픽 등장 순 → 추가 순
     startSessionWith(neu.map(c => c.id), { emptyMsg: t("study.noNew") });
   }
 
