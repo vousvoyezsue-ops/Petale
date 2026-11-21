@@ -3843,7 +3843,7 @@
     const el = $("#repBadge");
     if (!el) return;
     if (Store.settings.repBadge === false) { el.classList.add("hidden"); return; }
-    const n = (card.views || 0) + 1;
+    const n = (card.roundViews || 0) + 1; // 이번 라운드 기준(라운드 끝나면 초기화)
     el.textContent = t("study.rep", { n });
     el.classList.remove("hidden");
   }
@@ -4248,6 +4248,8 @@
       : t("study.doneNextNone");
     $("#studyDone").classList.remove("hidden");
     burstPetals();
+    // 라운드 완료 처리: 카드 횟수(회째) 초기화(무조건) + 자동 별표 초기화(설정 켜졌을 때)
+    Store.finishRound(session.deckIds, !!Store.settings.autoStarReset);
     // 오늘 할 걸 전부 끝낸(due·새 카드 0) 덱은 자동으로 복습 목록에 넣는다
     const added = maybeAutoAddReview(session.deckIds);
     if (added.length) toast(added.length === 1 ? t("review.autoAdded", { deck: added[0] }) : t("review.autoAddedN", { n: added.length }));
@@ -4461,7 +4463,10 @@
     $("#cardBunnyToggle").checked = Store.settings.cardBunny !== false;
     $("#autoStarToggle").checked = !!Store.settings.autoStar;
     $("#autoStarCount").value = Store.settings.autoStarCount || 5;
+    $("#autoStarResetToggle").checked = !!Store.settings.autoStarReset;
     $("#autoStarCountRow").classList.toggle("hidden", !Store.settings.autoStar);
+    $("#autoStarResetRow").classList.toggle("hidden", !Store.settings.autoStar);
+    $("#autoStarResetHint").classList.toggle("hidden", !Store.settings.autoStar);
     renderTtsVoiceOptions();
     $("#ttsVoiceRow").classList.toggle("hidden", !Store.settings.tts);
     renderBunnyPicker();
@@ -4525,11 +4530,16 @@
   $("#autoStarToggle").addEventListener("change", (e) => {
     Store.setSetting("autoStar", e.target.checked);
     $("#autoStarCountRow").classList.toggle("hidden", !e.target.checked);
+    $("#autoStarResetRow").classList.toggle("hidden", !e.target.checked);
+    $("#autoStarResetHint").classList.toggle("hidden", !e.target.checked);
   });
   $("#autoStarCount").addEventListener("change", (e) => {
     const n = Math.max(1, Math.min(99, Math.round(Number(e.target.value) || 0)));
     e.target.value = n;
     Store.setSetting("autoStarCount", n);
+  });
+  $("#autoStarResetToggle").addEventListener("change", (e) => {
+    Store.setSetting("autoStarReset", e.target.checked);
   });
 
   // 학습 알림 (망각곡선 기반)
