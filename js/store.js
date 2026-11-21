@@ -948,6 +948,7 @@ const Store = (() => {
     if ("end" in patch) p.end = patch.end || null;
     if ("graduated" in patch) p.graduated = !!patch.graduated;
     if (Array.isArray(patch.done)) p.done = [...new Set(patch.done.map(Number))];
+    if ("doneAt" in patch) p.doneAt = patch.doneAt || {}; // 체크포인트별 실제 복습일(밀림 재조정용)
     save();
   }
   function deleteReviewPlan(id) { state.reviewPlans = state.reviewPlans.filter(p => p.id !== id); save(); }
