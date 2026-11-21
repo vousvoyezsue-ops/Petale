@@ -57,7 +57,7 @@ const Store = (() => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   }
 
-  const DEFAULT_SETTINGS = { lang: "ko", theme: "pearl", appearance: "auto", tts: true, ttsVoice: "", bunny: "oatmeal-ivory", repBadge: true, cardBunny: true, autoStar: false, autoStarCount: 5, reminders: false, reminderTime: "09:00", steps: SRS.defaultSteps() };
+  const DEFAULT_SETTINGS = { lang: "ko", theme: "pearl", appearance: "auto", tts: true, ttsVoice: "", bunny: "oatmeal-ivory", repBadge: true, cardBunny: true, autoStar: false, autoStarCount: 5, autoStarReset: false, reminders: false, reminderTime: "09:00", steps: SRS.defaultSteps() };
 
   // 첫 실행 시 빈 상태로 시작한다 (예시 덱을 자동으로 만들지 않음).
   function seed() {
@@ -768,16 +768,17 @@ const Store = (() => {
   function applyReview(cardId, rating) {
     const c = state.cards.find(x => x.id === cardId);
     if (!c) return null;
-    const prev = { ef: c.ef, interval: c.interval, reps: c.reps, lapses: c.lapses, due: c.due, againCount: c.againCount || 0, views: c.views || 0, starred: c.starred, autoStarred: c.autoStarred, lastRating: (c.lastRating ?? null) };
+    const prev = { ef: c.ef, interval: c.interval, reps: c.reps, lapses: c.lapses, due: c.due, againCount: c.againCount || 0, views: c.views || 0, roundViews: c.roundViews || 0, starred: c.starred, autoStarred: c.autoStarred, lastRating: (c.lastRating ?? null) };
     const wasNew = SRS.isNew(c);
     Object.assign(c, SRS.schedule(c, rating, Date.now(), true)); // 실제 저장: 복습 부담 분산(fuzz) 적용
     if (rating === 0) c.againCount = (c.againCount || 0) + 1; // '다시' 누적 횟수 (자주 틀린 카드 찾기용)
     c.lastRating = rating; // 직전에 누른 평가(다시/어려움/보통/쉬움) — 다음 복습 때 카드에 표시
-    c.views = (c.views || 0) + 1; // 이 카드를 복습한 총 횟수(반복 횟수 뱃지용)
-    // 자동 별표: 정해진 횟수만큼 복습하면 별표 표시 (한 번만 — 수동으로 해제하면 다시 붙지 않음)
+    c.views = (c.views || 0) + 1;            // 총 복습 횟수(동기화·통계용 — 초기화하지 않음)
+    c.roundViews = (c.roundViews || 0) + 1;  // 이번 라운드 복습 횟수(뱃지·자동별표용 — 라운드 끝에 초기화)
+    // 자동 별표: 이번 라운드에 정해진 횟수만큼 복습하면 별표 (한 번만 — 수동 해제하면 다시 안 붙음)
     let autoStarred = false;
     const asN = state.settings.autoStar ? Number(state.settings.autoStarCount) || 0 : 0;
-    if (asN > 0 && !c.starred && !c.autoStarred && (c.views || 0) >= asN) {
+    if (asN > 0 && !c.starred && !c.autoStarred && (c.roundViews || 0) >= asN) {
       c.starred = true; c.autoStarred = true; autoStarred = true;
     }
     const key = todayKey();
@@ -808,6 +809,20 @@ const Store = (() => {
 
   function newIntroducedToday(deckId) {
     return state.newLog[`${deckId}|${todayKey()}`] || 0;
+  }
+
+  // 라운드(세트 학습) 완료 시: 이번 라운드 카드 횟수(roundViews)를 초기화하고,
+  // clearAutoStars가 참이면 자동으로 붙은 별표를 해제한다. 수동 별표·총 복습 횟수(views)는 건드리지 않는다.
+  function finishRound(deckIds, clearAutoStars) {
+    const inSet = (Array.isArray(deckIds) && deckIds.length) ? new Set(deckIds) : null;
+    let changed = false;
+    for (const c of state.cards) {
+      if (inSet && !inSet.has(c.deckId)) continue;
+      if (c.roundViews) { c.roundViews = 0; changed = true; }
+      if (clearAutoStars && c.autoStarred) { c.starred = false; c.autoStarred = false; changed = true; }
+    }
+    if (changed) save();
+    return changed;
   }
 
   // 덱 학습 초기화: 모든 카드를 새 카드 상태로 되돌린다 (예약된 복습 일정도 모두 초기화)
@@ -1058,7 +1073,7 @@ const Store = (() => {
     addCard, updateCard, deleteCard, deleteCards, cardsOf, moveCards, bulkAddCards, syncClozeSiblings, syncOcclusionSiblings, convertCardType, replaceDeckCards, mergeDeckCards,
     sectionsOf, setSection,
     addDoc, updateDoc, deleteDoc, getDoc, importSharedDocs,
-    applyReview, undoReview, newIntroducedToday,
+    applyReview, undoReview, newIntroducedToday, finishRound,
     resetDeckSchedule, exportDeckBundle, importDeckBundle,
     deckCounts, streak, forecast, retention, exportDeckCSV,
     exportJSON, importJSON,

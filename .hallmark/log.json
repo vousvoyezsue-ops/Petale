@@ -1,0 +1,26 @@
+[
+ {
+  "shape": "Broadsheet",
+  "theme": "newsprint",
+  "axes": "light/slab-serif/warm (brand override: Pretendard+Fraunces)",
+  "hero": "Stage, head left / schedule right",
+  "nav": "edge wordmark + one action",
+  "footer": "mast, wordmark over links",
+  "imagery": "none",
+  "photos": [],
+  "signature": "forgetting-curve review schedule, drawn live",
+  "sections": [
+   "hero",
+   "planner",
+   "card formats",
+   "folders",
+   "sync",
+   "closing",
+   "footer"
+  ],
+  "waived": [],
+  "prompt": "Petale Korean flashcard landing",
+  "date": "2026-11-20",
+  "mode": "build"
+ }
+]
