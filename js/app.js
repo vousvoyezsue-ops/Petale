@@ -1735,15 +1735,30 @@
   const setReviewOpen = (v) => { try { localStorage.setItem("petale.review.open", v ? "1" : "0"); } catch { /* 무시 */ } };
 
   // 한 복습 플랜의 체크포인트(각 간격 날짜). off 0 = 처음 복습(배지로 구분). end 이후는 제외.
+  // 밀려서 늦게 복습하면, 실제 복습한 날짜(doneAt)를 기준으로 이후 일정을 이어서 재계산한다
+  // (Anki식). 제때·일찍 했으면 원래 간격을 유지해 일정이 당겨지지 않는다.
   function reviewTasksOf(p) {
-    const base = rvParse(p.start).getTime();
     const endTs = p.end ? rvParse(p.end).getTime() : Infinity;
     const doneSet = new Set(p.done || []);
+    const doneAt = p.doneAt || {};
     const offs = [...new Set([0, ...(p.intervals || [])])].sort((a, b) => a - b);
-    return offs.map(off => {
-      const ts = rvDayStart(base + off * RV_DAY);
-      return { planId: p.id, deckId: p.deckId, off, ts, key: rvKey(ts), done: doneSet.has(off), first: off === 0 };
-    }).filter(tk => tk.ts <= endTs);
+    let anchorTs = rvDayStart(rvParse(p.start).getTime()); // 기준점(마지막으로 제때/늦게 끝낸 복습일)
+    let anchorOff = 0;
+    const out = [];
+    for (const off of offs) {
+      const scheduledTs = rvDayStart(anchorTs + (off - anchorOff) * RV_DAY);
+      let ts = scheduledTs;
+      const done = doneSet.has(off);
+      if (done) {
+        const actualTs = doneAt[off] ? rvDayStart(rvParse(doneAt[off]).getTime()) : scheduledTs;
+        ts = actualTs; // 끝낸 체크포인트는 실제로 복습한 날짜에 표시
+        // 밀렸으면 그 날짜 기준으로 다음 일정 이어가기, 일찍 했으면 원래 일정 유지
+        anchorTs = actualTs > scheduledTs ? actualTs : scheduledTs;
+        anchorOff = off;
+      }
+      out.push({ planId: p.id, deckId: p.deckId, off, ts, key: rvKey(ts), done, first: off === 0 });
+    }
+    return out.filter(tk => tk.ts <= endTs);
   }
   function reviewFinished(p) {
     if (p.graduated) return true;
@@ -1762,8 +1777,10 @@
     const p = Store.getReviewPlan(planId); if (!p) return;
     const was = reviewFinished(p);
     const done = new Set(p.done || []);
-    if (done.has(off)) done.delete(off); else done.add(off);
-    Store.updateReviewPlan(planId, { done: [...done] });
+    const doneAt = { ...(p.doneAt || {}) };
+    if (done.has(off)) { done.delete(off); delete doneAt[off]; }
+    else { done.add(off); doneAt[off] = rvKey(Date.now()); } // 실제 복습한 날짜 기록(밀림 재조정용)
+    Store.updateReviewPlan(planId, { done: [...done], doneAt });
     const nowFin = reviewFinished(Store.getReviewPlan(planId));
     if (nowFin && !was) toast(t("review.graduated"));
     renderReviewSection();
@@ -2120,6 +2137,9 @@
       <div class="mini-stat tone-green"><b>${c.neu}</b><span>${t("deck.new")}</span></div>
       <div class="mini-stat tone-ink"><b>${c.total}</b><span>${t("deck.total")}</span></div>`;
 
+    // 아직 안 본 새 카드가 있을 때만 '새 카드만' 버튼 노출
+    const newCount = Store.cardsOf(deck.id).filter(c => SRS.isNew(c) && !c.suspended).length;
+    $("#btnStudyNew").classList.toggle("hidden", !newCount);
     // 별표한 카드가 있을 때만 '별표 학습' 버튼 노출
     const starredCount = Store.cardsOf(deck.id).filter(c => c.starred && !c.suspended).length;
     $("#btnStudyStarred").classList.toggle("hidden", !starredCount);
@@ -3546,12 +3566,19 @@
   function startLeechSession(deckId) {
     startSessionWith(shuffleIds(Store.cardsOf(deckId).filter(isLeech)), { emptyMsg: t("study.noLeeches") });
   }
+  // 새 카드만 학습 — 아직 한 번도 안 본(new) 카드만, 등록한 순서대로(복습 카드 제외)
+  function startNewSession(deckId) {
+    if (deckId) currentDeckId = deckId;
+    const neu = Store.cardsOf(deckId).filter(c => SRS.isNew(c) && !c.suspended);
+    startSessionWith(neu.map(c => c.id), { emptyMsg: t("study.noNew") });
+  }
 
   $("#btnAddReviewDeck").addEventListener("click", () => {
     const existing = (Store.state.reviewPlans || []).find(p => p.deckId === currentDeckId && !reviewFinished(p));
     openReviewModal(existing ? existing.id : null, currentDeckId);
   });
   $("#btnStudy").addEventListener("click", () => startSession(currentDeckId));
+  $("#btnStudyNew").addEventListener("click", () => startNewSession(currentDeckId));
   $("#btnStudyStarred").addEventListener("click", () => startStarredSession(currentDeckId));
   $("#btnStudyLeeches").addEventListener("click", () => startLeechSession(currentDeckId));
   $("#btnStudyAll").addEventListener("click", () => startSession(null));
