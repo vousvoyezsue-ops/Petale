@@ -3556,7 +3556,7 @@
     const deckOf = new Map(Store.state.cards.map(c => [c.id, c.deckId]));
     const deckIds = [...new Set(queue.map(id => deckOf.get(id)).filter(Boolean))];
     // main: 복습·새 카드(복습 먼저, 새 카드 나중) / learning: 세션 중 '다시·어려움' 누른 학습 카드 {id, dueAt}
-    session = { main: queue, learning: [], current: null, done: 0, total: queue.length, revealed: false, global, history: [], again: 0, deckIds };
+    session = { main: queue, learning: [], current: null, done: 0, total: queue.length, revealed: false, global, history: [], again: 0, deckIds, hl: {} };
     $("#studyDone").classList.add("hidden");
     $(".study-stage").classList.remove("hidden");
     $("#btnUndo").classList.add("hidden");
@@ -3842,6 +3842,8 @@
     answerCard.classList.toggle("media-card", isOcc);
     answerCard.classList.toggle("has-img", !isOcc && !!(card.frontImageId || card.backImageId));
     renderFace($("#acQuestion"), card, false);
+    applyRoundHL($("#acQuestion"), card, false);
+    $("#studyHlBtn")?.classList.add("hidden");
     showNotes(card, false);
     updateStudyStar();
     updateStudyRibbon();
@@ -3896,10 +3898,12 @@
   function rerenderStudyFaces(card) {
     if (card.type === "basic") {
       renderFace($("#acQuestion"), card, false);
-      if (session.revealed) renderFace($("#acAnswer"), card, true);
+      applyRoundHL($("#acQuestion"), card, false);
+      if (session.revealed) { renderFace($("#acAnswer"), card, true); applyRoundHL($("#acAnswer"), card, true); }
     } else {
       // cloze / occlusion: 질문면이 공개 상태를 반영
       renderFace($("#acQuestion"), card, session.revealed);
+      applyRoundHL($("#acQuestion"), card, session.revealed);
     }
     showNotes(card, session.revealed);
   }
@@ -3964,6 +3968,15 @@
     }
   }
 
+  // 라운드 한정 임시 형광펜: 저장된 강조본이 있으면 되살린다(이미지 가리기는 제외).
+  function applyRoundHL(host, card, revealed) {
+    if (!host || !card || card.type === "occlusion") return;
+    const key = host.id === "acAnswer" ? "a" : (revealed ? "qr" : "q");
+    host.dataset.hlkey = key;
+    const saved = session && session.hl && session.hl[card.id] && session.hl[card.id][key];
+    if (saved != null) host.innerHTML = saved;
+  }
+
   // 카드 목록에서 개별 카드를 눌렀을 때: 앞·뒷면을 그대로 보여주는 읽기 전용 뷰어
   function openCardView(id) {
     const card = Store.state.cards.find(c => c.id === id);
@@ -4025,10 +4038,12 @@
     const card = currentCard();
     if (card.type === "basic") {
       renderFace($("#acAnswer"), card, true);
+      applyRoundHL($("#acAnswer"), card, true);
       $("#acAnswerWrap").classList.remove("hidden");
     } else {
       // cloze/occlusion은 질문 영역을 제자리에서 공개 상태로 다시 그린다
       renderFace($("#acQuestion"), card, true);
+      applyRoundHL($("#acQuestion"), card, true);
     }
     showNotes(card, true);
     $("#revealRow").classList.add("hidden");
@@ -4048,6 +4063,7 @@
     session.revealed = false;
     $("#acAnswerWrap").classList.add("hidden");
     renderFace($("#acQuestion"), card, false); // cloze/occlusion은 빈칸 상태로 복귀
+    applyRoundHL($("#acQuestion"), card, false);
     showNotes(card, false);
     ratingRow.classList.add("hidden");
     $("#flipBackRow").classList.add("hidden");
@@ -4138,10 +4154,67 @@
     });
   });
 
-  answerCard.addEventListener("click", () => reveal());
+  // 카드를 탭하면 정답 공개 — 단, 글자를 선택 중이거나 강조를 탭한 경우엔 공개하지 않음
+  answerCard.addEventListener("click", () => { if (hasStudySelection()) return; reveal(); });
   $("#btnReveal").addEventListener("click", () => reveal());
   $("#btnFlipBack").addEventListener("click", () => unreveal());
   $$(".rate-btn").forEach(b => b.addEventListener("click", () => rate(Number(b.dataset.rate))));
+
+  /* ── 라운드 한정 임시 형광펜 ── 학습 중 글자를 선택하면 '강조' 버튼이 떠서,
+     이번 라운드 동안만 그 부분을 강조한다(카드 내용엔 저장 안 됨). 강조를 탭하면 지워진다. */
+  const studyHlBtn = $("#studyHlBtn");
+  const selText = () => { const s = window.getSelection(); return s && !s.isCollapsed && s.rangeCount ? s : null; };
+  function studyFaceOfSel(sel) {
+    if (!sel) return null;
+    const r = sel.getRangeAt(0);
+    let n = r.commonAncestorContainer;
+    n = n.nodeType === 1 ? n : n.parentElement;
+    const face = n && n.closest ? n.closest("#acQuestion, #acAnswer") : null;
+    if (face && face.contains(r.startContainer) && face.contains(r.endContainer) && String(sel).trim()) return face;
+    return null;
+  }
+  function hasStudySelection() { return !!studyFaceOfSel(selText()); }
+  function hideHlBtn() { studyHlBtn.classList.add("hidden"); }
+  function updateHlBtn() {
+    if ($("#view-study").classList.contains("hidden")) return hideHlBtn();
+    if (currentCard()?.type === "occlusion") return hideHlBtn();
+    const sel = selText(); const face = studyFaceOfSel(sel);
+    if (!face) return hideHlBtn();
+    const rect = sel.getRangeAt(0).getBoundingClientRect();
+    const stage = $(".study-stage").getBoundingClientRect();
+    studyHlBtn.style.left = Math.max(8, rect.left + rect.width / 2 - stage.left) + "px";
+    studyHlBtn.style.top = (rect.top - stage.top - 10) + "px";
+    studyHlBtn.classList.remove("hidden");
+  }
+  document.addEventListener("selectionchange", updateHlBtn);
+  function saveFaceHL(face) {
+    const card = currentCard(); if (!card || !session || card.type === "occlusion") return;
+    const key = face.dataset.hlkey || "q";
+    (session.hl[card.id] = session.hl[card.id] || {})[key] = face.innerHTML;
+  }
+  studyHlBtn.addEventListener("mousedown", (e) => e.preventDefault()); // 선택 유지
+  studyHlBtn.addEventListener("click", () => {
+    const sel = selText(); const face = studyFaceOfSel(sel); if (!face) return;
+    const range = sel.getRangeAt(0);
+    const mark = document.createElement("mark"); mark.className = "shl";
+    try { range.surroundContents(mark); }
+    catch { mark.appendChild(range.extractContents()); range.insertNode(mark); }
+    sel.removeAllRanges();
+    saveFaceHL(face);
+    hideHlBtn();
+  });
+  // 강조를 탭하면 제거 (정답 공개로 전파되지 않게 캡처 단계에서 처리)
+  ["#acQuestion", "#acAnswer"].forEach(sel => {
+    $(sel).addEventListener("click", (e) => {
+      const m = e.target.closest("mark.shl");
+      if (!m) return;
+      e.stopPropagation();
+      const face = e.currentTarget, parent = m.parentNode;
+      while (m.firstChild) parent.insertBefore(m.firstChild, m);
+      parent.removeChild(m); parent.normalize();
+      saveFaceHL(face);
+    }, true);
+  });
 
   /* ── TTS ── */
   // 음성 목록은 비동기로 로드되므로(크롬) 캐시하고 voiceschanged 때 갱신한다
