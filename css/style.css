@@ -1084,6 +1084,13 @@ body[data-view="docreader"] #app { max-width: none; }
   color: var(--olive-700);
   font-weight: 640;
 }
+/* 빈칸 개별 열기: 평소엔 빈칸, 누르면 그 자리만 답으로 바뀜 */
+.cloze-cell { cursor: pointer; }
+.cloze-cell .cloze-blank { transition: background-color var(--dur-fast, .15s); }
+.cloze-cell:hover .cloze-blank, .cloze-cell:focus-visible .cloze-blank { background: var(--blush-200, color-mix(in srgb, var(--rose-600) 22%, var(--paper))); }
+.cloze-cell .cloze-peek { display: none; }
+.cloze-cell.open .cloze-blank { display: none; }
+.cloze-cell.open .cloze-peek { display: inline; }
 
 /* ═══ 순서 맞추기(sequence) — 학습 화면의 큰 폰트를 상속하지 않도록 고정 크기 ═══ */
 .seq-prompt { font-weight: 680; font-size: 15.5px; line-height: 1.4; margin-bottom: 14px; text-align: center; }
