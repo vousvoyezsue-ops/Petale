@@ -180,6 +180,28 @@ const Social = (() => {
       }
       return out;
     };
+    // 복습 플랜: 같은 플랜(id)이면 완료 체크(done)와 실제 완료일(doneAt)을 양쪽 합쳐
+    // 어느 기기에서 체크한 것도 잃지 않게 한다. 메타(간격·종료일)는 base(최신 저장) 우선.
+    const mergeReviewPlans = () => {
+      const map = new Map();
+      const put = (p, isBase) => {
+        if (!p || !p.id) return;
+        const ex = map.get(p.id);
+        if (!ex) { map.set(p.id, { ...p, done: [...(p.done || [])], doneAt: { ...(p.doneAt || {}) } }); return; }
+        ex.done = [...new Set([...(ex.done || []), ...(p.done || [])])].sort((x, y) => x - y);
+        const doneAt = { ...(p.doneAt || {}), ...(ex.doneAt || {}) };
+        for (const k of Object.keys(p.doneAt || {})) {
+          const da = (ex.doneAt || {})[k], db = p.doneAt[k];
+          if (da && db) doneAt[k] = da < db ? da : db; // 같은 오프셋 두 날짜면 더 이른(실제) 날짜
+        }
+        ex.doneAt = doneAt;
+        ex.graduated = !!(ex.graduated || p.graduated);
+        if (p.start && (!ex.start || p.start < ex.start)) ex.start = p.start; // 더 이른 시작
+      };
+      (base.reviewPlans || []).forEach(p => put(p, true));
+      (other.reviewPlans || []).forEach(p => put(p, false));
+      return [...map.values()];
+    };
     return {
       ...base,
       decks: unionById("decks"),
@@ -187,7 +209,7 @@ const Social = (() => {
       folders: unionById("folders"),
       docs: unionById("docs"),
       plans: unionById("plans"),
-      reviewPlans: unionById("reviewPlans"),
+      reviewPlans: mergeReviewPlans(),
       reviews: maxMerge("reviews"),
       newLog: maxMerge("newLog"),
       ratingCounts: maxMerge("ratingCounts"),
@@ -202,6 +224,7 @@ const Social = (() => {
           + (d.folders ? d.folders.length : 0) + (d.reviewPlans ? d.reviewPlans.length : 0);
     for (const c of (d.cards || [])) s += (c.views || 0) + (c.reps || 0) + (c.lapses || 0);
     for (const k in (d.reviews || {})) s += Number(d.reviews[k]) || 0;
+    for (const p of (d.reviewPlans || [])) s += (p.done ? p.done.length : 0); // 복습 체크도 진도로
     return s;
   }
 
