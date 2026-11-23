@@ -447,7 +447,8 @@
       if (idx === targetIdx) {
         html += revealed
           ? `<span class="cloze-answer">${answer}</span>`
-          : `<span class="cloze-blank">${hint || "⋯"}</span>`;
+          // 미공개: 빈칸 하나하나를 눌러서 개별로 열 수 있게(답은 안에 숨겨둠)
+          : `<span class="cloze-cell" role="button" tabindex="0" aria-label="${t("study.openBlank")}"><span class="cloze-blank">${hint || "⋯"}</span><span class="cloze-answer cloze-peek">${answer}</span></span>`;
       } else {
         html += answer;
       }
@@ -3844,6 +3845,7 @@
     renderFace($("#acQuestion"), card, false);
     applyRoundHL($("#acQuestion"), card, false);
     $("#studyHlBtn")?.classList.add("hidden");
+    updateClozeAllBtn();
     showNotes(card, false);
     updateStudyStar();
     updateStudyRibbon();
@@ -4064,6 +4066,7 @@
     $("#acAnswerWrap").classList.add("hidden");
     renderFace($("#acQuestion"), card, false); // cloze/occlusion은 빈칸 상태로 복귀
     applyRoundHL($("#acQuestion"), card, false);
+    updateClozeAllBtn();
     showNotes(card, false);
     ratingRow.classList.add("hidden");
     $("#flipBackRow").classList.add("hidden");
@@ -4159,6 +4162,35 @@
   $("#btnReveal").addEventListener("click", () => reveal());
   $("#btnFlipBack").addEventListener("click", () => unreveal());
   $$(".rate-btn").forEach(b => b.addEventListener("click", () => rate(Number(b.dataset.rate))));
+
+  /* ── cloze 빈칸 개별 열기 ── 같은 번호 빈칸이 여러 개면 하나씩 눌러서 열고, '전체 공개'로 한 번에. */
+  function openClozeCell(cell) { if (cell) cell.classList.add("open"); }
+  $("#acQuestion").addEventListener("click", (e) => {
+    const cell = e.target.closest(".cloze-cell");
+    if (!cell || cell.classList.contains("open")) return;
+    e.stopPropagation();           // 카드 전체 공개로 번지지 않게
+    openClozeCell(cell);
+  });
+  $("#acQuestion").addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    const cell = e.target.closest(".cloze-cell");
+    if (!cell) return;
+    e.preventDefault(); e.stopPropagation();
+    openClozeCell(cell);
+  });
+  $("#btnClozeAll").addEventListener("click", () => {
+    $("#acQuestion").querySelectorAll(".cloze-cell:not(.open)").forEach(openClozeCell);
+  });
+  // 같은 번호 빈칸이 2개 이상인 cloze 문제면 '전체 공개' 버튼을 보여준다
+  function updateClozeAllBtn() {
+    const btn = $("#btnClozeAll");
+    const card = session && session.current ? currentCard() : null;
+    let show = false;
+    if (card && card.type === "cloze" && !session.revealed) {
+      show = [...String(card.front).matchAll(CLOZE_RE)].filter(m => Number(m[1]) === card.clozeIndex).length >= 2;
+    }
+    btn.classList.toggle("hidden", !show);
+  }
 
   /* ── 라운드 한정 임시 형광펜 ── 학습 중 글자를 선택하면 '강조' 버튼이 떠서,
      이번 라운드 동안만 그 부분을 강조한다(카드 내용엔 저장 안 됨). 강조를 탭하면 지워진다. */
