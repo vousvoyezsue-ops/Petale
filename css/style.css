@@ -904,9 +904,29 @@ body[data-view="docreader"] #app { max-width: none; }
 
 .study-stage {
   display: grid; place-items: center;
+  position: relative;
   margin: clamp(26px, 4.5vw, 46px) 0 30px;
   perspective: 1600px;
 }
+/* 라운드 한정 임시 형광펜 마크(카드에 저장되는 영구 하이라이트와 구분되게 밑줄 점선) */
+.face-body mark.shl {
+  background: color-mix(in srgb, var(--amber) 36%, transparent);
+  color: inherit; border-radius: 2px; padding: 0 1px;
+  box-decoration-break: clone; -webkit-box-decoration-break: clone;
+  border-bottom: 1.5px dashed color-mix(in srgb, var(--amber) 70%, var(--ink));
+  cursor: pointer;
+}
+/* 선택 시 떠오르는 '강조' 버튼 */
+.study-hl-btn {
+  position: absolute; z-index: 5; transform: translate(-50%, -100%);
+  padding: 6px 12px; border-radius: 999px; border: none;
+  background: var(--ink); color: var(--paper);
+  font: inherit; font-size: 12.5px; font-weight: 650; line-height: 1;
+  box-shadow: 0 4px 12px -3px rgba(58,41,30,.4); cursor: pointer;
+  white-space: nowrap;
+}
+.study-hl-btn.hidden { display: none; }
+.study-hl-btn:hover { background: color-mix(in srgb, var(--ink) 86%, var(--amber)); }
 .flashcard {
   width: min(calc(680px * var(--card-scale, 1)), 100%);
   cursor: pointer;
