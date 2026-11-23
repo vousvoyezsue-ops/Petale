@@ -124,6 +124,7 @@ const Store = (() => {
     });
     s.decks.forEach(d => { d.newPerDay ??= 20; });
     repairDuplicateDecks(s); // 동기화로 생긴 '같은 이름 중복 덱' 복구(내용 보존)
+    mergeReviewPlansByDeck(s); // 한 덱에 복습 플랜이 여러 개면 하나로(완료 상태 합침)
     return s;
   }
 
@@ -186,19 +187,30 @@ const Store = (() => {
     s.decks = s.decks.filter(d => !removeDeck.has(d.id));
 
     (s.plans || []).forEach(p => { if (Array.isArray(p.deckIds)) p.deckIds = [...new Set(p.deckIds.map(id => remap.get(id) || id))]; });
-    if (Array.isArray(s.reviewPlans)) {
-      s.reviewPlans.forEach(p => { if (remap.has(p.deckId)) p.deckId = remap.get(p.deckId); });
-      // 같은 덱의 복습 플랜이 여러 개면 하나로(완료 offset 합집합, 가장 이른 시작)
-      const byDeck = new Map();
-      for (const p of s.reviewPlans) {
-        const ex = byDeck.get(p.deckId);
-        if (!ex) { byDeck.set(p.deckId, p); continue; }
-        ex.done = [...new Set([...(ex.done || []), ...(p.done || [])])];
-        if ((p.start || "") < (ex.start || "")) ex.start = p.start;
-        ex.graduated = ex.graduated && p.graduated;
+    (s.reviewPlans || []).forEach(p => { if (remap.has(p.deckId)) p.deckId = remap.get(p.deckId); });
+    return s;
+  }
+
+  // 한 덱에 복습 플랜이 여러 개면 하나로 합친다(두 기기에서 각각 만든 경우 대비).
+  // 완료 체크(done)·실제 완료일(doneAt)은 모두 합쳐 어느 쪽도 잃지 않는다. normalize에서 항상 실행.
+  function mergeReviewPlansByDeck(s) {
+    if (!Array.isArray(s.reviewPlans) || s.reviewPlans.length < 2) return s;
+    const byDeck = new Map();
+    for (const p of s.reviewPlans) {
+      if (!p || !p.deckId) continue;
+      const ex = byDeck.get(p.deckId);
+      if (!ex) { byDeck.set(p.deckId, p); continue; }
+      ex.done = [...new Set([...(ex.done || []), ...(p.done || [])])].sort((a, b) => a - b);
+      const doneAt = { ...(p.doneAt || {}), ...(ex.doneAt || {}) };
+      for (const k of Object.keys(p.doneAt || {})) {
+        const da = (ex.doneAt || {})[k], db = p.doneAt[k];
+        if (da && db) doneAt[k] = da < db ? da : db;
       }
-      s.reviewPlans = [...byDeck.values()];
+      ex.doneAt = doneAt;
+      if (p.start && (!ex.start || p.start < ex.start)) ex.start = p.start;
+      ex.graduated = !!(ex.graduated && p.graduated);
     }
+    s.reviewPlans = [...byDeck.values()];
     return s;
   }
 
