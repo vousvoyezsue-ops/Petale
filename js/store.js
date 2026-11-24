@@ -76,6 +76,7 @@ const Store = (() => {
       settings: { ...DEFAULT_SETTINGS },
       updatedAt: now, // 마지막 변경 시각 — 클라우드 동기화 충돌 판정용
       notesHtmlV: 1,  // 신규 설치는 이미 HTML 메모 포맷 — 평문 이전 마이그레이션 대상 아님
+      tombstones: {}, // { id: 삭제시각 } — 삭제를 기기 간에 전파(합집합 병합이 삭제를 못 지우던 문제 해결)
     };
   }
 
@@ -95,7 +96,22 @@ const Store = (() => {
       settings: { ...DEFAULT_SETTINGS, ...(data.settings || {}) },
       updatedAt: data.updatedAt || Date.now(),
       notesHtmlV: data.notesHtmlV || 0, // 메모 서식(HTML) 이전 버전 플래그
+      tombstones: (data.tombstones && typeof data.tombstones === "object") ? { ...data.tombstones } : {},
     };
+    // 삭제 기록은 아주 오래된 것만 정리(1년) — 그보다 최근이면 아직 못 받은 기기가 있을 수 있어 유지
+    { const cutoff = Date.now() - 365 * 86400000;
+      for (const id of Object.keys(s.tombstones)) { if (!(Number(s.tombstones[id]) > cutoff)) delete s.tombstones[id]; }
+      // 삭제된 id는 로컬 데이터에서도 제거(병합 외 경로로 들어온 경우까지 확실히)
+      const dead = s.tombstones;
+      if (Object.keys(dead).length) {
+        s.decks = s.decks.filter(d => dead[d.id] == null);
+        s.folders = s.folders.filter(f => dead[f.id] == null);
+        s.docs = s.docs.filter(d => dead[d.id] == null);
+        s.plans = s.plans.filter(p => dead[p.id] == null);
+        s.reviewPlans = s.reviewPlans.filter(p => dead[p.id] == null && dead[p.deckId] == null);
+        s.cards = s.cards.filter(c => dead[c.deckId] == null && (dead[c.id] == null || Number(c.mtime) > dead[c.id]));
+      }
+    }
     const escHTML = x => String(x).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     // 메모를 평문 → HTML로 1회 이전(서식 지원 전 메모는 escape + 줄바꿈 <br> 변환). HTML 메모와 섞이지 않게 플래그로 가드.
     if (s.notesHtmlV < 1) {
@@ -365,7 +381,14 @@ const Store = (() => {
       save();
     }
   }
+  // 삭제 기록 — 지운 id를 tombstones에 남겨 다른 기기에도 '삭제'가 전파되게 한다.
+  function tomb(ids) {
+    if (!state.tombstones) state.tombstones = {};
+    const now = Date.now();
+    for (const id of (Array.isArray(ids) ? ids : [ids])) if (id) state.tombstones[id] = now;
+  }
   function deleteDeck(id) {
+    tomb([id, ...state.cards.filter(c => c.deckId === id).map(c => c.id)]);
     state.decks = state.decks.filter(d => d.id !== id);
     state.cards = state.cards.filter(c => c.deckId !== id);
     gcMedia();
@@ -374,6 +397,7 @@ const Store = (() => {
   // 여러 덱을 한 번에 삭제(다중 선택용) — save()를 한 번만 호출한다.
   function deleteDecks(ids) {
     const kill = new Set(ids);
+    tomb([...kill, ...state.cards.filter(c => kill.has(c.deckId)).map(c => c.id)]);
     state.decks = state.decks.filter(d => !kill.has(d.id));
     state.cards = state.cards.filter(c => !kill.has(c.deckId));
     gcMedia();
@@ -408,6 +432,7 @@ const Store = (() => {
   function deleteFolder(id) {
     const gone = state.folders.find(f => f.id === id);
     const up = gone ? (gone.parentId || null) : null;
+    tomb(id);
     state.folders = state.folders.filter(f => f.id !== id);
     // 하위 폴더·덱은 삭제된 폴더의 상위로 끌어올린다(사라지지 않게)
     state.folders.forEach(f => { if (f.parentId === id) f.parentId = up; });
@@ -477,6 +502,7 @@ const Store = (() => {
     if (c) { Object.assign(c, fields); if (!("mtime" in fields)) c.mtime = Date.now(); save(); }
   }
   function deleteCard(id) {
+    tomb(id);
     state.cards = state.cards.filter(c => c.id !== id);
     gcMedia();
     save();
@@ -484,6 +510,7 @@ const Store = (() => {
   // 여러 카드를 한 번에 삭제(다중 선택용) — save()를 한 번만 호출한다.
   function deleteCards(ids) {
     const kill = new Set(ids);
+    tomb([...kill]);
     state.cards = state.cards.filter(c => !kill.has(c.id));
     gcMedia();
     save();
@@ -557,6 +584,7 @@ const Store = (() => {
     return added;
   }
   function deleteDoc(id) {
+    tomb(id);
     state.docs = state.docs.filter(d => d.id !== id);
     save();
   }
@@ -651,7 +679,7 @@ const Store = (() => {
     });
     // 사라진 빈칸 번호의 형제 삭제
     const kill = new Set(siblings.filter(c => !wanted.has(c.clozeIndex)).map(c => c.id));
-    if (kill.size) state.cards = state.cards.filter(c => !kill.has(c.id));
+    if (kill.size) { tomb([...kill]); state.cards = state.cards.filter(c => !kill.has(c.id)); }
     gcMedia();
     save();
   }
@@ -677,7 +705,7 @@ const Store = (() => {
     } else { // basic
       const { front, back } = payload;
       const sibs = noteSiblings(base).filter(c => c.id !== base.id);
-      if (sibs.length) { const kill = new Set(sibs.map(c => c.id)); state.cards = state.cards.filter(c => !kill.has(c.id)); }
+      if (sibs.length) { const kill = new Set(sibs.map(c => c.id)); tomb([...kill]); state.cards = state.cards.filter(c => !kill.has(c.id)); }
       Object.assign(base, { type: "basic", front, back: back || "", mtime: now });
       ["notes", "noteImageId", "noteImageIds", "backImageId", "section", "cardScale", "imageScale"].forEach(k => { if (k in payload) base[k] = payload[k]; });
       delete base.clozeIndex; delete base.clozeNoteId;
@@ -688,6 +716,7 @@ const Store = (() => {
 
   // 덱의 카드를 통째로 교체(공유 덱 업데이트 받기용). 학습 일정은 새로 시작.
   function replaceDeckCards(deckId, rows) {
+    tomb(state.cards.filter(c => c.deckId === deckId).map(c => c.id));
     state.cards = state.cards.filter(c => c.deckId !== deckId);
     const now = Date.now();
     rows.forEach((row, i) => {
@@ -941,7 +970,7 @@ const Store = (() => {
     if ("completed" in patch) p.completed = !!patch.completed;
     save();
   }
-  function deletePlan(id) { state.plans = state.plans.filter(p => p.id !== id); save(); }
+  function deletePlan(id) { tomb(id); state.plans = state.plans.filter(p => p.id !== id); save(); }
   function getPlan(id) { return state.plans.find(p => p.id === id); }
 
   /* ── 망각곡선 복습 플래너 ── */
@@ -973,7 +1002,7 @@ const Store = (() => {
     if ("doneAt" in patch) p.doneAt = patch.doneAt || {}; // 체크포인트별 실제 복습일(밀림 재조정용)
     save();
   }
-  function deleteReviewPlan(id) { state.reviewPlans = state.reviewPlans.filter(p => p.id !== id); save(); }
+  function deleteReviewPlan(id) { tomb(id); state.reviewPlans = state.reviewPlans.filter(p => p.id !== id); save(); }
   function getReviewPlan(id) { return state.reviewPlans.find(p => p.id === id); }
 
   const startOfDay = (ts) => { const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); };
