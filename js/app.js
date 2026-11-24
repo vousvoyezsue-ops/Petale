@@ -3984,12 +3984,18 @@
   }
 
   // 라운드 한정 임시 형광펜: 저장된 강조본이 있으면 되살린다(이미지 가리기는 제외).
+  // 면의 '글자만' 뽑아 비교용 서명으로 — 형광펜(mark)·열림 상태는 무시
+  function faceSig(el) { return (el.textContent || "").replace(/\s+/g, " ").trim(); }
   function applyRoundHL(host, card, revealed) {
     if (!host || !card || card.type === "occlusion") return;
     const key = host.id === "acAnswer" ? "a" : (revealed ? "qr" : "q");
     host.dataset.hlkey = key;
     const saved = session && session.hl && session.hl[card.id] && session.hl[card.id][key];
-    if (saved != null) host.innerHTML = saved;
+    if (saved == null) return;
+    // 스냅샷의 글자가 지금 렌더된 내용과 다르면(=카드가 수정/동기화됨) 버리고 새 내용을 쓴다
+    const tmp = document.createElement("div"); tmp.innerHTML = saved;
+    if (faceSig(tmp) !== faceSig(host)) { delete session.hl[card.id][key]; return; }
+    host.innerHTML = saved;
   }
 
   // 카드 목록에서 개별 카드를 눌렀을 때: 앞·뒷면을 그대로 보여주는 읽기 전용 뷰어
@@ -4235,7 +4241,14 @@
   function saveFaceHL(face) {
     const card = currentCard(); if (!card || !session || card.type === "occlusion") return;
     const key = face.dataset.hlkey || "q";
-    (session.hl[card.id] = session.hl[card.id] || {})[key] = face.innerHTML;
+    // cloze 빈칸이 열린 채로 저장되면 다음 복습 때 답이 보인 채로 떠버린다 — 닫은 상태로 정규화해 저장
+    let html = face.innerHTML;
+    if (face.querySelector(".cloze-cell.open")) {
+      const clone = face.cloneNode(true);
+      clone.querySelectorAll(".cloze-cell.open").forEach(c => c.classList.remove("open"));
+      html = clone.innerHTML;
+    }
+    (session.hl[card.id] = session.hl[card.id] || {})[key] = html;
   }
   studyHlBtn.addEventListener("mousedown", (e) => e.preventDefault()); // 선택 유지
   studyHlBtn.addEventListener("click", () => {
