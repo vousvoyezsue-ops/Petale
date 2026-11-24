@@ -1004,11 +1004,8 @@
       <div class="rich-field note-rich" id="cardNotesInput" contenteditable="true" role="textbox" aria-multiline="true" data-i18n-placeholder="cardModal.notesPh"></div>
       <div class="note-image-row">
         <button type="button" class="btn ghost sm" id="noteImgBtn" data-i18n="cardModal.addImage"></button>
-        <input type="file" id="noteImgFile" accept="image/*" hidden>
-        <div class="note-image-preview hidden" id="noteImgPreview">
-          <img id="noteImgThumb" alt="">
-          <button type="button" class="note-image-remove" id="noteImgRemove" data-i18n-title="cardModal.removeImage" title="remove">✕</button>
-        </div>
+        <input type="file" id="noteImgFile" accept="image/*" multiple hidden>
+        <div class="note-image-grid" id="noteImgPreview"></div>
       </div>
     </div>
 
