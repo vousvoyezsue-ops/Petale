@@ -2644,7 +2644,7 @@
     setRich($("#cardNotesInput"), card?.notes || "");
     $("#cardSectionInput").value = card?.section || "";
     $("#sectionList").innerHTML = Store.sectionsOf(currentDeckId).map(s => `<option value="${escapeHTML(s)}">`).join("");
-    noteImageData = card?.noteImageId ? (Store.getMedia(card.noteImageId) || null) : null;
+    noteImages = existingNoteIds(card).map(id => Store.getMedia(id)).filter(Boolean);
     renderNoteImagePreview();
     backImageData = card?.backImageId ? (Store.getMedia(card.backImageId) || null) : null;
     renderBackImagePreview();
@@ -2691,7 +2691,7 @@
   $("#btnAddCard").addEventListener("click", () => openCardModal());
 
   /* ── 메모(notes) 이미지 첨부 ── */
-  let noteImageData = null; // 현재 모달의 메모 이미지 dataURL (없으면 null)
+  let noteImages = []; // 현재 모달의 메모 이미지 dataURL 목록 (여러 장 가능)
   const NOTE_IMG_MAX = 1400, NOTE_IMG_QUALITY = 0.85;
   function fileToNoteDataURL(file) {
     return new Promise((resolve, reject) => {
@@ -2714,31 +2714,30 @@
   }
   function renderNoteImagePreview() {
     const wrap = $("#noteImgPreview");
-    if (noteImageData) {
-      $("#noteImgThumb").src = noteImageData;
-      wrap.classList.remove("hidden");
-      $("#noteImgBtn").textContent = t("cardModal.changeImage");
-    } else {
-      $("#noteImgThumb").removeAttribute("src");
-      wrap.classList.add("hidden");
-      $("#noteImgBtn").textContent = t("cardModal.addImage");
-    }
+    wrap.innerHTML = noteImages.map((data, i) =>
+      `<div class="note-thumb"><img src="${data}" alt=""><button type="button" class="note-image-remove" data-i="${i}" title="${t("cardModal.removeImage")}">✕</button></div>`
+    ).join("");
+    wrap.classList.toggle("hidden", !noteImages.length);
+    wrap.querySelectorAll(".note-image-remove").forEach(btn =>
+      btn.addEventListener("click", () => { noteImages.splice(Number(btn.dataset.i), 1); renderNoteImagePreview(); }));
+    $("#noteImgBtn").textContent = t(noteImages.length ? "cardModal.addMoreImage" : "cardModal.addImage");
   }
-  // 저장 시 메모 이미지를 media 로 커밋 — 안 바뀌었으면 기존 id 유지
-  function commitNoteImage(existingId) {
-    if (!noteImageData) return null;
-    if (existingId && Store.getMedia(existingId) === noteImageData) return existingId;
-    return Store.addMedia(noteImageData);
+  // 저장 시 메모 이미지들을 media 로 커밋 — 안 바뀐 건 기존 id 재사용, 순서 유지
+  function commitNoteImages(existingIds) {
+    const prev = existingIds || [];
+    return noteImages.map(data => {
+      const hit = prev.find(id => Store.getMedia(id) === data);
+      return hit || Store.addMedia(data);
+    });
   }
+  const existingNoteIds = (card) => Array.isArray(card?.noteImageIds) ? card.noteImageIds : (card?.noteImageId ? [card.noteImageId] : []);
   $("#noteImgBtn").addEventListener("click", () => $("#noteImgFile").click());
   $("#noteImgFile").addEventListener("change", async (e) => {
-    const f = e.target.files[0];
+    const files = [...e.target.files];
     e.target.value = "";
-    if (!f) return;
-    try { noteImageData = await fileToNoteDataURL(f); renderNoteImagePreview(); }
-    catch { toast(t("toast.imageFail")); }
+    for (const f of files) { try { noteImages.push(await fileToNoteDataURL(f)); } catch { toast(t("toast.imageFail")); } }
+    renderNoteImagePreview();
   });
-  $("#noteImgRemove").addEventListener("click", () => { noteImageData = null; renderNoteImagePreview(); });
   // 메모 칸에 이미지 붙여넣기(Ctrl+V) — 클립보드에 이미지가 있으면 메모 이미지로 첨부
   $("#cardNotesInput").addEventListener("paste", async (e) => {
     const items = e.clipboardData?.items;
@@ -2747,7 +2746,7 @@
       if (item.type && item.type.startsWith("image/")) {
         e.preventDefault();
         const file = item.getAsFile();
-        if (file) { try { noteImageData = await fileToNoteDataURL(file); renderNoteImagePreview(); } catch { toast(t("toast.imageFail")); } }
+        if (file) { try { noteImages.push(await fileToNoteDataURL(file)); renderNoteImagePreview(); } catch { toast(t("toast.imageFail")); } }
         return;
       }
     }
@@ -2813,12 +2812,13 @@
     const notes = getRich($("#cardNotesInput"));
     const section = $("#cardSectionInput").value.trim();
     const editCard = editingCardId ? Store.state.cards.find(c => c.id === editingCardId) : null;
-    const noteImageId = commitNoteImage(editCard?.noteImageId);
+    const noteImageIds = commitNoteImages(existingNoteIds(editCard));
+    const noteImageId = noteImageIds[0] || null; // 구버전 호환용 첫 이미지
     const backImageId = commitBackImage(editCard?.backImageId);
 
     // 이미지 가리기 편집: 헤더 + 메모만
     if (editCard?.type === "occlusion") {
-      Store.updateCard(editingCardId, { front: $("#occHeaderInput").value.trim(), notes, noteImageId, ...scaleValues() });
+      Store.updateCard(editingCardId, { front: $("#occHeaderInput").value.trim(), notes, noteImageId, noteImageIds, ...scaleValues() });
       Store.setSection(editingCardId, section); // 같은 노트의 형제 카드에도 섹션 반영
       toast(t("toast.cardUpdated"));
       afterCardSaved();
@@ -2832,15 +2832,15 @@
       if (editingCardId) {
         if (editCard && editCard.type === "cloze") {
           // 같은 노트에서 나온 형제 빈칸 카드들에 본문·메모·배율을 함께 반영(빈칸 추가·삭제 포함)
-          Store.syncClozeSiblings(editingCardId, text, indices, { notes, noteImageId, section, ...scaleValues() });
+          Store.syncClozeSiblings(editingCardId, text, indices, { notes, noteImageId, noteImageIds, section, ...scaleValues() });
         } else {
           // 기본 → 빈칸 형식 변환(학습 일정 유지)
-          Store.convertCardType(editingCardId, "cloze", { front: text, indices, notes, noteImageId, section, ...scaleValues() });
+          Store.convertCardType(editingCardId, "cloze", { front: text, indices, notes, noteImageId, noteImageIds, section, ...scaleValues() });
         }
         toast(t("toast.cardUpdated"));
       } else {
         const noteId = "n" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-        const rows = indices.map(idx => ({ type: "cloze", front: text, back: "", clozeIndex: idx, clozeNoteId: noteId, notes, noteImageId, section, ...scaleValues() }));
+        const rows = indices.map(idx => ({ type: "cloze", front: text, back: "", clozeIndex: idx, clozeNoteId: noteId, notes, noteImageId, noteImageIds, section, ...scaleValues() }));
         const ok = Store.bulkAddCards(currentDeckId, rows);
         toast(ok ? t("toast.cardsAdded", { n: rows.length }) : t("toast.storageFull"));
       }
@@ -2853,23 +2853,23 @@
     if (richIsEmpty($("#cardFrontInput")) || richIsEmpty($("#cardBackInput"))) { e.preventDefault(); return; }
     if (editingCardId && editCard && editCard.type !== "basic") {
       // 빈칸 → 기본 형식 변환(형제 빈칸 카드는 한 장으로 합치고 학습 일정 유지)
-      Store.convertCardType(editingCardId, "basic", { front, back, notes, noteImageId, backImageId, section, ...scaleValues() });
+      Store.convertCardType(editingCardId, "basic", { front, back, notes, noteImageId, noteImageIds, backImageId, section, ...scaleValues() });
       toast(t("toast.cardUpdated"));
     } else if (editingCardId) {
-      Store.updateCard(editingCardId, { front, back, notes, noteImageId, backImageId, section, ...scaleValues() });
+      Store.updateCard(editingCardId, { front, back, notes, noteImageId, noteImageIds, backImageId, section, ...scaleValues() });
       // 편집 화면에서 역방향 체크 → 이 카드의 반대 방향 카드를 (이 카드와 같은 덱에) 새로 추가.
       // currentDeckId는 복습 플래너로 학습 중이면 이 카드의 덱이 아닐 수 있으므로 카드의 deckId를 쓴다.
       if ($("#cardReversed").checked) {
-        const rev = [{ type: "basic", front: back, back: front, notes, noteImageId, frontImageId: backImageId, section, ...scaleValues() }];
+        const rev = [{ type: "basic", front: back, back: front, notes, noteImageId, noteImageIds, frontImageId: backImageId, section, ...scaleValues() }];
         const ok = Store.bulkAddCards(editCard ? editCard.deckId : currentDeckId, rev);
         toast(ok ? t("toast.reversedAdded") : t("toast.storageFull"));
       } else {
         toast(t("toast.cardUpdated"));
       }
     } else {
-      const rows = [{ type: "basic", front, back, notes, noteImageId, backImageId, section, ...scaleValues() }];
+      const rows = [{ type: "basic", front, back, notes, noteImageId, noteImageIds, backImageId, section, ...scaleValues() }];
       // 역방향 자동 카드: 답 이미지는 뒷면(원래 답)에 붙어 있으므로 앞면이 되는 쪽(frontImageId)으로 옮긴다
-      if ($("#cardReversed").checked) rows.push({ type: "basic", front: back, back: front, notes, noteImageId, frontImageId: backImageId, section, ...scaleValues() });
+      if ($("#cardReversed").checked) rows.push({ type: "basic", front: back, back: front, notes, noteImageId, noteImageIds, frontImageId: backImageId, section, ...scaleValues() });
       const ok = Store.bulkAddCards(currentDeckId, rows);
       toast(ok ? (rows.length > 1 ? t("toast.cardsAdded", { n: rows.length }) : t("toast.cardAdded")) : t("toast.storageFull"));
     }
@@ -3620,12 +3620,25 @@
   $("#recallReveal").addEventListener("click", revealRecall);
   $("#recallAgain").addEventListener("click", renderRecall);
 
+  // 카드의 메모 이미지 dataURL 목록 (구버전 noteImageId도 지원)
+  function cardNoteImages(card) {
+    const ids = Array.isArray(card.noteImageIds) ? card.noteImageIds : (card.noteImageId ? [card.noteImageId] : []);
+    return ids.map(id => Store.getMedia(id)).filter(Boolean);
+  }
+  // 메모 이미지 렌더 — 1장이면 그대로, 2장 이상이면 병렬 그리드
+  function noteImagesHTML(card) {
+    const imgs = cardNoteImages(card);
+    if (!imgs.length) return "";
+    if (imgs.length === 1) return `<img class="note-img" src="${imgs[0]}" alt="">`;
+    return `<div class="note-img-grid">${imgs.map(src => `<img class="note-img" src="${src}" alt="">`).join("")}</div>`;
+  }
+
   function notesBlockHTML(card) {
-    const noteImg = card.noteImageId ? Store.getMedia(card.noteImageId) : null;
+    const imgHtml = noteImagesHTML(card);
     const hasText = card.notes && card.notes.trim();
-    if (!hasText && !noteImg) return "";
+    if (!hasText && !imgHtml) return "";
     let html = hasText ? `<div class="note-text">${sanitizeRichHTML(card.notes)}</div>` : "";
-    if (noteImg) html += `<img class="note-img" src="${noteImg}" alt="">`;
+    html += imgHtml;
     return `<div class="ov-notes">${html}</div>`;
   }
 
@@ -3929,11 +3942,11 @@
   // 답 공개 시 카드의 추가 설명(메모)을 보여준다
   function showNotes(card, revealed) {
     const el = $("#acNotes");
-    const noteImg = card.noteImageId ? Store.getMedia(card.noteImageId) : null;
+    const imgHtml = noteImagesHTML(card);
     const hasText = card.notes && card.notes.trim();
-    if (revealed && (hasText || noteImg)) {
+    if (revealed && (hasText || imgHtml)) {
       let html = hasText ? `<div class="note-text">${sanitizeRichHTML(card.notes)}</div>` : "";
-      if (noteImg) html += `<img class="note-img" src="${noteImg}" alt="">`;
+      html += imgHtml;
       el.innerHTML = html;
       el.classList.remove("hidden");
     } else {
@@ -3986,12 +3999,12 @@
     renderFace($("#cardViewFront"), card, false); // 앞면(문제)
     renderFace($("#cardViewBack"), card, true);   // 뒷면(정답)
 
-    const noteImg = card.noteImageId ? Store.getMedia(card.noteImageId) : null;
+    const imgHtml = noteImagesHTML(card);
     const hasText = card.notes && card.notes.trim();
     const nEl = $("#cardViewNotes");
-    if (hasText || noteImg) {
+    if (hasText || imgHtml) {
       let html = hasText ? `<div class="note-text">${sanitizeRichHTML(card.notes)}</div>` : "";
-      if (noteImg) html += `<img class="note-img" src="${noteImg}" alt="">`;
+      html += imgHtml;
       nEl.innerHTML = html;
       nEl.classList.remove("hidden");
     } else {
