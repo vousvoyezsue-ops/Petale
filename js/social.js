@@ -157,17 +157,25 @@ const Social = (() => {
   function mergeCollections(a, b) {
     const base = (a.updatedAt || 0) >= (b.updatedAt || 0) ? a : b;
     const other = base === a ? b : a;
+    // 삭제 기록 합치기 — 어느 기기에서 지운 것도 반영되게. (합집합 병합이 삭제를 못 지우던 문제의 핵심 수정)
+    const tombstones = {};
+    for (const src of [a.tombstones || {}, b.tombstones || {}]) {
+      for (const id of Object.keys(src)) tombstones[id] = Math.max(tombstones[id] || 0, Number(src[id]) || 0);
+    }
+    const dead = id => tombstones[id] != null; // 덱·폴더·문서·플랜: 삭제가 우선
+    // 카드: 덱이 지워졌거나 카드가 지워졌으면 제외. 단 삭제 이후 더 최근에 '수정'된 카드는 살린다(편집이 삭제보다 나중).
+    const cardDead = c => dead(c.deckId) || (tombstones[c.id] != null && !(Number(c.mtime) > tombstones[c.id]));
     const unionById = (key) => {
       const map = new Map();
-      (base[key] || []).forEach(x => { if (x && x.id) map.set(x.id, x); });
-      (other[key] || []).forEach(x => { if (x && x.id && !map.has(x.id)) map.set(x.id, x); });
+      (base[key] || []).forEach(x => { if (x && x.id && !dead(x.id)) map.set(x.id, x); });
+      (other[key] || []).forEach(x => { if (x && x.id && !dead(x.id) && !map.has(x.id)) map.set(x.id, x); });
       return [...map.values()];
     };
     const mergeCards = () => {
       const map = new Map();
-      (base.cards || []).forEach(c => { if (c && c.id) map.set(c.id, c); });
+      (base.cards || []).forEach(c => { if (c && c.id && !cardDead(c)) map.set(c.id, c); });
       (other.cards || []).forEach(c => {
-        if (!c || !c.id) return;
+        if (!c || !c.id || cardDead(c)) return;
         const ex = map.get(c.id);
         if (!ex || cardMoreAdvanced(c, ex)) map.set(c.id, c);
       });
@@ -185,7 +193,7 @@ const Social = (() => {
     const mergeReviewPlans = () => {
       const map = new Map();
       const put = (p, isBase) => {
-        if (!p || !p.id) return;
+        if (!p || !p.id || dead(p.id) || dead(p.deckId)) return;
         const ex = map.get(p.id);
         if (!ex) { map.set(p.id, { ...p, done: [...(p.done || [])], doneAt: { ...(p.doneAt || {}) } }); return; }
         ex.done = [...new Set([...(ex.done || []), ...(p.done || [])])].sort((x, y) => x - y);
@@ -213,6 +221,7 @@ const Social = (() => {
       reviews: maxMerge("reviews"),
       newLog: maxMerge("newLog"),
       ratingCounts: maxMerge("ratingCounts"),
+      tombstones,
       updatedAt: Math.max(a.updatedAt || 0, b.updatedAt || 0),
     };
   }
@@ -225,6 +234,15 @@ const Social = (() => {
     for (const c of (d.cards || [])) s += (c.views || 0) + (c.reps || 0) + (c.lapses || 0);
     for (const k in (d.reviews || {})) s += Number(d.reviews[k]) || 0;
     for (const p of (d.reviewPlans || [])) s += (p.done ? p.done.length : 0); // 복습 체크도 진도로
+    return s;
+  }
+
+  // 화면 갱신 판단용 서명 — 진도뿐 아니라 '편집(mtime)·삭제(tombstone)'까지 바뀌면 값이 달라진다.
+  function stateSig(d) {
+    if (!d) return 0;
+    let s = progressScore(d) + (d.docs ? d.docs.length : 0) + (d.plans ? d.plans.length : 0);
+    for (const c of (d.cards || [])) s += (Number(c.mtime) || 0) % 1000000;
+    s += Object.keys(d.tombstones || {}).length * 7;
     return s;
   }
 
@@ -252,6 +270,8 @@ const Social = (() => {
     if (error) throw error;
     clearDirty();   // 서버 반영 완료 → 더 이상 '안 올린 변경' 아님
     setSynced(ts);  // 방금 올린 시점이 곧 서버 버전
+    // 실시간: 열려있는 다른 기기에 '방금 바뀌었다'고 알림 → 즉시 받아가서 병합(퀴즐렛식 라이브)
+    try { syncChannel?.send({ type: "broadcast", event: "changed", payload: { ts } }); } catch { /* 베스트에포트 */ }
   }
 
   // 변경 후 디바운스 푸시 — 저장 훅에서 호출. 실패해도 앱 흐름을 막지 않는다.
@@ -286,17 +306,50 @@ const Social = (() => {
     if (!serverChanged && !isDirty()) return;
     // 서버를 통째로 덮어쓰지 않고 진도 기준으로 병합한다 — 로컬이 더 많이 공부한 카드가
     // 서버의 낡은 상태에 덮이지 않게. (통째 교체가 기기 간 진도 유실의 원인이었다.)
-    const before = progressScore(Store.state);
+    const before = stateSig(Store.state);
     const merged = mergeCollections(Store.state, remote.data);
     Store.replaceState(merged);
     setSynced(remote.updated_at);
-    // 로컬이 서버보다 더 가진 게 있거나(또는 아직 못 올린 변경) 있으면 서버로 올려 수렴시킨다.
+    // 로컬이 서버보다 더 가진 게 있거나(또는 아직 못 올린 변경·삭제가) 있으면 서버로 올려 수렴시킨다.
     // (pushCollection 성공 시 내부에서 dirty를 지운다 — 실패하면 dirty 유지해 다음에 재시도.)
-    if (isDirty() || progressScore(merged) > progressScore(remote.data)) {
+    if (isDirty() || stateSig(merged) !== stateSig(remote.data)) {
       await pushCollection().catch(() => {});
     }
     // 서버에서 실제로 뭔가 새로 들어왔을 때만 화면 갱신/알림
-    if (progressScore(merged) !== before && onRemoteUpdate) { try { onRemoteUpdate(); } catch { /* 무시 */ } }
+    if (stateSig(merged) !== before && onRemoteUpdate) { try { onRemoteUpdate(); } catch { /* 무시 */ } }
+  }
+
+  /* ── 실시간 라이브 동기화 (Supabase Realtime broadcast + 주기적 pull 백업) ──
+     한 기기가 올리면 broadcast로 다른 기기에 즉시 알려 받아가게 하고, 혹시 연결이
+     끊길 때를 대비해 열려있는 동안 주기적으로도 서버를 확인한다. 둘 다 syncOnVisible로 수렴. */
+  let syncChannel = null, pollTimer = null, remotePullTimer = null;
+  function scheduleRemotePull() {
+    clearTimeout(remotePullTimer);
+    remotePullTimer = setTimeout(() => { syncOnVisible().catch(() => {}); }, 350);
+  }
+  function startLiveSync() {
+    if (!profile || syncChannel) return;
+    try {
+      syncChannel = sb().channel("petale-sync-" + profile.id);
+      syncChannel
+        .on("broadcast", { event: "changed" }, (msg) => {
+          // 내가 방금 올린 알림이면(= 같은 ts) 무시, 다른 기기 변경이면 받아온다
+          if (msg && msg.payload && sameTs(msg.payload.ts, getSynced())) return;
+          scheduleRemotePull();
+        })
+        .subscribe();
+    } catch { syncChannel = null; }
+    // 백업: 열려있는 동안 25초마다 조용히 확인(브로드캐스트 유실 대비)
+    clearInterval(pollTimer);
+    pollTimer = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      syncOnVisible().catch(() => {});
+    }, 25000);
+  }
+  function stopLiveSync() {
+    if (syncChannel) { try { sb().removeChannel(syncChannel); } catch { try { syncChannel.unsubscribe(); } catch {} } syncChannel = null; }
+    clearInterval(pollTimer); pollTimer = null;
+    clearTimeout(remotePullTimer); remotePullTimer = null;
   }
 
   /* ── 이미지(미디어) 스토리지 동기화 ──
@@ -1010,6 +1063,7 @@ const Social = (() => {
     sendRequest, respondRequest, removeFriend, fetchOverview,
     pushStats, pushStatsQuiet,
     syncOnLogin, schedulePush, pushCollection, syncMedia, flushPush, syncOnVisible, setOnRemoteUpdate,
+    startLiveSync, stopLiveSync,
     publishDeck, unpublishDeck, searchDecks, downloadDeck, checkDeckUpdate, pullDeckUpdate,
     scheduleSharedResync, resyncSharedNow, setDeckCollab, syncCollabDeck,
     joinRoom, leaveRoom, setRoomStudying, refreshRoomMeta, setOnRoomState, roomReady,
