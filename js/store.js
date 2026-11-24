@@ -110,6 +110,10 @@ const Store = (() => {
     s.cards.forEach(c => {
       c.type ??= "basic";
       c.views ??= (c.reps || 0) + (c.lapses || 0); // 반복 횟수 뱃지 — 기존 카드는 대략 시드
+      // 메모 이미지: 단일(noteImageId) → 배열(noteImageIds)로 통일. 첫 장은 noteImageId로도 남겨 구버전 호환.
+      if (!Array.isArray(c.noteImageIds)) c.noteImageIds = c.noteImageId ? [c.noteImageId] : [];
+      c.noteImageIds = c.noteImageIds.filter(Boolean);
+      c.noteImageId = c.noteImageIds[0] || null;
       // 시퀀스(순서 맞추기) 형식 폐지 — 기존 카드는 기본 Q&A로 변환(제목=앞면, 순서=뒷면 번호목록)
       if (c.type === "sequence") {
         const items = Array.isArray(c.seq) ? c.seq.map(x => String(x)) : [];
@@ -442,15 +446,12 @@ const Store = (() => {
     save({ touch: false });
   }
   // 카드가 참조하는 모든 미디어 id
+  const cardMediaIds = c => [c.imageId, c.frontImageId, c.backImageId, c.noteImageId, ...(Array.isArray(c.noteImageIds) ? c.noteImageIds : [])];
   function referencedMedia() {
-    return [...new Set(
-      state.cards.flatMap(c => [c.imageId, c.frontImageId, c.backImageId, c.noteImageId]).filter(Boolean)
-    )];
+    return [...new Set(state.cards.flatMap(cardMediaIds).filter(Boolean))];
   }
   function gcMedia() {
-    const used = new Set(
-      state.cards.flatMap(c => [c.imageId, c.frontImageId, c.backImageId, c.noteImageId]).filter(Boolean)
-    );
+    const used = new Set(state.cards.flatMap(cardMediaIds).filter(Boolean));
     for (const id of Object.keys(state.media)) {
       if (!used.has(id)) { delete state.media[id]; mediaDirty = true; }
     }
@@ -665,7 +666,7 @@ const Store = (() => {
     if (newType === "cloze") {
       const { front, indices = [1] } = payload;
       const content = {};
-      ["notes", "noteImageId", "section", "cardScale", "imageScale"].forEach(k => { if (k in payload) content[k] = payload[k]; });
+      ["notes", "noteImageId", "noteImageIds", "section", "cardScale", "imageScale"].forEach(k => { if (k in payload) content[k] = payload[k]; });
       const noteId = base.clozeNoteId || uid();
       const sorted = [...new Set(indices)].sort((a, b) => a - b);
       Object.assign(base, { type: "cloze", front, back: "", clozeIndex: sorted[0], clozeNoteId: noteId, mtime: now, ...content });
@@ -678,7 +679,7 @@ const Store = (() => {
       const sibs = noteSiblings(base).filter(c => c.id !== base.id);
       if (sibs.length) { const kill = new Set(sibs.map(c => c.id)); state.cards = state.cards.filter(c => !kill.has(c.id)); }
       Object.assign(base, { type: "basic", front, back: back || "", mtime: now });
-      ["notes", "noteImageId", "backImageId", "section", "cardScale", "imageScale"].forEach(k => { if (k in payload) base[k] = payload[k]; });
+      ["notes", "noteImageId", "noteImageIds", "backImageId", "section", "cardScale", "imageScale"].forEach(k => { if (k in payload) base[k] = payload[k]; });
       delete base.clozeIndex; delete base.clozeNoteId;
     }
     gcMedia();
@@ -871,8 +872,8 @@ const Store = (() => {
     });
     const media = {};
     for (const c of cards) {
-      for (const key of ["imageId", "frontImageId", "backImageId", "noteImageId"]) {
-        const mid = c[key];
+      const ids = [c.imageId, c.frontImageId, c.backImageId, c.noteImageId, ...(Array.isArray(c.noteImageIds) ? c.noteImageIds : [])];
+      for (const mid of ids) {
         if (mid && state.media[mid] && !media[mid]) media[mid] = state.media[mid];
       }
     }
@@ -898,6 +899,7 @@ const Store = (() => {
       for (const key of ["imageId", "frontImageId", "backImageId", "noteImageId"]) {
         if (card[key]) card[key] = idMap[card[key]] || null;
       }
+      if (Array.isArray(card.noteImageIds)) card.noteImageIds = card.noteImageIds.map(id => idMap[id]).filter(Boolean);
       state.cards.push(card);
       count++;
     });
@@ -914,6 +916,7 @@ const Store = (() => {
       for (const key of ["imageId", "frontImageId", "backImageId", "noteImageId"]) {
         if (card[key]) card[key] = idMap[card[key]] || null;
       }
+      if (Array.isArray(card.noteImageIds)) card.noteImageIds = card.noteImageIds.map(id => idMap[id]).filter(Boolean);
       state.cards.push(card);
       count++;
     });
