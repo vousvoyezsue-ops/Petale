@@ -5097,9 +5097,6 @@
   // 로그인됨 → 동기화 후 앱 진입
   async function enterApp() {
     $("#gateBody").classList.add("hidden");
-    const loadEl = $("#gateLoading");
-    loadEl.classList.remove("hidden");
-    loadEl.querySelector("[data-i18n]").textContent = t("gate.syncing");
 
     Store.setOnSave(() => { Social.schedulePush(); Social.scheduleSharedResync(); });
     // 다른 기기의 변경을 받아 반영하면(앱 복귀 시) 현재 화면을 다시 그리고, 바뀌었음을 알린다
@@ -5115,17 +5112,23 @@
       });
       window.addEventListener("pagehide", () => { Social.flushPush(); });
     }
-    try {
-      const r = await Social.syncOnLogin();
-      if (r && r.pulled) applySettingsToUI(); // 서버본 채택 시 언어·테마 반영
-    } catch { /* 오프라인이어도 로컬 데이터로 진입 */ }
 
+    // 로컬 데이터로 '즉시' 앱을 연다 — 클라우드 동기화는 백그라운드.
+    // (서버가 느리거나 죽어도 앱은 바로 열리고, 공부는 로컬에서 그대로 된다.)
     document.body.classList.remove("pre-auth");
     I18N.apply();
     show("home");
-    Reminders.start(); // 로그인·동기화 후 학습 알림 예약 (설정 켜져 있을 때만)
+    Reminders.start();
     try { Social.joinRoom(); } catch { /* 스터디룸은 베스트에포트 */ }
     try { Social.startLiveSync?.(); } catch { /* 실시간 동기화는 베스트에포트 */ }
+
+    // 최초 동기화는 백그라운드로 — UI를 절대 막지 않는다. 느리면 끝나는 대로 반영.
+    (async () => {
+      try {
+        const r = await Social.syncOnLogin();
+        if (r && r.pulled) { applySettingsToUI(); refreshCurrentView(); } // 서버본 채택 시 언어·테마·화면 반영
+      } catch { /* 오프라인/서버다운이어도 로컬로 계속 사용 */ }
+    })();
 
     // 이미지 기기 간 동기화(백그라운드): 다른 기기에서 만든 이미지를 내려받고,
     // 도착하면 현재 화면을 '제자리에서' 다시 그린다(스크롤 위치 유지 — 위로 안 튀게).
