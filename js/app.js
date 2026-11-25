@@ -4632,6 +4632,7 @@
     $$("#appearanceSeg .seg-btn").forEach(b => b.classList.toggle("active", b.dataset.appearance === (Store.settings.appearance || "auto")));
     $$("#themeGrid .theme-swatch").forEach(b => b.classList.toggle("active", b.dataset.theme === Store.settings.theme));
     $("#ttsToggle").checked = !!Store.settings.tts;
+    $("#cloudSyncToggle").checked = Store.settings.cloudSync !== false;
     $("#repBadgeToggle").checked = Store.settings.repBadge !== false;
     $("#lastRateToggle").checked = Store.settings.lastRate !== false;
     $("#cardBunnyToggle").checked = Store.settings.cardBunny !== false;
@@ -4659,6 +4660,23 @@
   }
 
   $("#btnSettings").addEventListener("click", () => { applySettingsToUI(); settingsModal.showModal(); });
+
+  // 수동 '동기화하기' — 기기 바꿀 때 눌러서 지금 한 번 서버와 맞춘다(자동 동기화 꺼져 있어도 동작).
+  let syncingNow = false;
+  $("#btnSyncNow").addEventListener("click", async () => {
+    if (syncingNow) return;
+    if (!Social.profile) { toast(t("share.needLogin")); return; }
+    syncingNow = true;
+    const btn = $("#btnSyncNow");
+    btn.classList.add("syncing"); btn.disabled = true;
+    toast(t("toast.syncing"));
+    let res;
+    try { res = await Social.syncNow(); } catch { res = { ok: false }; }
+    btn.classList.remove("syncing"); btn.disabled = false;
+    syncingNow = false;
+    if (res && res.ok) { refreshCurrentView(); toast(t("toast.syncDone")); }
+    else toast(t("toast.syncFail"));
+  });
 
   $$("#langSeg .seg-btn").forEach(b => b.addEventListener("click", () => {
     Store.setSetting("lang", b.dataset.lang);
@@ -4689,6 +4707,21 @@
     Store.setSetting("repBadge", e.target.checked);
     // 학습 중이면 즉시 반영
     if (session && session.current) updateRepBadge(currentCard());
+  });
+
+  $("#cloudSyncToggle").addEventListener("change", (e) => {
+    const on = e.target.checked;
+    Store.setSetting("cloudSync", on);
+    if (on) {
+      // 다시 켜면 실시간 연결 열고 지금 상태를 한 번 맞춘다
+      try { Social.startLiveSync?.(); } catch { /* 베스트에포트 */ }
+      try { Social.syncOnVisible?.(); } catch { /* 베스트에포트 */ }
+      toast(t("toast.syncOn"));
+    } else {
+      // 끄면 실시간 연결을 닫는다(이후 push/pull/poll 전부 멈춤)
+      try { Social.stopLiveSync?.(); } catch { /* 베스트에포트 */ }
+      toast(t("toast.syncOff"));
+    }
   });
 
   $("#lastRateToggle").addEventListener("change", (e) => {
