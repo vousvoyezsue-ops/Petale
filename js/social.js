@@ -39,6 +39,8 @@ const Social = (() => {
   function readCachedProfile() {
     try { return JSON.parse(localStorage.getItem("petale.profile") || "null"); } catch { return null; }
   }
+  // 클라우드 동기화 On/Off (설정) — 끄면 서버로 올리고/받는 걸 전부 멈추고 순수 로컬로만 쓴다.
+  function syncEnabled() { return !(Store.settings && Store.settings.cloudSync === false); }
 
   async function currentUser() {
     const { data } = await sb().auth.getSession();
@@ -279,7 +281,8 @@ const Social = (() => {
     return data; // { data, updated_at } | null
   }
 
-  async function pushCollection() {
+  // 실제 업로드 — 자동/수동 공용. (수동 '동기화하기'는 cloudSync가 꺼져 있어도 이걸 직접 쓴다.)
+  async function pushCollectionForce() {
     if (!profile) return;
     // 이미지(media)는 서버에 올리지 않는다 — 용량이 크고 기기에만 보관(Anki 방식).
     // 덱·카드·설정 등 텍스트/구조만 동기화한다.
@@ -295,11 +298,41 @@ const Social = (() => {
     // 실시간: 열려있는 다른 기기에 '방금 바뀌었다'고 알림 → 즉시 받아가서 병합(퀴즐렛식 라이브)
     try { syncChannel?.send({ type: "broadcast", event: "changed", payload: { ts } }); } catch { /* 베스트에포트 */ }
   }
+  // 자동 푸시는 cloudSync(자동 동기화) 켜져 있을 때만.
+  async function pushCollection() {
+    if (!syncEnabled()) return;
+    return pushCollectionForce();
+  }
+
+  // 수동 '동기화하기' — 자동 동기화가 꺼져 있어도 지금 한 번 서버와 맞춘다(받기→병합→올리기).
+  async function syncNow() {
+    if (!profile) return { ok: false, reason: "nologin" };
+    let meta;
+    try { meta = await pullMeta(); } catch { return { ok: false, reason: "net" }; }
+    if (meta === undefined) return { ok: false, reason: "net" };
+    let changed = false;
+    if (meta != null && !sameTs(meta, getSynced())) {
+      let remote;
+      try { remote = await pullCollection(); } catch { return { ok: false, reason: "net" }; }
+      if (remote && remote.data && Object.keys(remote.data).length) {
+        const before = stateSig(Store.state);
+        const merged = mergeCollections(Store.state, remote.data);
+        Store.replaceState(merged);
+        setSynced(remote.updated_at);
+        changed = stateSig(merged) !== before;
+        if (changed && onRemoteUpdate) { try { onRemoteUpdate(); } catch { /* 무시 */ } }
+      }
+    }
+    // 로컬(또는 병합 결과)을 서버로 올려 양쪽을 맞춘다
+    try { await pushCollectionForce(); } catch { return { ok: false, reason: "net" }; }
+    try { await syncMediaUp(); } catch { /* 이미지 업로드는 베스트에포트 */ }
+    return { ok: true, changed };
+  }
 
   // 변경 후 디바운스 푸시 — 저장 훅에서 호출. 실패해도 앱 흐름을 막지 않는다.
   let pushTimer = null;
   function schedulePush() {
-    if (!profile) return;
+    if (!profile || !syncEnabled()) return;
     markDirty(); // 변경 발생 즉시 기록 — 디바운스 전에 앱이 닫혀도 유실 인지
     clearTimeout(pushTimer);
     pushTimer = setTimeout(() => {
@@ -310,7 +343,7 @@ const Social = (() => {
 
   // 대기 중인 변경을 지금 즉시 서버로 (앱이 가려지거나 닫힐 때 호출 — 모바일 유실 방지)
   function flushPush() {
-    if (!profile || !isDirty()) return Promise.resolve();
+    if (!profile || !isDirty() || !syncEnabled()) return Promise.resolve();
     clearTimeout(pushTimer);
     return pushCollection().catch(() => {});
   }
@@ -318,7 +351,7 @@ const Social = (() => {
   // 앱이 다시 보일 때(또는 주기 확인·실시간 알림): 서버가 마지막 동기화 이후 바뀌었으면 받아서 반영한다.
   // 먼저 updated_at만 가볍게 확인하고, 바뀌었거나 올릴 게 있을 때만 큰 data를 읽는다(Disk IO 절감).
   async function syncOnVisible() {
-    if (!profile) return;
+    if (!profile || !syncEnabled()) return;
     let meta;
     try { meta = await pullMeta(); } catch { return; }
     if (meta === undefined) return; // 확인 실패
@@ -354,7 +387,7 @@ const Social = (() => {
     remotePullTimer = setTimeout(() => { syncOnVisible().catch(() => {}); }, 350);
   }
   function startLiveSync() {
-    if (!profile || syncChannel) return;
+    if (!profile || syncChannel || !syncEnabled()) return;
     try {
       syncChannel = sb().channel("petale-sync-" + profile.id);
       syncChannel
@@ -452,7 +485,7 @@ const Social = (() => {
 
   // 로그인 후 양방향 미디어 동기화 (백그라운드)
   function syncMedia(onUpdate) {
-    if (!profile) return;
+    if (!profile || !syncEnabled()) return;
     loadUploaded();
     syncMediaUp().catch(() => {});
     syncMediaDown(onUpdate).catch(() => {});
@@ -461,7 +494,7 @@ const Social = (() => {
   // 로그인 직후 1회: 서버·로컬 중 최신본을 채택(계정 단위 last-writer-wins).
   // 다른 계정으로 바뀌었으면 이전 사용자 데이터가 새 계정에 섞이지 않게 처리한다.
   async function syncOnLogin() {
-    if (!profile) return { pulled: false };
+    if (!profile || !syncEnabled()) return { pulled: false };
     const localOwner = localStorage.getItem(OWNER_KEY);
     // 이전에 '다른 계정'으로 로그인한 흔적이 있을 때만 남의 데이터로 취급.
     // 로그인 이력이 없으면(null) 로컬은 이 사용자의 게스트 데이터 → 보존/업로드.
@@ -497,7 +530,7 @@ const Social = (() => {
 
   /* ── 학습 기록 동기화 ── */
   async function pushStats() {
-    if (!profile) return;
+    if (!profile || !syncEnabled()) return;
     const day = Store.todayKey();
     const reviews = Store.state.reviews[day] || 0;
     const streak = Store.streak();
@@ -925,7 +958,7 @@ const Social = (() => {
   }
   let resyncTimer = null, resyncing = false;
   function scheduleSharedResync() {
-    if (!profile) return;
+    if (!profile || !syncEnabled()) return;
     clearTimeout(resyncTimer);
     resyncTimer = setTimeout(() => { resyncSharedNow().catch(() => {}); }, 6000);
   }
@@ -1096,7 +1129,7 @@ const Social = (() => {
     sendRequest, respondRequest, removeFriend, fetchOverview,
     pushStats, pushStatsQuiet,
     syncOnLogin, schedulePush, pushCollection, syncMedia, flushPush, syncOnVisible, setOnRemoteUpdate,
-    startLiveSync, stopLiveSync,
+    startLiveSync, stopLiveSync, syncNow,
     publishDeck, unpublishDeck, searchDecks, downloadDeck, checkDeckUpdate, pullDeckUpdate,
     scheduleSharedResync, resyncSharedNow, setDeckCollab, syncCollabDeck,
     joinRoom, leaveRoom, setRoomStudying, refreshRoomMeta, setOnRoomState, roomReady,

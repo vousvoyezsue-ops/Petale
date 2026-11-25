@@ -3171,6 +3171,7 @@ body:not(.pre-auth) .auth-gate { display: none; }
   animation: spin .8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+.icon-btn.syncing svg { animation: spin .8s linear infinite; transform-origin: 50% 50%; }
 
 .gate-tag {
   text-align: center; color: var(--ink-2);
