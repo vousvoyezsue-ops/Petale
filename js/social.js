@@ -29,6 +29,17 @@ const Social = (() => {
   let lastAuthError = null;
   function consumeAuthError() { const e = lastAuthError; lastAuthError = null; return e; }
 
+  // 네트워크/DB 호출이 '에러도 안 나고 무한정 멈추는' 경우를 막는다(서버 과부하/다운 대비).
+  // 제한 시간 넘으면 reject → 호출부의 try/catch가 로컬 폴백으로 넘어간다.
+  function withTimeout(promise, ms, label) {
+    let tid;
+    const timeout = new Promise((_, reject) => { tid = setTimeout(() => reject(new Error((label || "op") + "_timeout")), ms); });
+    return Promise.race([Promise.resolve(promise), timeout]).finally(() => clearTimeout(tid));
+  }
+  function readCachedProfile() {
+    try { return JSON.parse(localStorage.getItem("petale.profile") || "null"); } catch { return null; }
+  }
+
   async function currentUser() {
     const { data } = await sb().auth.getSession();
     return data.session?.user ?? null;
@@ -249,21 +260,21 @@ const Social = (() => {
   // 가벼운 변경 확인 — 큰 data는 빼고 updated_at만 읽는다(주기적 확인의 Disk IO 절감).
   async function pullMeta() {
     if (!profile) return undefined; // undefined = 확인 실패(네트워크 등)
-    const { data, error } = await sb()
+    const { data, error } = await withTimeout(sb()
       .from("petale_collections")
       .select("updated_at")
       .eq("user_id", profile.id)
-      .maybeSingle();
+      .maybeSingle(), 8000, "pullMeta");
     if (error) throw error;
     return data ? data.updated_at : null; // null = 서버에 아직 행 없음
   }
   async function pullCollection() {
     if (!profile) return null;
-    const { data, error } = await sb()
+    const { data, error } = await withTimeout(sb()
       .from("petale_collections")
       .select("data, updated_at")
       .eq("user_id", profile.id)
-      .maybeSingle();
+      .maybeSingle(), 12000, "pull");
     if (error) throw error;
     return data; // { data, updated_at } | null
   }
@@ -274,10 +285,10 @@ const Social = (() => {
     // 덱·카드·설정 등 텍스트/구조만 동기화한다.
     const { media, ...noMedia } = Store.state;
     const ts = new Date().toISOString();
-    const { error } = await sb().from("petale_collections").upsert(
+    const { error } = await withTimeout(sb().from("petale_collections").upsert(
       { user_id: profile.id, data: noMedia, updated_at: ts },
       { onConflict: "user_id" },
-    );
+    ), 10000, "push");
     if (error) throw error;
     clearDirty();   // 서버 반영 완료 → 더 이상 '안 올린 변경' 아님
     setSynced(ts);  // 방금 올린 시점이 곧 서버 버전
@@ -991,21 +1002,28 @@ const Social = (() => {
 
   async function init() {
     try {
-      await settleOAuthRedirect();
-      const user = await currentUser();
+      try { await withTimeout(settleOAuthRedirect(), 4000, "oauth"); } catch { /* 리다이렉트 정리 지연은 무시 */ }
+      let user = null;
+      try {
+        user = await withTimeout(currentUser(), 4000, "session");
+      } catch (e) {
+        // 세션 확인이 지연/실패 — 캐시된 프로필이 있으면 그걸로 로그인 유지(서버 느림/오프라인 대비)
+        const cached = readCachedProfile();
+        if (cached && cached.id) { profile = cached; console.warn("[Petale auth] session check slow — using cached identity", e); return profile; }
+        throw e;
+      }
       if (!user) { profile = null; return null; } // 진짜 로그아웃 상태
 
-      // 세션이 유효하면 로그인 유지. 프로필 조회는 실패해도 캐시/세션으로 버틴다.
+      // 세션이 유효하면 로그인 유지. 프로필 조회가 느리거나(서버 과부하) 실패해도 캐시/세션으로 버틴다.
       try {
-        await ensureProfile();
+        await withTimeout(ensureProfile(), 4000, "profile");
         if (profile) { try { localStorage.setItem("petale.profile", JSON.stringify(profile)); } catch {} }
       } catch (e) {
-        let cached = null;
-        try { cached = JSON.parse(localStorage.getItem("petale.profile") || "null"); } catch {}
+        const cached = readCachedProfile();
         profile = (cached && cached.id === user.id)
           ? cached
           : { id: user.id, username: sanitizeUsername(user.email ? user.email.split("@")[0] : "user") };
-        console.warn("[Petale auth] profile fetch failed — staying signed in with cached identity", e);
+        console.warn("[Petale auth] profile fetch slow/failed — staying signed in with cached identity", e);
       }
       return profile;
     } catch (e) {
