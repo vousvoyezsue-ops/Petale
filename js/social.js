@@ -246,6 +246,17 @@ const Social = (() => {
     return s;
   }
 
+  // 가벼운 변경 확인 — 큰 data는 빼고 updated_at만 읽는다(주기적 확인의 Disk IO 절감).
+  async function pullMeta() {
+    if (!profile) return undefined; // undefined = 확인 실패(네트워크 등)
+    const { data, error } = await sb()
+      .from("petale_collections")
+      .select("updated_at")
+      .eq("user_id", profile.id)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? data.updated_at : null; // null = 서버에 아직 행 없음
+  }
   async function pullCollection() {
     if (!profile) return null;
     const { data, error } = await sb()
@@ -293,17 +304,21 @@ const Social = (() => {
     return pushCollection().catch(() => {});
   }
 
-  // 앱이 다시 보일 때: 서버가 마지막 동기화 이후 바뀌었으면 받아서 반영한다.
+  // 앱이 다시 보일 때(또는 주기 확인·실시간 알림): 서버가 마지막 동기화 이후 바뀌었으면 받아서 반영한다.
+  // 먼저 updated_at만 가볍게 확인하고, 바뀌었거나 올릴 게 있을 때만 큰 data를 읽는다(Disk IO 절감).
   async function syncOnVisible() {
     if (!profile) return;
+    let meta;
+    try { meta = await pullMeta(); } catch { return; }
+    if (meta === undefined) return; // 확인 실패
+    const serverChanged = meta != null && !sameTs(meta, getSynced());
+    if (!serverChanged) { if (isDirty()) await flushPush(); return; } // 서버 그대로면 큰 data를 안 읽는다
     let remote = null;
     try { remote = await pullCollection(); } catch { return; }
     if (!remote || !remote.data || !Object.keys(remote.data).length) {
       if (isDirty()) await flushPush();
       return;
     }
-    const serverChanged = !sameTs(remote.updated_at, getSynced());
-    if (!serverChanged && !isDirty()) return;
     // 서버를 통째로 덮어쓰지 않고 진도 기준으로 병합한다 — 로컬이 더 많이 공부한 카드가
     // 서버의 낡은 상태에 덮이지 않게. (통째 교체가 기기 간 진도 유실의 원인이었다.)
     const before = stateSig(Store.state);
@@ -339,12 +354,12 @@ const Social = (() => {
         })
         .subscribe();
     } catch { syncChannel = null; }
-    // 백업: 열려있는 동안 25초마다 조용히 확인(브로드캐스트 유실 대비)
+    // 백업: 열려있는 동안 60초마다 '가벼운' 확인(updated_at만 읽음). 빠른 반영은 broadcast가 담당.
     clearInterval(pollTimer);
     pollTimer = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return;
       syncOnVisible().catch(() => {});
-    }, 25000);
+    }, 60000);
   }
   function stopLiveSync() {
     if (syncChannel) { try { sb().removeChannel(syncChannel); } catch { try { syncChannel.unsubscribe(); } catch {} } syncChannel = null; }
