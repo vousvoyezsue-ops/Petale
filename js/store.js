@@ -136,6 +136,11 @@ const Store = (() => {
         c.options = raw
           .map(o => ({ t: String(o && o.t != null ? o.t : (o && o.text != null ? o.text : "")), c: !!(o && (o.c ?? o.correct)) }))
           .filter(o => o.t.trim());
+        // 틀린 보기 자동 채우기(같은 덱 다른 카드에서 랜덤) 설정
+        c.autoWrong = !!c.autoWrong;
+        let n = Math.round(Number(c.autoWrongN));
+        if (!Number.isFinite(n) || n < 0) n = c.autoWrong ? 4 : 0;
+        c.autoWrongN = Math.min(10, n);
       }
       // 시퀀스(순서 맞추기) 형식 폐지 — 기존 카드는 기본 Q&A로 변환(제목=앞면, 순서=뒷면 번호목록)
       if (c.type === "sequence") {
