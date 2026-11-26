@@ -1020,7 +1020,7 @@ body[data-view="docreader"] #app { max-width: none; }
 }
 /* 카드 우측 상단 코너: 반복 횟수 뱃지 + 읽어주기 버튼 */
 .ac-corner {
-  position: absolute; top: 12px; right: 12px;
+  position: absolute; top: 26px; right: 16px;
   display: flex; align-items: center; gap: 8px;
   z-index: 2;
 }
