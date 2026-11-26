@@ -1036,15 +1036,17 @@ body[data-view="docreader"] #app { max-width: none; }
 }
 .speak-btn[hidden] { display: none; }
 .speak-btn:hover { color: var(--rose-600); transform: scale(1.08); }
-/* 반복 횟수 캡슐 */
+/* 소리 버튼은 카드 오른쪽 하단 */
+.answer-card .speak-corner { position: absolute; bottom: 12px; right: 14px; z-index: 2; }
+/* 반복 횟수 — 숫자만 작은 원형 배지 */
 .rep-badge {
-  display: inline-flex; align-items: center;
-  padding: 4px 11px;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 24px; height: 24px; padding: 0 6px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--sage-400) 16%, var(--paper));
   border: 1px solid color-mix(in srgb, var(--sage-400) 38%, transparent);
   color: var(--olive-700);
-  font-size: 12px; font-weight: 650; letter-spacing: -.01em;
+  font-size: 12.5px; font-weight: 700; letter-spacing: -.01em;
   white-space: nowrap; line-height: 1;
 }
 .rep-badge.hidden { display: none; }
@@ -3423,7 +3425,7 @@ body:not(.pre-auth) .auth-gate { display: none; }
 /* ── 학습 화면 장(섹션) 리본 — 지금 어느 챕터인지 한눈에 ── */
 /* 학습 중 주제(챕터) — 카드 왼쪽 위 구석에 작은 알약 라벨로 */
 .ac-topic {
-  position: absolute; top: 12px; left: 14px; z-index: 2;
+  position: absolute; top: 26px; left: 16px; z-index: 2;
   display: inline-flex; align-items: center; gap: 6px;
   max-width: calc(100% - 120px); /* 오른쪽 위 배지와 겹치지 않게 */
   padding: 4px 12px;
