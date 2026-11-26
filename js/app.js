@@ -4080,7 +4080,8 @@
     if (!el) return;
     if (Store.settings.repBadge === false) { el.classList.add("hidden"); return; }
     const n = (card.roundViews || 0) + 1; // 이번 라운드 기준(라운드 끝나면 초기화)
-    el.textContent = t("study.rep", { n });
+    el.textContent = String(n); // 숫자만 (몇 회째인지)
+    el.title = t("study.rep", { n });
     el.classList.remove("hidden");
   }
 
