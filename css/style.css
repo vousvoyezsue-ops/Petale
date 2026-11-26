@@ -1124,6 +1124,8 @@ button.sel-opt:hover { border-color: var(--rose-600); }
 .sel-result.ok { color: #5a8a3c; }
 .sel-result.no { color: var(--danger); }
 .select-opts.static .sel-opt { cursor: default; }
+.auto-wrong-row { display: flex; align-items: center; gap: 8px; margin: 2px 0 2px 26px; font-size: .9rem; }
+.auto-wrong-row input[type="number"] { width: 60px; padding: 5px 8px; border: 1px solid var(--edge); border-radius: 8px; background: var(--card, var(--paper)); color: inherit; font: inherit; }
 
 /* ═══ 순서 맞추기(sequence) — 학습 화면의 큰 폰트를 상속하지 않도록 고정 크기 ═══ */
 .seq-prompt { font-weight: 680; font-size: 15.5px; line-height: 1.4; margin-bottom: 14px; text-align: center; }

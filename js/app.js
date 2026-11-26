@@ -2618,6 +2618,9 @@
     else { addOptionRow("", false); addOptionRow("", false); } // 신규: 빈 보기 2줄
   }
   $("#addOptBtn").addEventListener("click", () => addOptionRow("", false));
+  $("#autoWrongToggle").addEventListener("change", (e) => {
+    $("#autoWrongRow").classList.toggle("hidden", !e.target.checked);
+  });
 
   const scaleFields = ["cardScale", "imageScale"];
   function setScaleControls(card) {
@@ -2683,6 +2686,9 @@
     // 선택 필드 초기화(이전 모달 잔상 제거)
     setRich($("#selectPromptInput"), "");
     $("#selectOptList").innerHTML = "";
+    $("#autoWrongToggle").checked = false;
+    $("#autoWrongN").value = 4;
+    $("#autoWrongRow").classList.add("hidden");
     $("#cardReversed").checked = false;
     // 편집 중이면 "새로 만들기", 신규면 "함께 만들기" — 역방향 카드는 항상 새 카드로 추가
     $("#reversedLabel").textContent = t(card ? "cardModal.reversedEdit" : "cardModal.reversed");
@@ -2712,6 +2718,9 @@
       setCardType("select");
       setRich($("#selectPromptInput"), card.front || "");
       fillOptionRows(card);
+      $("#autoWrongToggle").checked = !!card.autoWrong;
+      $("#autoWrongN").value = card.autoWrongN || 4;
+      $("#autoWrongRow").classList.toggle("hidden", !card.autoWrong);
       setRich($("#cardFrontInput"), ""); setRich($("#cardBackInput"), ""); setRich($("#clozeInput"), "");
     } else {
       // 새 카드는 항상 basic으로 시작(직전 타입을 기억하지 않아 헷갈리지 않게)
@@ -2901,11 +2910,14 @@
     if (cardType === "select") {
       const prompt = getRich($("#selectPromptInput"));
       const options = readOptionRows();
-      // 질문 + 보기 2개 이상 + 정답 1개 이상 필요
-      if (richIsEmpty($("#selectPromptInput")) || options.length < 2 || !options.some(o => o.c)) {
-        e.preventDefault(); toast(t("toast.selectNeeded")); return;
+      const autoWrong = $("#autoWrongToggle").checked;
+      const autoWrongN = Math.min(10, Math.max(1, Number($("#autoWrongN").value) || 4));
+      const correctN = options.filter(o => o.c).length;
+      // 질문 + 정답 1개 이상 필수. 자동 오답이 아니면 보기 2개 이상도 필요.
+      if (richIsEmpty($("#selectPromptInput")) || correctN < 1 || (!autoWrong && options.length < 2)) {
+        e.preventDefault(); toast(t(autoWrong ? "toast.selectNeededAuto" : "toast.selectNeeded")); return;
       }
-      const payload = { type: "select", front: prompt, options, notes, noteImageId, noteImageIds, section, ...scaleValues() };
+      const payload = { type: "select", front: prompt, options, autoWrong, autoWrongN, notes, noteImageId, noteImageIds, section, ...scaleValues() };
       if (editingCardId) { Store.updateCard(editingCardId, payload); toast(t("toast.cardUpdated")); }
       else { const ok = Store.bulkAddCards(currentDeckId, [payload]); toast(ok ? t("toast.cardAdded") : t("toast.storageFull")); }
       afterCardSaved();
@@ -3919,9 +3931,32 @@
 
   /* ── 선택(객관식/체크리스트) 카드 학습 ── */
   const selShuffle = arr => arr.map(v => [Math.random(), v]).sort((a, b) => a[0] - b[0]).map(p => p[1]);
-  // 학습 화면: 질문 + 보기(매번 순서 섞음)를 눌러서 고르는 버튼으로 그린다
+  // 학습에 쓸 보기 목록을 만든다. autoWrong 이면 같은 덱의 다른 select 카드 보기에서
+  // 틀린 보기(오답)를 랜덤으로 끌어와 채운다 — 매번 다른 오답이 섞이게.
+  function buildSelectOptions(card) {
+    const own = (Array.isArray(card.options) ? card.options : []).map(o => ({ t: o.t, c: !!o.c }));
+    if (!card.autoWrong) return own;
+    const norm = s => String(s).trim().toLowerCase();
+    const correctSet = new Set(own.filter(o => o.c).map(o => norm(o.t)));
+    const ownSet = new Set(own.map(o => norm(o.t)));
+    // 후보 오답 모으기: 같은 덱의 다른 select 카드들의 보기 (이 카드 정답과 겹치는 건 제외)
+    const seen = new Set(), pool = [];
+    for (const c of Store.cardsOf(card.deckId)) {
+      if (c.id === card.id || c.type !== "select" || !Array.isArray(c.options)) continue;
+      for (const o of c.options) {
+        const k = norm(o.t);
+        if (!k || correctSet.has(k) || ownSet.has(k) || seen.has(k)) continue;
+        seen.add(k); pool.push(o.t);
+      }
+    }
+    const n = Math.max(0, Number(card.autoWrongN) || 0);
+    const picks = selShuffle(pool).slice(0, n).map(t => ({ t, c: false }));
+    return own.concat(picks);
+  }
+  // 학습 화면: 질문 + 보기(매번 순서 섞음, autoWrong이면 오답도 랜덤)를 버튼으로 그린다
   function renderSelectStudy(card) {
-    const opts = Array.isArray(card.options) ? card.options : [];
+    const opts = buildSelectOptions(card);
+    session.selOpts = opts; // 채점은 '지금 그린' 보기 기준(랜덤 오답 포함)으로 한다
     session.selOrder = selShuffle([...opts.keys()]);
     session.selPicked = new Set();
     const buttons = session.selOrder.map(i =>
@@ -3934,7 +3969,7 @@
   }
   // '정답 확인' 시 채점 — 맞은 보기는 초록, 틀리게 고른 건 빨강, 놓친 정답은 표시
   function gradeSelect(card) {
-    const opts = Array.isArray(card.options) ? card.options : [];
+    const opts = session.selOpts || (Array.isArray(card.options) ? card.options : []);
     let got = 0, total = 0, wrong = 0, missed = 0;
     $("#acQuestion").querySelectorAll(".sel-opt[data-i]").forEach(el => {
       const i = Number(el.dataset.i);
