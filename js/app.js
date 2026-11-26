@@ -3521,6 +3521,19 @@
         for (const idx of indices) rows.push({ type: "cloze", front, back: "", clozeIndex: idx, section, notes });
         continue;
       }
+      // 선택(객관식/체크리스트) 카드: "[x] 정답" / "[ ] 오답" 체크박스 줄이 2개 이상이면.
+      // 체크된([x]) 보기가 정답. 체크박스가 아닌 윗줄들은 질문으로 묶인다.
+      const optLineRe = /^\s*\[([ xX])\]\s*(.+)$/;
+      const optLines = blkLines.filter(l => optLineRe.test(l));
+      if (optLines.length >= 2) {
+        const options = optLines.map(l => { const m = optLineRe.exec(l); return { t: m[2].trim(), c: m[1].toLowerCase() === "x" }; }).filter(o => o.t);
+        const promptLines = blkLines.filter(l => !optLineRe.test(l) && l.trim());
+        const front = linesToHtml(promptLines.join("\n").trim().split("\n"));
+        if (front && options.length >= 2 && options.some(o => o.c)) {
+          rows.push({ type: "select", front, options, section, notes });
+          continue;
+        }
+      }
       let front, back;
       // Q/A 구분선(--- 또는 ===): 윗부분 = 질문, 아랫부분 = 답 (여러 줄·불릿 자유)
       const qaSep = blkLines.findIndex(l => /^\s*(?:-{3,}|={3,})\s*$/.test(l));
