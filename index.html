@@ -999,6 +999,16 @@
         <button type="button" class="btn ghost sm" id="addOptBtn" data-i18n="cardModal.addOption"></button>
         <p class="field-hint" data-i18n="cardModal.selectHint"></p>
       </div>
+      <label class="check-row">
+        <input type="checkbox" id="autoWrongToggle">
+        <span data-i18n="cardModal.autoWrong"></span>
+      </label>
+      <div class="auto-wrong-row hidden" id="autoWrongRow">
+        <span data-i18n="cardModal.autoWrongN"></span>
+        <input type="number" id="autoWrongN" min="1" max="10" step="1" value="4">
+        <span data-i18n="cardModal.autoWrongUnit"></span>
+      </div>
+      <p class="field-hint" data-i18n="cardModal.autoWrongHint"></p>
     </div>
 
     <div id="occTextFields" class="hidden">
