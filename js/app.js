@@ -478,6 +478,11 @@
       const plain = clozeStrip(card.front).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
       return { front: plain, back: `${t("type.cloze")} c${card.clozeIndex}` };
     }
+    if (card.type === "select") {
+      const plain = String(card.front || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      const n = Array.isArray(card.options) ? card.options.length : 0;
+      return { front: plain, back: t("type.select") + (n ? ` · ${n}` : "") };
+    }
     return { front: card.front, back: card.back };
   }
 
@@ -2579,12 +2584,40 @@
     $$("#typeTabs .type-tab").forEach(b => b.classList.toggle("active", b.dataset.type === type));
     $("#basicFields").classList.toggle("hidden", type !== "basic");
     $("#clozeFields").classList.toggle("hidden", type !== "cloze");
+    $("#selectFields").classList.toggle("hidden", type !== "select");
     $("#richToolbar").classList.toggle("hidden", type === "occlusion");
     // 빈칸 삽입 버튼은 cloze 모드에서만 노출
     $$(".rt-cloze-only").forEach(el => el.classList.toggle("hidden", type !== "cloze"));
     // 반대 방향 카드 옵션은 basic 카드에서만 (신규·편집 모두)
     $("#reversedRow").classList.toggle("hidden", type !== "basic");
   }
+
+  /* ── 선택(객관식/체크리스트) 카드 보기 편집 ── */
+  function addOptionRow(text = "", correct = false) {
+    const row = document.createElement("div");
+    row.className = "sel-opt-edit";
+    row.innerHTML =
+      `<input type="text" class="sel-opt-text" maxlength="300" placeholder="${escapeHTML(t("cardModal.optionPh"))}">` +
+      `<label class="sel-opt-correct" title="${escapeHTML(t("cardModal.optionCorrect"))}"><input type="checkbox" class="sel-opt-c"><span data-i18n="cardModal.optionCorrect">${escapeHTML(t("cardModal.optionCorrect"))}</span></label>` +
+      `<button type="button" class="sel-opt-del" aria-label="remove">✕</button>`;
+    row.querySelector(".sel-opt-text").value = text;
+    row.querySelector(".sel-opt-c").checked = !!correct;
+    row.querySelector(".sel-opt-del").addEventListener("click", () => row.remove());
+    $("#selectOptList").appendChild(row);
+    return row;
+  }
+  function readOptionRows() {
+    return [...$("#selectOptList").querySelectorAll(".sel-opt-edit")]
+      .map(r => ({ t: r.querySelector(".sel-opt-text").value.trim(), c: r.querySelector(".sel-opt-c").checked }))
+      .filter(o => o.t);
+  }
+  function fillOptionRows(card) {
+    $("#selectOptList").innerHTML = "";
+    const opts = card && Array.isArray(card.options) && card.options.length ? card.options : null;
+    if (opts) opts.forEach(o => addOptionRow(o.t, o.c));
+    else { addOptionRow("", false); addOptionRow("", false); } // 신규: 빈 보기 2줄
+  }
+  $("#addOptBtn").addEventListener("click", () => addOptionRow("", false));
 
   const scaleFields = ["cardScale", "imageScale"];
   function setScaleControls(card) {
@@ -2623,6 +2656,13 @@
       setRich($("#clozeInput"), seed);
     } else if (to === "basic" && richIsEmpty($("#cardFrontInput")) && !richIsEmpty($("#clozeInput"))) {
       setRich($("#cardFrontInput"), clozeStrip(getRich($("#clozeInput"))));
+    } else if (to === "select") {
+      // 선택 카드로 전환: 질문은 앞면/빈칸 본문에서 가져오고, 보기 줄이 없으면 빈 2줄을 만든다
+      if (richIsEmpty($("#selectPromptInput"))) {
+        if (!richIsEmpty($("#cardFrontInput"))) setRich($("#selectPromptInput"), getRich($("#cardFrontInput")));
+        else if (!richIsEmpty($("#clozeInput"))) setRich($("#selectPromptInput"), clozeStrip(getRich($("#clozeInput"))));
+      }
+      if (!$("#selectOptList").children.length) fillOptionRows(null);
     }
     setCardType(to);
   }));
@@ -2631,13 +2671,18 @@
     editingCardId = cardId;
     const card = cardId ? Store.state.cards.find(c => c.id === cardId) : null;
     const isOcc = card?.type === "occlusion";
+    const isSelect = card?.type === "select";
     $("#cardModalTitle").textContent = card ? t("cardModal.edit") : t("cardModal.add");
     $("#cardModalSubmit").textContent = card ? t("cardModal.submitSave") : t("cardModal.submitAdd");
     // 편집 중에도 형식(기본↔빈칸)을 바꿀 수 있게 탭을 노출한다. 단 이미지 가리기는
     // 이미지 기반이라 별도 에디터라서, 편집 중엔 '이미지 가리기' 탭은 숨기고(텍스트↔이미지 변환 미지원)
     // 이미지 가리기 카드를 편집할 때는 탭 전체를 숨긴다(헤더·메모만 수정).
-    $("#typeTabs").classList.toggle("hidden", !!card && isOcc);
+    // 편집 중 이미지가리기·선택 카드는 형식 변환을 지원하지 않으므로 탭을 숨긴다
+    $("#typeTabs").classList.toggle("hidden", !!card && (isOcc || isSelect));
     $('#typeTabs .type-tab[data-type="occlusion"]')?.classList.toggle("hidden", !!card);
+    // 선택 필드 초기화(이전 모달 잔상 제거)
+    setRich($("#selectPromptInput"), "");
+    $("#selectOptList").innerHTML = "";
     $("#cardReversed").checked = false;
     // 편집 중이면 "새로 만들기", 신규면 "함께 만들기" — 역방향 카드는 항상 새 카드로 추가
     $("#reversedLabel").textContent = t(card ? "cardModal.reversedEdit" : "cardModal.reversed");
@@ -2663,6 +2708,11 @@
       setRich($("#clozeInput"), card.front);
       setRich($("#cardFrontInput"), ""); // 형식 전환 대비 비활성 칸 초기화
       setRich($("#cardBackInput"), "");
+    } else if (isSelect) {
+      setCardType("select");
+      setRich($("#selectPromptInput"), card.front || "");
+      fillOptionRows(card);
+      setRich($("#cardFrontInput"), ""); setRich($("#cardBackInput"), ""); setRich($("#clozeInput"), "");
     } else {
       // 새 카드는 항상 basic으로 시작(직전 타입을 기억하지 않아 헷갈리지 않게)
       setCardType("basic");
@@ -2848,6 +2898,20 @@
       return;
     }
 
+    if (cardType === "select") {
+      const prompt = getRich($("#selectPromptInput"));
+      const options = readOptionRows();
+      // 질문 + 보기 2개 이상 + 정답 1개 이상 필요
+      if (richIsEmpty($("#selectPromptInput")) || options.length < 2 || !options.some(o => o.c)) {
+        e.preventDefault(); toast(t("toast.selectNeeded")); return;
+      }
+      const payload = { type: "select", front: prompt, options, notes, noteImageId, noteImageIds, section, ...scaleValues() };
+      if (editingCardId) { Store.updateCard(editingCardId, payload); toast(t("toast.cardUpdated")); }
+      else { const ok = Store.bulkAddCards(currentDeckId, [payload]); toast(ok ? t("toast.cardAdded") : t("toast.storageFull")); }
+      afterCardSaved();
+      return;
+    }
+
     const front = getRich($("#cardFrontInput"));
     const back = getRich($("#cardBackInput"));
     if (richIsEmpty($("#cardFrontInput")) || richIsEmpty($("#cardBackInput"))) { e.preventDefault(); return; }
@@ -2878,7 +2942,7 @@
 
   /* ══════════ 서식 툴바(굵게/밑줄/글자색/하이라이트) ══════════ */
   let activeRichField = $("#cardFrontInput");
-  [$("#cardFrontInput"), $("#cardBackInput"), $("#clozeInput"), $("#cardNotesInput")].forEach(el => {
+  [$("#cardFrontInput"), $("#cardBackInput"), $("#clozeInput"), $("#cardNotesInput"), $("#selectPromptInput")].forEach(el => {
             el.addEventListener("focusin", () => {
       activeRichField = el;
       try { document.execCommand("defaultParagraphSeparator", false, "br"); } catch {}
@@ -3840,6 +3904,66 @@
     return null;
   }
 
+  /* ── 선택(객관식/체크리스트) 카드 학습 ── */
+  const selShuffle = arr => arr.map(v => [Math.random(), v]).sort((a, b) => a[0] - b[0]).map(p => p[1]);
+  // 학습 화면: 질문 + 보기(매번 순서 섞음)를 눌러서 고르는 버튼으로 그린다
+  function renderSelectStudy(card) {
+    const opts = Array.isArray(card.options) ? card.options : [];
+    session.selOrder = selShuffle([...opts.keys()]);
+    session.selPicked = new Set();
+    const buttons = session.selOrder.map(i =>
+      `<button type="button" class="sel-opt" data-i="${i}"><span class="sel-box"></span><span class="sel-text">${escapeHTML(opts[i].t)}</span></button>`
+    ).join("");
+    $("#acQuestion").innerHTML =
+      `<div class="select-prompt">${sanitizeRichHTML(card.front)}</div>` +
+      `<div class="select-opts" id="selOpts">${buttons}</div>` +
+      `<div class="sel-result hidden" id="selResult"></div>`;
+  }
+  // '정답 확인' 시 채점 — 맞은 보기는 초록, 틀리게 고른 건 빨강, 놓친 정답은 표시
+  function gradeSelect(card) {
+    const opts = Array.isArray(card.options) ? card.options : [];
+    let got = 0, total = 0, wrong = 0, missed = 0;
+    $("#acQuestion").querySelectorAll(".sel-opt[data-i]").forEach(el => {
+      const i = Number(el.dataset.i);
+      const isC = !!(opts[i] && opts[i].c);
+      const picked = session.selPicked.has(i);
+      if (isC) { total++; el.classList.add("correct"); }
+      if (isC && picked) { el.classList.add("got"); got++; }
+      if (isC && !picked) { el.classList.add("missed"); missed++; }
+      if (!isC && picked) { el.classList.add("wrong"); wrong++; }
+    });
+    $("#selOpts")?.classList.add("locked");
+    const allRight = wrong === 0 && missed === 0 && total > 0;
+    const res = $("#selResult");
+    if (res) {
+      res.className = "sel-result " + (allRight ? "ok" : "no");
+      res.textContent = allRight ? t("study.selCorrect") : t("study.selWrong", { ok: got, total });
+      res.classList.remove("hidden");
+    }
+  }
+  function ungradeSelect() {
+    $("#acQuestion").querySelectorAll(".sel-opt").forEach(el => el.classList.remove("correct", "got", "missed", "wrong"));
+    $("#selOpts")?.classList.remove("locked");
+    const res = $("#selResult"); if (res) { res.classList.add("hidden"); res.textContent = ""; }
+  }
+  // 정적 표시용(카드 뷰어·개요): 정답을 초록으로 표시
+  function selectStaticHTML(card, revealed) {
+    const opts = Array.isArray(card.options) ? card.options : [];
+    const rows = opts.map(o =>
+      `<span class="sel-opt${revealed && o.c ? " correct" : ""}"><span class="sel-box"></span><span class="sel-text">${escapeHTML(o.t)}</span></span>`
+    ).join("");
+    return `<div class="select-prompt">${sanitizeRichHTML(card.front)}</div><div class="select-opts static">${rows}</div>`;
+  }
+  // 보기 클릭 → 선택 토글 (채점 전에만)
+  $("#acQuestion").addEventListener("click", (e) => {
+    const opt = e.target.closest(".sel-opt");
+    if (!opt || opt.dataset.i === undefined || !session || session.revealed) return;
+    e.stopPropagation(); // 카드 전체 탭(=정답 확인)으로 번지지 않게
+    const i = Number(opt.dataset.i);
+    if (session.selPicked.has(i)) { session.selPicked.delete(i); opt.classList.remove("picked"); }
+    else { session.selPicked.add(i); opt.classList.add("picked"); }
+  });
+
   function showCard(id) {
     session.current = id;
     const card = currentCard();
@@ -3855,8 +3979,12 @@
     const isOcc = card.type === "occlusion";
     answerCard.classList.toggle("media-card", isOcc);
     answerCard.classList.toggle("has-img", !isOcc && !!(card.frontImageId || card.backImageId));
-    renderFace($("#acQuestion"), card, false);
-    applyRoundHL($("#acQuestion"), card, false);
+    if (card.type === "select") {
+      renderSelectStudy(card);
+    } else {
+      renderFace($("#acQuestion"), card, false);
+      applyRoundHL($("#acQuestion"), card, false);
+    }
     $("#studyHlBtn")?.classList.add("hidden");
     updateClozeAllBtn();
     showNotes(card, false);
@@ -3911,6 +4039,13 @@
   // 학습 중인 카드의 질문/정답 면을 타입·공개상태에 맞게 다시 그린다.
   // (기본 카드의 질문면은 항상 '앞면'이어야 한다 — 공개 상태를 넘기면 정답으로 덮여버린다)
   function rerenderStudyFaces(card) {
+    if (card.type === "select") {
+      // 선택 카드는 보기를 다시 그린다(편집 반영). 공개 상태였으면 다시 채점해 표시.
+      renderSelectStudy(card);
+      if (session.revealed) gradeSelect(card);
+      showNotes(card, session.revealed);
+      return;
+    }
     if (card.type === "basic") {
       renderFace($("#acQuestion"), card, false);
       applyRoundHL($("#acQuestion"), card, false);
@@ -3968,6 +4103,11 @@
     }
     if (card.type === "cloze") {
       host.innerHTML = renderCloze(card.front, card.clozeIndex, revealed);
+      return;
+    }
+    if (card.type === "select") {
+      // 정적 표시(카드 뷰어·개요) — 공개 시 정답 표시. 학습 화면은 renderSelectStudy가 따로 그린다.
+      host.innerHTML = selectStaticHTML(card, revealed);
       return;
     }
     const text = revealed ? card.back : card.front;
@@ -4057,7 +4197,10 @@
     session.revealed = true;
 
     const card = currentCard();
-    if (card.type === "basic") {
+    if (card.type === "select") {
+      // 선택 카드: 내가 고른 걸 채점해서 맞음/틀림 표시 (자동 채점)
+      gradeSelect(card);
+    } else if (card.type === "basic") {
       renderFace($("#acAnswer"), card, true);
       applyRoundHL($("#acAnswer"), card, true);
       $("#acAnswerWrap").classList.remove("hidden");
@@ -4083,8 +4226,12 @@
     const card = currentCard();
     session.revealed = false;
     $("#acAnswerWrap").classList.add("hidden");
-    renderFace($("#acQuestion"), card, false); // cloze/occlusion은 빈칸 상태로 복귀
-    applyRoundHL($("#acQuestion"), card, false);
+    if (card.type === "select") {
+      ungradeSelect(); // 채점 표시만 지우고 내가 고른 선택은 유지 → 다시 풀 수 있음
+    } else {
+      renderFace($("#acQuestion"), card, false); // cloze/occlusion은 빈칸 상태로 복귀
+      applyRoundHL($("#acQuestion"), card, false);
+    }
     updateClozeAllBtn();
     showNotes(card, false);
     ratingRow.classList.add("hidden");

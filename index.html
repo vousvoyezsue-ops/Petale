@@ -913,6 +913,7 @@
     <div class="type-tabs" id="typeTabs">
       <button type="button" class="type-tab active" data-type="basic" data-i18n="type.basic"></button>
       <button type="button" class="type-tab" data-type="cloze" data-i18n="type.cloze"></button>
+      <button type="button" class="type-tab" data-type="select" data-i18n="type.select"></button>
       <button type="button" class="type-tab" data-type="occlusion" data-i18n="type.occlusion"></button>
     </div>
 
@@ -985,6 +986,19 @@
         <div class="rich-field cloze-rich" id="clozeInput" contenteditable="true" data-i18n-placeholder="cardModal.clozePh"></div>
       </label>
       <p class="field-hint" data-i18n="cardModal.clozeHint"></p>
+    </div>
+
+    <div id="selectFields" class="hidden">
+      <label class="field">
+        <span data-i18n="cardModal.selectPrompt"></span>
+        <div class="rich-field" id="selectPromptInput" contenteditable="true" data-i18n-placeholder="cardModal.selectPromptPh"></div>
+      </label>
+      <div class="field">
+        <span data-i18n="cardModal.selectOptions"></span>
+        <div id="selectOptList" class="sel-opt-list"></div>
+        <button type="button" class="btn ghost sm" id="addOptBtn" data-i18n="cardModal.addOption"></button>
+        <p class="field-hint" data-i18n="cardModal.selectHint"></p>
+      </div>
     </div>
 
     <div id="occTextFields" class="hidden">

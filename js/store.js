@@ -130,6 +130,13 @@ const Store = (() => {
       if (!Array.isArray(c.noteImageIds)) c.noteImageIds = c.noteImageId ? [c.noteImageId] : [];
       c.noteImageIds = c.noteImageIds.filter(Boolean);
       c.noteImageId = c.noteImageIds[0] || null;
+      // 선택(객관식/체크리스트) 카드: options를 { t: 보기, c: 정답여부 } 형태로 정규화
+      if (c.type === "select") {
+        const raw = Array.isArray(c.options) ? c.options : [];
+        c.options = raw
+          .map(o => ({ t: String(o && o.t != null ? o.t : (o && o.text != null ? o.text : "")), c: !!(o && (o.c ?? o.correct)) }))
+          .filter(o => o.t.trim());
+      }
       // 시퀀스(순서 맞추기) 형식 폐지 — 기존 카드는 기본 Q&A로 변환(제목=앞면, 순서=뒷면 번호목록)
       if (c.type === "sequence") {
         const items = Array.isArray(c.seq) ? c.seq.map(x => String(x)) : [];
