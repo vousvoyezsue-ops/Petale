@@ -3421,27 +3421,26 @@ body:not(.pre-auth) .auth-gate { display: none; }
 .ov-notes .note-img { display: block; max-width: 100%; margin: 8px auto 0; border-radius: var(--r-sm); }
 
 /* ── 학습 화면 장(섹션) 리본 — 지금 어느 챕터인지 한눈에 ── */
-.study-ribbon {
-  display: flex; align-items: center; gap: 10px;
-  max-width: var(--study-w, 640px);
-  margin: 12px auto 0;
-  padding: 10px 16px;
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--blush-100) 55%, var(--paper));
-  border-left: 3px solid var(--rose-500);
+/* 학습 중 주제(챕터) — 카드 상단에 작은 알약 라벨로 */
+.ac-topic {
+  display: inline-flex; align-items: center; gap: 6px;
+  max-width: 100%;
+  margin-bottom: 12px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--blush-100) 60%, var(--paper));
   color: var(--rose-700);
+  font-size: 12.5px; line-height: 1.25; font-weight: 600;
 }
-.study-ribbon .rib-ic { flex-shrink: 0; color: var(--rose-600); }
-.study-ribbon .rib-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
-.study-ribbon .rib-deck {
-  font-size: 11px; font-weight: 600; color: var(--ink-3);
-  text-transform: none; letter-spacing: .01em;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+.ac-topic .rib-ic { flex: none; color: var(--rose-600); }
+.ac-topic .rib-deck {
+  font-weight: 600; color: var(--ink-3);
+  max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.study-ribbon .rib-sec {
-  font-family: var(--font-display);
-  font-size: 15.5px; font-weight: 640; color: var(--rose-700);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+.ac-topic .rib-deck::after { content: "·"; margin-left: 6px; color: var(--ink-3); opacity: .7; }
+.ac-topic .rib-sec {
+  font-family: var(--font-display); font-weight: 650; color: var(--rose-700);
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
 @media (max-width: 600px) {
@@ -3450,8 +3449,7 @@ body:not(.pre-auth) .auth-gate { display: none; }
   .ov-chap { margin-bottom: 30px; }
   .ov-chap-name { font-size: 20px; }
   .ov-note .face-img, .ov-note .occ-view img { max-height: 46vh; }
-  .study-ribbon { padding: 9px 13px; }
-  .study-ribbon .rib-sec { font-size: 15px; }
+  .ac-topic { font-size: 12px; }
 }
 
 /* ═══════════ 카드 속 표(.ctbl) — 붙여넣기/삽입 공통 ═══════════ */

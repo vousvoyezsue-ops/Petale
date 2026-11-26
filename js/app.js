@@ -4106,19 +4106,17 @@
     showNotes(card, session.revealed);
   }
 
-  // 학습 중 현재 카드가 속한 장(섹션)을 상단 리본으로 보여줘 흐름의 위치를 알려준다
+  // 학습 중 현재 카드가 속한 장(섹션)을 카드 상단에 작게 보여줘 흐름의 위치를 알려준다
   function updateStudyRibbon() {
-    const el = $("#studyRibbon");
+    const el = $("#acTopic");
     const card = session && session.current ? currentCard() : null;
     const sec = card ? (card.section || "").trim() : "";
     if (!card || !sec) { el.classList.add("hidden"); el.innerHTML = ""; return; }
     const deck = Store.getDeck(card.deckId);
     el.innerHTML =
-      `<svg class="rib-ic" width="16" height="16"><use href="#i-book"/></svg>` +
-      `<span class="rib-text">` +
-        (deck ? `<span class="rib-deck">${escapeHTML(deck.name)}</span>` : "") +
-        `<span class="rib-sec">${escapeHTML(sec)}</span>` +
-      `</span>`;
+      `<svg class="rib-ic" width="14" height="14"><use href="#i-book"/></svg>` +
+      (deck ? `<span class="rib-deck">${escapeHTML(deck.name)}</span>` : "") +
+      `<span class="rib-sec">${escapeHTML(sec)}</span>`;
     el.classList.remove("hidden");
   }
 
@@ -4602,7 +4600,7 @@
 
   function finishSession() {
     $(".study-stage").classList.add("hidden");
-    $("#studyRibbon").classList.add("hidden");
+    $("#acTopic").classList.add("hidden");
     ratingRow.classList.add("hidden");
     $("#keyHint").textContent = "";
     $("#sessionChips").innerHTML = "";
